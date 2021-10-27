@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Appelie Robotics</title>
+    <style type="text/css">
+        body {
+            font-family: "Courier New", sans-serif;
+            text-align: center;
+        }
+
+        div.value {
+            width: 5em;
+        }
+
+        .buttons {
+            font-size: 4em;
+            display: flex;
+            justify-content: center;
+        }
+
+        .button,
+        .value {
+            line-height: 1;
+            padding: 2rem;
+            margin: 2rem;
+            border: medium solid;
+            min-height: 1em;
+            min-width: 1em;
+            color: red;
+        }
+
+        .button {
+            cursor: pointer;
+            user-select: none;
+        }
+
+
+        .left {
+            color: red;
+        }
+
+        .right {
+            color: green;
+        }
+
+        .up {
+            color: red;
+        }
+
+        .down {
+            color: green;
+        }
+
+        .value {
+            min-width: 2em;
+        }
+
+        .state {
+            font-size: 2em;
+        }
+    </style>
+</head>
+
+<body onload="openSocket()">
+    <div class="buttons">
+        <div class="up button">UP</div>
+    </div>
+    <div class="buttons">
+        <div class="left button">L</div>
+        <div class="value">?</div>
+        <div class="right button">R</div>
+    </div>
+    <div class="buttons">
+        <div class="down button">DOWN</div>
+    </div>
+    <div class="state">
+        <span class="users">?</span> online
+    </div>
+    <div class="buttons">
+        <div class="camera button">
+            CAMERA
+        </div>
+        <div id="btnCamera" class="auto button">
+            AUTO
+        </div>
+    </div>
+    <div style="text-align: center">
+        <canvas id="msg" width="640" height="480" style="display:inline-block" />
+    </div>
+    <script>
+        openSocket = () => {
+            let uri = "ws://" + "192.168.4.1" + ":9000";
+            socket = new WebSocket(uri);
+            let msg = document.getElementById("msg");
+
+            socket.addEventListener('message', (e) => {
+                let ctx = msg.getContext("2d");
+                let image = new Image();
+                image.src = URL.createObjectURL(e.data);
+                image.addEventListener("load", (e) => {
+                    ctx.drawImage(image, 0, 0, msg.width, msg.height);
+                });
+            });
+        }
+        var left = document.querySelector('.left'),
+            right = document.querySelector('.right'),
+            up = document.querySelector('.up'),
+            down = document.querySelector('.down'),
+            value = document.querySelector('.value'),
+            users = document.querySelector('.users'),
+            camera = document.querySelector('.camera'),
+            auto = document.querySelector('.auto'),
+            auto_state = false,
+            cam_state = false,
+            websocket = new WebSocket("ws://192.168.4.1:9001/");
+        auto.onclick = function (event) {
+            if (auto_state == false) {
+                auto_state = true;
+                auto.style.color = 'white';
+                auto.style.backgroundColor = 'red';
+            }
+            else {
+                auto_state = false;
+                auto.style.color = 'red';
+                auto.style.backgroundColor = 'white';
+            }
+            websocket.send(JSON.stringify({ action: 'auto', req: auto_state }));
+            console.log(auto_state)
+        }
+        camera.onclick = function (event) {
+            if (cam_state == false) {
+                cam_state = true;
+                camera.style.color = 'white';
+                camera.style.backgroundColor = 'red';
+            }
+            else {
+                cam_state = false;
+                camera.style.color = 'red';
+                camera.style.backgroundColor = 'white';
+            }
+            websocket.send(JSON.stringify({ action: 'camera', req: cam_state }));
+            console.log(cam_state)
+        }
+        left.ontouchstart = function (event) {
+            websocket.send(JSON.stringify({ action: 'move', x: 0, z: -1.0 }));
+            console.log("left")
+        }
+        right.ontouchstart = function (event) {
+            websocket.send(JSON.stringify({ action: 'move', x: 0, z: 1.0 }));
+        }
+        up.ontouchstart = function (event) {
+            websocket.send(JSON.stringify({ action: 'move', x: 1.0, z: 0 }));
+        }
+        down.ontouchstart = function (event) {
+            websocket.send(JSON.stringify({ action: 'move', x: -1.0, z: 0 }));
+        }
+        left.ontouchend = function (event) {
+            websocket.send(JSON.stringify({ action: 'stop' }));
+        }
+        right.ontouchend = function (event) {
+            websocket.send(JSON.stringify({ action: 'stop' }));
+        }
+        up.ontouchend = function (event) {
+            websocket.send(JSON.stringify({ action: 'stop' }));
+        }
+        down.ontouchend = function (event) {
+            websocket.send(JSON.stringify({ action: 'stop' }));
+        }
+        //-----------
+        left.onmousedown = function (event) {
+            websocket.send(JSON.stringify({ action: 'move', x: 0, z: -1.0 }));
+            console.log("left")
+        }
+        right.onmousedown = function (event) {
+            websocket.send(JSON.stringify({ action: 'move', x: 0, z: 1.0 }));
+        }
+        up.onmousedown = function (event) {
+            websocket.send(JSON.stringify({ action: 'move', x: 1.0, z: 0 }));
+        }
+        down.onmousedown = function (event) {
+            websocket.send(JSON.stringify({ action: 'move', x: -1.0, z: 0 }));
+        }
+        left.onmouseup = function (event) {
+            websocket.send(JSON.stringify({ action: 'stop' }));
+        }
+        right.onmouseup = function (event) {
+            websocket.send(JSON.stringify({ action: 'stop' }));
+        }
+        up.onmouseup = function (event) {
+            websocket.send(JSON.stringify({ action: 'stop' }));
+        }
+        down.onmouseup = function (event) {
+            websocket.send(JSON.stringify({ action: 'stop' }));
+        }
+        websocket.onmessage = function (event) {
+            data = JSON.parse(event.data);
+
+            switch (data.type) {
+                case 'state':
+                    value.textContent = data.value;
+                    break;
+                case 'users':
+                    users.textContent = (
+                        data.count.toString() + " user" +
+                        (data.count == 1 ? "" : "s"));
+                    break;
+                default:
+                    console.error(
+                        "unsupported event", data);
+            }
+        };
+    </script>
+</body>
+
+</html>

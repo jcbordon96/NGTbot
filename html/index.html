@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chicken</title>
+
+    <link rel="stylesheet" href="assets/css/fonts.css">
+    <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+    
+    <div id="infoBox">
+        <span>Autónomo: <span  id="autoSpan" class="deactivated">Desactivado</span> </span>
+        <span>Sacar fotos: <span id="cameraSpan" class="deactivated">Desactivado</span> </span>
+        <span>Luces: <span id="lightsSpan" class="deactivated">Desactivado</span> </span>
+        <span>Imu: <span id="imuSpan" class="deactivated">Desactivado</span> </span>
+    </div>
+
+    <div id="infoBox2">
+        <span>Rate autónomo: <span id="autoRate" class="activated">0</span> </span>
+        <span>Rate cámara: <span id="cameraRate" class="activated">0</span> </span>
+        <span>Imu flag: <span id="imuFlag" class="activated">0</span> </span>
+        <span>Temperatura: <span id="temp" class="activated">0/0</span> </span>
+    </div>
+
+    <div id="buttonsConfigBox">
+        <button id="autoOnBtn" class="configBtn">
+            Activar autónomo
+        </button>
+        <button id="autoOffBtn" class="configBtn hide"> 
+            Desactivar autónomo
+        </button>
+
+        <button id="cameraOnBtn" class="configBtn">
+            Activar camara
+        </button>
+        <button id="cameraOffBtn" class="configBtn hide"> 
+            Desactivar camara
+        </button>
+
+        <button id="lightsOnBtn" class="configBtn">
+            Activar luces
+        </button>
+        <button id="lightsOffBtn" class="configBtn hide"> 
+            Desactivar luces
+        </button>
+
+        <button id="imuOnBtn" class="configBtn">
+            Activar imu
+        </button>
+        <button id="imuOffBtn" class="configBtn hide"> 
+            Desactivar imu
+        </button>
+    </div>
+    
+    <div id="buttonsConfigBox2">
+        <span>Rate autónomo <input type="number" name="" id="inputAuto"></span>
+        <button id="saveRateAuto" class="saveRateBtn">Cambiar</button>
+        <br>
+        <span>Rate camara <input type="number" name="" id="inputCamera"></span>
+        <button id="saveRateCamera" class="saveRateBtn">Cambiar</button>
+        <br>
+        <span>Imu flag <input type="number" name="" id="inputImu"></span>
+        <button id="saveFlagImu" class="saveRateBtn">Cambiar</button>
+        <br>
+        <button id="saveConfigBtn" class="configBtn">Guardar configuración</button>
+        <button id="saveDataBtn" class="configBtn">Guardar datos</button>
+        <br>
+        <br>
+        <button id="shutdownBtn" class="configBtn">Apagar</button>
+        <button id="rebootBtn" class="configBtn">Reiniciar</button>
+    </div>
+
+    <button id="showControls">Mostrar controles</button>
+    <button id="hideControls">Ocultar controles</button>
+
+    <div id="moveControls">
+        <div id="up" class="controlArrow">
+            <img class="imgVertical" src="assets/up.png" alt="">
+        </div>
+        <div id="left" class="controlArrow">
+            <img class="imgHorizontal" src="assets/left.png" alt="">
+        </div>
+        <div id="right" class="controlArrow">
+            <img class="imgHorizontal" src="assets/right.png" alt="">
+        </div>
+        <div id="down" class="controlArrow">
+            <img class="imgVertical" src="assets/down.png" alt="">
+        </div>
+    </div>
+
+
+    <canvas id="msg" style="display:inline-block" />
+    <script src="assets/js/axios.min.js"></script>
+    <script src="assets/js/main.js"></script>
+
+</body>
+</html>
