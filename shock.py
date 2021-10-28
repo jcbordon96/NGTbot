@@ -20,9 +20,12 @@ from datetime import datetime
 import sensors
 import os
 import csv
-# from scipy.misc import imread
 from scipy.linalg import norm
 from numpy import sum, average
+import Adafruit_ADS1x15
+import board
+import adafruit_dht
+
 
 PWR_MGMT_1 = 0x6B
 SMPLRT_DIV = 0x19
@@ -37,12 +40,6 @@ GYRO_YOUT_H = 0x45
 GYRO_ZOUT_H = 0x47
 motors_enable = DigitalOutputDevice("BOARD8", active_high=False)
 flash_enable = DigitalOutputDevice("BOARD32", active_high=True)
-# motor_1_dir = DigitalOutputDevice("BOARD40")
-# motor_1_pwm = PWMOutputDevice("BOARD38", frequency=10000)
-# motor_2_dir = DigitalOutputDevice("BOARD37")
-# motor_2_pwm = PWMOutputDevice("BOARD35", frequency=10000)
-# pwm 1 motor derecho
-# pwm 2 motor izquierdo
 
 
 def last_on():
@@ -123,11 +120,6 @@ USERS = set()
 
 def command(cam_req, cam_rate, auto_req, auto_rate, imu_req, imu_flag, stuck_flag, flash_req):
 
-    # flash_enable = DigitalOutputDevice("BOARD32", active_high=False)
-    # motor_1_dir = DigitalOutputDevice("BOARD40")
-    # motor_1_pwm = PWMOutputDevice("BOARD38", frequency=10000)
-    # motor_2_dir = DigitalOutputDevice("BOARD37")
-    # motor_2_pwm = PWMOutputDevice("BOARD35", frequency=10000)
     motor_1_dir = DigitalOutputDevice("BOARD40")
     motor_1_pwm = DigitalOutputDevice("BOARD38")
     motor_2_dir = DigitalOutputDevice("BOARD37")
@@ -160,8 +152,7 @@ def command(cam_req, cam_rate, auto_req, auto_rate, imu_req, imu_flag, stuck_fla
 
     async def counter(websocket, path):
         print("COMMAND SOCKET INIT")
-        # register(websocket) sends user_event() to websocket
-        # print(register(websocket))
+
         await register(websocket)
         try:
             await websocket.send(state_event())
@@ -329,10 +320,6 @@ def command(cam_req, cam_rate, auto_req, auto_rate, imu_req, imu_flag, stuck_fla
             motor_1_pwm.off()
         motor_1_pwm.value = abs(pwm1)
         motor_2_pwm.value = abs(pwm2)
-        # print("Is active pwm1: {}".format(motor_1_pwm.value))
-        # print("Is active pwm2: {}".format(motor_2_pwm.value))
-        # print("Is active dir1: {}".format(motor_1_dir.value))
-        # print("Is active dir2: {}".format(motor_2_dir.value))
 
     start_server2 = websockets.serve(counter, "192.168.4.1", 9001)
     asyncio.get_event_loop().run_until_complete(start_server2)
@@ -341,6 +328,13 @@ def command(cam_req, cam_rate, auto_req, auto_rate, imu_req, imu_flag, stuck_fla
 
 def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, taking_pics, is_stopped, is_hot):
     counter = 0
+
+    GAIN = 1
+    adc = Adafruit_ADS1x15.ADS1015(address=0x49, busnum=1)
+
+    dhtDevice = adafruit_dht.DHT11(board.D14, use_pulseio=False)
+
+    dht_ok = False
 
     def compare_images(img1, img2):
         # normalize to compensate for exposure difference
@@ -604,9 +598,23 @@ def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, 
                     sensors.cleanup()
             if time.perf_counter() - state_timer > 60:
                 state_timer = time.perf_counter()
-                temp_out = -1
-                humedad = -1
-                amoniaco = -1
+                try:
+                    value_adc = adc.read_adc(0, gain=GAIN)
+                    volt = (value_adc/32768)*4.096
+                    RS = ((3.3/volt)-1)*15
+                    ro = 3.7813
+                    ratio = RS/ro
+                    amoniaco = pow((math.log(ratio, 10)-0.323)/(-0.243), 10)
+                except:
+                    print("Algo salio mal con el sensor de amoniaco")
+                while not dht_ok:
+                    dht_ok = True
+                    try:
+                        temp_out = dhtDevice.temperature
+                        humedad = dhtDevice.humidity
+                    except:
+                        dht_ok = False
+
                 logwriter("Estado", 14, temp_cpu, temp_clock,
                           temp_out, humedad, amoniaco)
 
