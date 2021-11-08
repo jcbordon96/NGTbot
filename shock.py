@@ -625,10 +625,9 @@ def auto(auto_req, auto_rate, taking_pics, is_stopped, stuck_flag, is_hot):
     motor_1_pwm = DigitalOutputDevice("BOARD38")
     motor_2_dir = DigitalOutputDevice("BOARD37")
     motor_2_pwm = DigitalOutputDevice("BOARD35")
-    button_left_left = Button("BOARD15")
-    button_middle_left = Button("BOARD13")
-    button_middle_right = Button("BOARD11")
-    button_right_right = Button("BOARD7")
+    button_left = Button("BOARD15")
+    button_middle = Button("BOARD13")
+    button_right = Button("BOARD11")
     motor_1_pwm.off()
     motor_2_pwm.off()
     print("AUTO INIT")
@@ -746,7 +745,7 @@ def auto(auto_req, auto_rate, taking_pics, is_stopped, stuck_flag, is_hot):
                         time.sleep(1)
                         is_stopped.value = True
                     is_stopped.value = False
-                    if button_left_left.is_pressed or button_middle_left.is_pressed and not (button_middle_right.is_pressed or button_right_right.is_pressed):
+                    if button_left.is_pressed and not (button_middle.is_pressed or button_right.is_pressed):
                         print("Me apretaron de izquierda")
                         timer = time.perf_counter()
                         move(-1.0, 0)
@@ -759,7 +758,7 @@ def auto(auto_req, auto_rate, taking_pics, is_stopped, stuck_flag, is_hot):
                         while (steer_counter < 1 and auto_req.value == True):
                             time.sleep(1)
                             steer_counter += 1
-                    elif button_right_right.is_pressed or button_middle_right.is_pressed and not (button_middle_left.is_pressed or button_left_left.is_pressed):
+                    elif button_right.is_pressed and not (button_middle.is_pressed or button_left.is_pressed):
                         timer = time.perf_counter()
                         print("Me apretaron de derecha")
                         move(-1.0, 0)
@@ -772,7 +771,7 @@ def auto(auto_req, auto_rate, taking_pics, is_stopped, stuck_flag, is_hot):
                         while (steer_counter < 1 and auto_req.value == True):
                             time.sleep(1)
                             steer_counter += 1
-                    elif not (button_middle_right.is_pressed or button_middle_left.is_pressed or button_left_left.is_pressed or button_right_right.is_pressed):
+                    elif not (button_middle.is_pressed or button_left.is_pressed or button_right.is_pressed):
                         pass
                     else:
                         print("Choque randomn")
