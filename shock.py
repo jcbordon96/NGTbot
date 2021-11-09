@@ -118,7 +118,7 @@ STATE = {"value": 0}
 USERS = set()
 
 
-def command(cam_req, cam_rate, auto_req, auto_rate, imu_req, imu_flag, stuck_flag, flash_req):
+def command(cam_req, cam_rate, auto_req, auto_rate, imu_req, imu_flag, stuck_flag, flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco):
 
     motor_1_dir = DigitalOutputDevice("BOARD40")
     motor_1_pwm = DigitalOutputDevice("BOARD38")
@@ -219,21 +219,11 @@ def command(cam_req, cam_rate, auto_req, auto_rate, imu_req, imu_flag, stuck_fla
                     # print(cam_req.value)
                     pass
                 elif data["action"] == "temp_req":
-                    sensors.init()
-                    string = ""
-                    try:
-                        for chip in sensors.iter_detected_chips():
-                            for feature in chip:
-                                if feature.label == "temp1":
-                                    print('  %s: %.2f' %
-                                          (feature.label, feature.get_value()))
-                                    string += str(round(feature.get_value(), 1))+"ºC/"
-                                    print(string)
-
-                    finally:
-                        print(string)
-                        sensors.cleanup()
-                        await websocket.send(json.dumps({"type": "temp", "data": string}))
+                    state_string = ""
+                    state_string = str(temp_cpu.value) + "°C/" + str(temp_clock.value) + "°C/" + str(temp_out.value) + "°C/" + str(humedad.value) + "%HR/" + str(amoniaco.value) + "ppm"
+                    print(state_string)
+ 
+                    await websocket.send(json.dumps({"type": "temp", "data": state_string}))
 
                     pass
                 elif data["action"] == "save_req":
@@ -326,7 +316,7 @@ def command(cam_req, cam_rate, auto_req, auto_rate, imu_req, imu_flag, stuck_fla
     asyncio.get_event_loop().run_forever()
 
 
-def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, taking_pics, is_stopped, is_hot):
+def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco):
     counter = 0
 
     GAIN = 1
@@ -426,9 +416,7 @@ def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, 
     log_cam = False
     temp_timer = time.perf_counter()
     state_timer = time.perf_counter()
-    is_hot = False
-    temp_clock = 0
-    temp_cpu = 0
+    is_hot.value = False
     cam_count = 0
     imu_count = 0
     while True:
@@ -588,15 +576,16 @@ def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, 
                                 print("el nombre del chip es:")
                                 print(chip.adapter_name)
                                 if chip.adapter_name == "bcm2835 (i2c@7e804000)":
-                                    temp_clock = round(feature.get_value(), 1)
+                                    temp_clock.value = round(feature.get_value(), 1)
                                 if chip.adapter_name == "Virtual device":
-                                    temp_cpu = round(feature.get_value(), 1)
+                                    temp_cpu.value = round(feature.get_value(), 1)
                 finally:
-                    if (temp_cpu > 80 or temp_clock > 80) and not is_hot.value:
+                    if (temp_cpu.value > 80 or temp_clock.value > 80) and not is_hot.value:
                         is_hot.value = True
-                        logwriter("Alta temperatura", 9, temp_cpu, temp_clock)
+                        logwriter("Alta temperatura", 9, temp_cpu.value, temp_clock.value)
                     sensors.cleanup()
             if time.perf_counter() - state_timer > 60:
+
                 state_timer = time.perf_counter()
                 try:
                     value_adc = adc.read_adc(0, gain=GAIN)
@@ -604,19 +593,19 @@ def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, 
                     RS = ((3.3/volt)-1)*15
                     ro = 3.7813
                     ratio = RS/ro
-                    amoniaco = pow((math.log(ratio, 10)-0.323)/(-0.243), 10)
+                    amoniaco.value = pow((math.log(ratio, 10)-0.323)/(-0.243), 10)
                 except:
                     print("Algo salio mal con el sensor de amoniaco")
                 while not dht_ok:
                     dht_ok = True
                     try:
-                        temp_out = dhtDevice.temperature
-                        humedad = dhtDevice.humidity
+                        temp_out.value = dhtDevice.temperature
+                        humedad.value = dhtDevice.humidity
                     except:
                         dht_ok = False
-
-                logwriter("Estado", 14, temp_cpu, temp_clock,
-                          temp_out, humedad, amoniaco)
+                
+                logwriter("Estado", 14, temp_cpu.value, temp_clock.value,
+                          temp_out.value, humedad.value, amoniaco.value)
 
 
 def auto(auto_req, auto_rate, taking_pics, is_stopped, stuck_flag, is_hot):
@@ -849,7 +838,6 @@ def camera(man, cam_req, cam_rate, img_index_num, taking_pics, is_stopped, stuck
 
 def main():
     # queue = multiprocessing.Queue()
-
     img_index_num = multiprocessing.Value('i', 0)
     cam_req = multiprocessing.Value('b', False)
     cam_rate = multiprocessing.Value('i', 0)
@@ -862,6 +850,11 @@ def main():
     taking_pics = multiprocessing.Value('b', False)
     is_stopped = multiprocessing.Value('b', True)
     is_hot = multiprocessing.Value('b', False)
+    temp_cpu = multiprocessing.Value('d', 0)
+    temp_clock = multiprocessing.Value('d', 0)
+    temp_out = multiprocessing.Value('d', 0)
+    humedad = multiprocessing.Value('d', 0)
+    amoniaco = multiprocessing.Value('d', 0)
     manager = multiprocessing.Manager()
     lst = manager.list()
     lst.append(None)
@@ -878,14 +871,14 @@ def main():
         json.dump(json_state, outfile)
     # Set up our websocket handler
     command_handler = multiprocessing.Process(
-        target=command, args=(cam_req, cam_rate, auto_req, auto_rate, imu_req, imu_flag, stuck_flag, flash_req,))
+        target=command, args=(cam_req, cam_rate, auto_req, auto_rate, imu_req, imu_flag, stuck_flag, flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco,))
     # Set up our camera
     camera_handler = multiprocessing.Process(
         target=camera, args=(lst, cam_req, cam_rate, img_index_num, taking_pics, is_stopped, stuck_flag,))
     auto_handler = multiprocessing.Process(
         target=auto, args=(auto_req, auto_rate, taking_pics, is_stopped, stuck_flag, is_hot,))
     pitch_handler = multiprocessing.Process(
-        target=pitch, args=(lst, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, taking_pics, is_stopped, is_hot, ))
+        target=pitch, args=(lst, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco,))
     # Add 'em to our list
     PROCESSES.append(camera_handler)
     PROCESSES.append(command_handler)
