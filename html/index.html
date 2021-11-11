@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chicken</title>
+    <title>Document</title>
 
     <link rel="stylesheet" href="assets/css/fonts.css">
     <link rel="stylesheet" href="assets/css/styles.css">
@@ -22,7 +22,11 @@
         <span>Rate autónomo: <span id="autoRate" class="activated">0</span> </span>
         <span>Rate cámara: <span id="cameraRate" class="activated">0</span> </span>
         <span>Imu flag: <span id="imuFlag" class="activated">0</span> </span>
-        <span>Temperatura: <span id="temp" class="activated">0/0</span> </span>
+    </div>
+    <div id="infoBox3">
+        <span>Temperatura: <span id="temp" class="activated">0°/0°/0°</span> </span>
+        <span>Amoníaco: <span id="temp" class="activated">0</span> </span>
+        <span>Humedad: <span id="temp" class="activated">0%</span> </span>
     </div>
 
     <div id="buttonsConfigBox">
@@ -66,11 +70,6 @@
         <button id="saveFlagImu" class="saveRateBtn">Cambiar</button>
         <br>
         <button id="saveConfigBtn" class="configBtn">Guardar configuración</button>
-        <button id="saveDataBtn" class="configBtn">Guardar datos</button>
-        <br>
-        <br>
-        <button id="shutdownBtn" class="configBtn">Apagar</button>
-        <button id="rebootBtn" class="configBtn">Reiniciar</button>
     </div>
 
     <button id="showControls">Mostrar controles</button>

@@ -1,1 +1,1 @@
-{"flash": 0, "auto": 0, "auto_rate": 60, "camera": 0, "camera_rate": 15, "imu_req": 1, "imu_flag": 10}
+{"flash": true, "auto": true, "auto_rate": 60, "camera": false, "camera_rate": 15, "imu_req": true, "imu_flag": 10}

@@ -11,6 +11,10 @@
           -moz-appearance: textfield;
         }
         
+        body{
+            background-color: black;
+        }
+
         *:not(input):not(textarea) {
             -webkit-user-select: none; /* disable selection/Copy of UIWebView */
                 -webkit-touch-callout: none; /* disable the IOS popup when long-press on a link */
@@ -39,14 +43,14 @@
                 #buttonsConfigBox{
                     display: none;
                     position: absolute;
-                    top: 14vh;
+                    top: 19vh;
                     left: 1vw;
                 }
         
                 #buttonsConfigBox2{
                     display: none;
                     position: absolute;
-                    top: 25vh;
+                    top: 31vh;
                     left: 1vw;
                 }
         
@@ -66,7 +70,7 @@
         
                 .configBtn{
                     border: none;
-                    height: 9vh;
+                    height: 10vh;
                     max-height: 40px;
                     width: 17vw;
                     border-radius: 10px;
@@ -92,8 +96,17 @@
         
                 #infoBox2{
                     position: absolute;
-                    top: 6vh;
+                    top: 7vh;
                     left: 1vw;
+                }
+
+                #infoBox3{
+                    position: absolute;
+                    top: 13vh;
+                    left: 1vw;
+                }
+                #infoBox3 span{
+                    color: white;
                 }
         
                 #infoBox2 span{
@@ -106,22 +119,22 @@
                
                 #up{
                     right: 10vw;
-                    top:20vh;
+                    top:25vh;
                 }
                 
                 #right{
-                    right: 4vw;
-                    top: 35vh;
+                    right: 3vw;
+                    top: 40vh;
                 }
         
                 #left{
-                    right: 16vw;
-                    top: 35vh;
+                    right: 17vw;
+                    top: 40vh;
                 }
         
                 #down{
                     right: 10vw;
-                    top:50vh;
+                    top:55vh;
                 }
                 #moveControls{
                     display: none;
@@ -172,7 +185,7 @@
                     border-radius: 10px;
                     position: absolute;
                     right: 15px;
-                    top: 15px;
+                    top: 9vh;
                     z-index: 999;
                     cursor: pointer;
                 }
@@ -189,7 +202,7 @@
                     border-radius: 10px;
                     position: absolute;
                     right: 15px;
-                    top: 15px;
+                    top: 9vh;
                     z-index: 999;
                     cursor: pointer;
                 }
