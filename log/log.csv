@@ -3,3 +3,19 @@
 ,2021-11-11,15:25:47,"Me prendi con esta configuracion: {'flash': True, 'auto': True, 'auto_rate': 60, 'camera': False, 'camera_rate': 15, 'imu_req': True, 'imu_flag': 10}",0,0,0,0,0,1
 ,2021-11-11,15:25:47,Prendi luces,0,0,0,0,0,12
 ,2021-11-11,15:25:47,Empece a andar autonomo,0,0,0,0,0,2
+,2021-11-11,15:25:47,"Me apague, atascos detectados por imu: 0, detectados por camara: 0",0,0,0,0,0,15
+,2021-11-12,11:33:21,"Me prendi con esta configuracion: {'flash': True, 'auto': True, 'auto_rate': 60, 'camera': False, 'camera_rate': 15, 'imu_req': True, 'imu_flag': 10}",0,0,0,0,0,1
+,2021-11-12,11:33:21,Prendi luces,0,0,0,0,0,12
+,2021-11-12,11:33:21,Empece a andar autonomo,0,0,0,0,0,2
+,2021-11-12,11:33:21,"Me apague, atascos detectados por imu: 0, detectados por camara: 0",0,0,0,0,0,15
+,2021-11-12,11:40:04,"Me prendi con esta configuracion: {'flash': True, 'auto': True, 'auto_rate': 60, 'camera': False, 'camera_rate': 15, 'imu_req': True, 'imu_flag': 10}",0,0,0,0,0,1
+,2021-11-12,11:40:04,Prendi luces,0,0,0,0,0,12
+,2021-11-12,11:40:04,Empece a andar autonomo,0,0,0,0,0,2
+,2021-11-12,11:41:02,Termine de andar autonomo,0,0,0,0,0,4
+,2021-11-12,11:41:30,Apague luces,0,0,0,0,0,13
+,2021-11-12,11:41:31,Prendi luces,0,0,0,0,0,12
+,2021-11-12,11:41:33,Apague luces,0,0,0,0,0,13
+,2021-11-12,11:41:34,Prendi luces,0,0,0,0,0,12
+,2021-11-12,11:40:04,"Me apague, atascos detectados por imu: 0, detectados por camara: 0",0,0,0,0,0,15
+,2021-11-12,11:42:18,"Me prendi con esta configuracion: {'flash': 1, 'auto': 0, 'auto_rate': 60, 'camera': 0, 'camera_rate': 15, 'imu_req': 1, 'imu_flag': 10}",0,0,0,0,0,1
+,2021-11-12,11:42:18,Prendi luces,0,0,0,0,0,12

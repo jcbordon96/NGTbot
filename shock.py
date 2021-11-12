@@ -742,7 +742,7 @@ def auto(auto_req, auto_rate, taking_pics, is_stopped, stuck_flag, is_hot):
                         while (backward_counter < 1 and auto_req.value == True):
                             time.sleep(1)
                             backward_counter += 1
-                        move(0, -1.0)
+                        move(0, 1.0)
                         print("Going right")
                         while (steer_counter < 1 and auto_req.value == True):
                             time.sleep(1)
@@ -755,7 +755,7 @@ def auto(auto_req, auto_rate, taking_pics, is_stopped, stuck_flag, is_hot):
                         while (backward_counter < 1 and auto_req.value == True):
                             time.sleep(1)
                             backward_counter += 1
-                        move(0, 1.0)
+                        move(0, -1.0)
                         print("Going left")
                         while (steer_counter < 1 and auto_req.value == True):
                             time.sleep(1)
