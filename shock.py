@@ -320,7 +320,7 @@ def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, 
     counter = 0
 
     GAIN = 1
-    adc = Adafruit_ADS1x15.ADS1015(address=0x49, busnum=1)
+    adc = Adafruit_ADS1x15.ADS1015(address=0x49, busnum=4)
 
     dhtDevice = adafruit_dht.DHT11(board.D14, use_pulseio=False)
 
