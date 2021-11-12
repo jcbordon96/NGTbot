@@ -325,6 +325,7 @@ def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, 
     dhtDevice = adafruit_dht.DHT11(board.D14, use_pulseio=False)
 
     dht_ok = False
+    imu_fail = False
 
     def compare_images(img1, img2):
         # normalize to compensate for exposure difference
@@ -377,11 +378,13 @@ def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, 
         if(value > 32768):
             value = value - 65536
         return value
-
-    bus = smbus.SMBus(5) 	# or bus = smbus.SMBus(0) for older version boards
-    Device_Address = 0x68   # MPU6050 device address
-
-    MPU_Init()
+    try:
+        bus = smbus.SMBus(5) 	# or bus = smbus.SMBus(0) for older version boards
+        Device_Address = 0x68   # MPU6050 device address
+        MPU_Init()
+    except:
+        imu_fail = True
+   
 
     print("IMU INIT")
 
@@ -488,7 +491,7 @@ def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, 
                     logwriter("Termine de sacar fotos", 4)
                     log_cam = False
             raw_capture.truncate(0)
-            if imu_req.value == True:
+            if imu_req.value == True and imu_fail == False:
                 if time.perf_counter()-last_imu > 0.5:
                     try:
                         last_imu = time.perf_counter()
