@@ -2,3 +2,4 @@ last_on.json
 stuck_count.json
 counter.json
 log/
+__pycache__/

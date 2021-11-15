@@ -320,12 +320,24 @@ def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, 
     counter = 0
 
     GAIN = 1
-    adc = Adafruit_ADS1x15.ADS1015(address=0x49, busnum=4)
-
-    dhtDevice = adafruit_dht.DHT11(board.D14, use_pulseio=False)
-
+    adc_ok = False
     dht_ok = False
-    imu_fail = False
+    imu_ok = False
+    dht_init = False
+    dht_fail_counter = 0
+    try:
+        adc = Adafruit_ADS1x15.ADS1015(address=0x49, busnum=4)
+        print("El ADC inicio")
+        adc_ok = True
+    except: 
+        print("Error al inicilizar el ADC")
+        pass
+    try:
+        dhtDevice = adafruit_dht.DHT11(board.D14, use_pulseio=False)
+        dht_init = True
+    except:
+        print("Error al iniciar el DHT")
+        pass
 
     def compare_images(img1, img2):
         # normalize to compensate for exposure difference
@@ -382,11 +394,11 @@ def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, 
         bus = smbus.SMBus(5) 	# or bus = smbus.SMBus(0) for older version boards
         Device_Address = 0x68   # MPU6050 device address
         MPU_Init()
+        print("IMU INIT")
+        imu_ok = True
     except:
-        imu_fail = True
-   
+        print("El IMU no pudo inicializarse")
 
-    print("IMU INIT")
 
     with open('counter.json') as json_file:
         img_index = json.load(json_file)
@@ -400,19 +412,6 @@ def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, 
     last_pic = time.perf_counter()
     last_imu = time.perf_counter()
     was_taking = False
-    imu_x = []
-    imu_y = []
-    imu_z = []
-    imu_max_x = 0
-    imu_max_y = 0
-    imu_max_z = 0
-    imu_min_x = 0
-    imu_min_y = 0
-    imu_min_z = 0
-    imu_counter = 0
-    delta_x = 0
-    delta_y = 0
-    delta_z = 0
     first = True
     log_imu_stuck = True
     log_cam_stuck = True
@@ -491,7 +490,7 @@ def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, 
                     logwriter("Termine de sacar fotos", 4)
                     log_cam = False
             raw_capture.truncate(0)
-            if imu_req.value == True and imu_fail == False:
+            if imu_req.value == True and imu_ok == True:
                 if time.perf_counter()-last_imu > 0.5:
                     try:
                         last_imu = time.perf_counter()
@@ -503,44 +502,9 @@ def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, 
                         Ax = acc_x/16384.0
                         Ay = acc_y/16384.0
                         Az = acc_z/16384.0
-                        if imu_counter < 20:
-                            imu_x.append(Ax)
-                            imu_y.append(Ay)
-                            imu_z.append(Az)
-                            imu_counter += 1
-                        else:
-                            imu_max_x = max(imu_x)
-                            imu_max_y = max(imu_y)
-                            imu_max_z = max(imu_z)
-                            imu_min_x = min(imu_x)
-                            imu_min_y = min(imu_y)
-                            imu_min_z = min(imu_z)
-                            delta_x = imu_max_x - imu_min_x
-                            delta_y = imu_max_y - imu_min_y
-                            delta_z = imu_max_z - imu_min_z
-                            # print(
-                            #     "Axmax: {0:2.2f} / Axmin: {1:2.2f} / Delta: {2:2.2f} ".format(imu_max_x, imu_min_x, imu_max_x - imu_min_x))
-                            # print(
-                            #     "Aymax: {0:2.2f} / Aymin: {1:2.2f} / Delta: {2:2.2f} ".format(imu_max_y, imu_min_y, imu_max_y - imu_min_y))
-                            # print(
-                            #     "Azmax: {0:2.2f} / Azmin: {1:2.2f} / Delta: {2:2.2f}".format(imu_max_z, imu_min_z, imu_max_z - imu_min_z))
-                            # print("Vector de error: {0:2.2f}".format(
-                            #     math.sqrt(delta_x*delta_x + delta_y*delta_y + delta_z*delta_z)))
-                            imu_x = []
-                            imu_y = []
-                            imu_z = []
-                            imu_max_x = 0
-                            imu_max_y = 0
-                            imu_max_z = 0
-                            imu_min_x = 0
-                            imu_min_y = 0
-                            imu_min_z = 0
-                            imu_counter = 0
-                            delta_x = 0
-                            delta_y = 0
-                            delta_z = 0
+                        
 
-                        pitch = math.atan2(-Ay, - Az) * 57.3
+                        pitch = math.atan2(Ay,  Az) * 57.3
                         # print(
                         #     "AX: {0:2.2f} / AY: {1:2.2f} / AZ: {2:2.2f}".format(Ax, Ay, Az))
                         if pitch > imu_flag.value:
@@ -566,8 +530,8 @@ def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, 
 
                             stuck_flag.value = True
                     except:
-                        print("Ups!")
-                        print(sys.exc_info()[0])
+                        print("Ups! El IMU no pudo tomar lectura")
+                        
             if time.perf_counter() - temp_timer > 60:
                 temp_timer = time.perf_counter()
                 last_on()
@@ -590,23 +554,30 @@ def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, 
             if time.perf_counter() - state_timer > 60:
 
                 state_timer = time.perf_counter()
-                try:
-                    value_adc = adc.read_adc(0, gain=GAIN)
-                    volt = (value_adc/32768)*4.096
-                    RS = ((3.3/volt)-1)*15
-                    ro = 3.7813
-                    ratio = RS/ro
-                    amoniaco.value = pow((math.log(ratio, 10)-0.323)/(-0.243), 10)
-                except:
-                    print("Algo salio mal con el sensor de amoniaco")
-                while not dht_ok:
-                    dht_ok = True
+                if adc_ok:
                     try:
-                        temp_out.value = dhtDevice.temperature
-                        humedad.value = dhtDevice.humidity
+                        value_adc = adc.read_adc(0, gain=GAIN)
+                        volt = (value_adc/32768)*4.096
+                        RS = ((3.3/volt)-1)*47
+                        ro = 196.086
+                        ratio = RS/ro
+                        amoniaco.value = pow((math.log(ratio, 10)-0.323)/(-0.243), 10)
                     except:
-                        dht_ok = False
-                
+                        print("Algo salio mal con el sensor de amoniaco")
+                        pass
+                if dht_init:
+                    dht_fail_counter = 0
+                    while not dht_ok:
+                        dht_ok = True
+                        try:
+                            temp_out.value = dhtDevice.temperature
+                            humedad.value = dhtDevice.humidity
+                        except:
+                            dht_ok = False
+                            dht_fail_counter =+ 1
+                        if dht_fail_counter > 20:
+                            print("No pude sacar medicion del DHT")
+                            break
                 logwriter("Estado", 14, temp_cpu.value, temp_clock.value,
                           temp_out.value, humedad.value, amoniaco.value)
 

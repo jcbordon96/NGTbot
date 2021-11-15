@@ -10,14 +10,14 @@ import math
 
 
 # Create an ADS1115 ADC (16-bit) instance.
-adc = Adafruit_ADS1x15.ADS1115()
+# adc = Adafruit_ADS1x15.ADS1115()
 
 # Or create an ADS1015 ADC (12-bit) instance.
 #adc = Adafruit_ADS1x15.ADS1015()
 
 # Note you can change the I2C address from its default (0x48), and/or the I2C
 # bus by passing in these optional parameters:
-#adc = Adafruit_ADS1x15.ADS1015(address=0x49, busnum=1)
+adc = Adafruit_ADS1x15.ADS1015(address=0x48, busnum=4)
 
 # Choose a gain of 1 for reading voltages from 0 to 4.09V.
 # Or pick a different gain to change the range of voltages that are read:
@@ -41,9 +41,9 @@ while True:
     value = adc.read_adc(0, gain=GAIN)
     print("La medicion del ADC es de: " + str(value))
     volt = (value/32768)*4.096
-    RS = ((3.3/volt)-1)*15
+    RS = ((3.3/volt)-1)*47
     RO = RS/3.6
-    ro = 3.7813
+    ro = 196.086
     ratio = RS/ro
     ppm = pow((math.log(ratio,10)-0.323)/(-0.243),10)
     print("El voltaje: {}, rs: {}, ro: {}, ppm: {}".format(volt,RS, RO,ppm))
