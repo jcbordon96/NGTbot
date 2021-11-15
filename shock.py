@@ -326,7 +326,7 @@ def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, 
     dht_init = False
     dht_fail_counter = 0
     try:
-        adc = Adafruit_ADS1x15.ADS1015(address=0x49, busnum=4)
+        adc = Adafruit_ADS1x15.ADS1015(address=0x48, busnum=4)
         print("El ADC inicio")
         adc_ok = True
     except: 
@@ -399,7 +399,10 @@ def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, 
     except:
         print("El IMU no pudo inicializarse")
 
-
+    if  not os.path.exists('counter.json'):
+        json_string = {"num": 0}
+        with open('counter.json', 'w') as outfile:
+            json.dump(json_string, outfile)
     with open('counter.json') as json_file:
         img_index = json.load(json_file)
     img_index_num.value = img_index["num"]
@@ -562,7 +565,9 @@ def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, 
                         ro = 196.086
                         ratio = RS/ro
                         amoniaco.value = pow((math.log(ratio, 10)-0.323)/(-0.243), 10)
-                    except:
+                    except  Exception as e:
+                        print(e)
+
                         print("Algo salio mal con el sensor de amoniaco")
                         pass
                 if dht_init:
