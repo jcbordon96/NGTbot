@@ -51,6 +51,12 @@ def last_on():
     with open('last_on.json', 'w') as outfile:
         json.dump(json_last, outfile)
 
+def errorwriter(error, comentario = ""):
+    error_date = datetime.now()
+    err = str(error)
+    errlog = error_date + " Error: "+ err + " Comentario: "+ comentario
+    with open("log/error.log",'a', newline='') as logerror:
+        logerror.write(errlog)
 
 def logwriter(event, id, t_cpu=0, t_clock=0, t_ambiente=0, humedad=0, amoniaco=0, watch_dog=False, last_date=-1, last_hour=-1, last_name=-1):
     nowlogdate = datetime.now()
@@ -243,7 +249,8 @@ def command(cam_req, cam_rate, auto_req, auto_rate, imu_req, imu_flag, stuck_fla
                         else:
                             print("No esta conectado el usb")
                             await websocket.send(json.dumps({"type": "save_state", "data": False}))
-                    except:
+                    except Exception as ex:
+                        errorwriter(ex, "No se monto el USB")
                         print("No pude montar el usb")
                 elif data["action"] == "reboot":
                     logwriter("Recibi pedido de reiniciar", 7)
@@ -329,13 +336,15 @@ def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, 
         adc = Adafruit_ADS1x15.ADS1015(address=0x48, busnum=4)
         print("El ADC inicio")
         adc_ok = True
-    except: 
-        print("Error al inicilizar el ADC")
+    except Exception as ex:
+        errorwriter(ex, "Error al iniciar el ADC") 
+        print("Error al iniciar el ADC")
         pass
     try:
         dhtDevice = adafruit_dht.DHT11(board.D14, use_pulseio=False)
         dht_init = True
-    except:
+    except Exception as ex:
+        errorwriter(ex, "Error al iniciar el DHT")
         print("Error al iniciar el DHT")
         pass
 
@@ -396,8 +405,9 @@ def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, 
         MPU_Init()
         print("IMU INIT")
         imu_ok = True
-    except:
-        print("El IMU no pudo inicializarse")
+    except Exception as ex:
+        errorwriter(ex, "Error al iniciar el IMU")
+        print("El IMU no pudo iniciar")
 
     if  not os.path.exists('counter.json'):
         json_string = {"num": 0}
@@ -532,7 +542,8 @@ def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, 
                                     json.dump(json_stuck_line, outfile)
 
                             stuck_flag.value = True
-                    except:
+                    except Exception as ex:
+                        errorwriter(ex, "El IMU no pudo tomar lectura")
                         print("Ups! El IMU no pudo tomar lectura")
                         
             if time.perf_counter() - temp_timer > 60:
@@ -565,9 +576,9 @@ def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, 
                         ro = 196.086
                         ratio = RS/ro
                         amoniaco.value = pow((math.log(ratio, 10)-0.323)/(-0.243), 10)
-                    except  Exception as e:
-                        print(e)
-
+                    except Exception as ex:
+                        print(ex)
+                        errorwriter(ex, "No se pudo tomar medicion de amoniaco")
                         print("Algo salio mal con el sensor de amoniaco")
                         pass
                 if dht_init:
@@ -582,6 +593,7 @@ def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, 
                             dht_fail_counter =+ 1
                         if dht_fail_counter > 20:
                             print("No pude sacar medicion del DHT")
+                            errorwriter("DHT", "No se pudo tomar medicion de Humedad y Temperatura")
                             break
                 logwriter("Estado", 14, temp_cpu.value, temp_clock.value,
                           temp_out.value, humedad.value, amoniaco.value)
@@ -895,6 +907,9 @@ if __name__ == '__main__':
     time.sleep(0.5)
     flash_enable.off()
     time.sleep(0.5)
+    if not os.path.exists("log/error.log"):
+        with open('log/error.log', 'w') as errlog:
+            errlog.write("START ERROR LOG")
     if not os.path.exists("last_on.json"):
         last_on()
     else:
