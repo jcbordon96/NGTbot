@@ -124,7 +124,7 @@ STATE = {"value": 0}
 USERS = set()
 
 
-def command(cam_req, cam_rate, auto_req, auto_rate, imu_req, imu_flag, stuck_flag, flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco):
+def command(cam_req, camera_rate, auto_req, imu_req, stuck_flag, flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, timer_rest, timer_wake, steer_counter, backwards_counter, timer_boring):
 
     motor_1_dir = DigitalOutputDevice("BOARD40")
     motor_1_pwm = DigitalOutputDevice("BOARD38")
@@ -198,12 +198,12 @@ def command(cam_req, cam_rate, auto_req, auto_rate, imu_req, imu_flag, stuck_fla
                     # print(cam_req.value)
                     pass
                 elif data["action"] == "auto_rate":
-                    auto_rate.value = int(data["req"])
-                    print(auto_rate.value)
+                    timer_boring.value = int(data["req"])
+                    print(timer_boring.value)
                     # auto(auto_req)
                     pass
                 elif data["action"] == "camera_rate":
-                    cam_rate.value = int(data["req"])
+                    camera_rate.value = int(data["req"])
                     # print(cam_req.value)
                     pass
                 elif data["action"] == "imu_req":
@@ -211,7 +211,7 @@ def command(cam_req, cam_rate, auto_req, auto_rate, imu_req, imu_flag, stuck_fla
                     # print(cam_req.value)
                     pass
                 elif data["action"] == "imu_flag":
-                    imu_flag.value = int(data["req"])
+                    pitch_flag.value = int(data["req"])
                     # print(cam_req.value)
                     pass
                 elif data["action"] == "flash":
@@ -269,7 +269,7 @@ def command(cam_req, cam_rate, auto_req, auto_rate, imu_req, imu_flag, stuck_fla
                 else:
                     logging.error("unsupported event: %s", data)
                 json_state = {"flash": flash_req.value, "auto": auto_req.value, "auto_rate": auto_rate.value,
-                              "camera": cam_req.value, "camera_rate": cam_rate.value, "imu_req": imu_req.value, "imu_flag": imu_flag.value}
+                              "camera": cam_req.value, "camera_rate": camera_rate.value, "imu_req": imu_req.value, "imu_flag": imu_flag.value}
                 with open('/var/www/html/state.json', 'w') as outfile:
                     json.dump(json_state, outfile)
         finally:
@@ -323,9 +323,9 @@ def command(cam_req, cam_rate, auto_req, auto_rate, imu_req, imu_flag, stuck_fla
     asyncio.get_event_loop().run_forever()
 
 
-def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco):
+def pitch(man, imu_req, pitch_flag, stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log):
+    
     counter = 0
-
     GAIN = 1
     adc_ok = False
     dht_ok = False
@@ -449,7 +449,7 @@ def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, 
                 image_to_compare0 = f
                 first = False
                 compare_timer = time.perf_counter()
-            if time.perf_counter() - compare_timer > 2.5:
+            if time.perf_counter() - compare_timer > timer_stuck_pic.value:
                 img0 = to_grayscale(image_to_compare0.astype(float))
                 img1 = to_grayscale(f.astype(float))
                 n_m = compare_images(img0, img1)
@@ -485,7 +485,7 @@ def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, 
                 log_cam = True
             if cam_req.value == True:
                 was_taking = True
-                if time.perf_counter() - last_pic > cam_rate.value:
+                if time.perf_counter() - last_pic > camera_rate.value:
                     taking_pics.value = True
                     if is_stopped.value == True:
                         now = datetime.now()
@@ -520,7 +520,7 @@ def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, 
                         pitch = math.atan2(Ay,  Az) * 57.3
                         # print(
                         #     "AX: {0:2.2f} / AY: {1:2.2f} / AZ: {2:2.2f}".format(Ax, Ay, Az))
-                        if pitch > imu_flag.value:
+                        if pitch > pitch_flag.value:
                             counter += 1
                         else:
                             counter = 0
@@ -529,7 +529,7 @@ def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, 
                                 # logwriter("IMU Destuck", 17)
                                 pass
                             log_imu_stuck = True
-                        if counter > 3:
+                        if counter > pitch_counter.value:
                             print(
                                 "Estoy trabado!!! Detecte inclinacion mayor a la safe")
                             if log_imu_stuck:
@@ -546,7 +546,7 @@ def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, 
                         errorwriter(ex, "El IMU no pudo tomar lectura")
                         print("Ups! El IMU no pudo tomar lectura")
                         
-            if time.perf_counter() - temp_timer > 60:
+            if time.perf_counter() - temp_timer > timer_temp.value:
                 temp_timer = time.perf_counter()
                 last_on()
                 sensors.init()
@@ -565,7 +565,7 @@ def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, 
                         is_hot.value = True
                         logwriter("Alta temperatura", 9, temp_cpu.value, temp_clock.value)
                     sensors.cleanup()
-            if time.perf_counter() - state_timer > 60:
+            if time.perf_counter() - state_timer > timer_log.value:
 
                 state_timer = time.perf_counter()
                 if adc_ok:
@@ -599,7 +599,7 @@ def pitch(man, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, 
                           temp_out.value, humedad.value, amoniaco.value)
 
 
-def auto(auto_req, auto_rate, taking_pics, is_stopped, stuck_flag, is_hot):
+def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter ):
     was_auto = False
     motor_1_dir = DigitalOutputDevice("BOARD40")
     motor_1_pwm = DigitalOutputDevice("BOARD38")
@@ -676,7 +676,7 @@ def auto(auto_req, auto_rate, taking_pics, is_stopped, stuck_flag, is_hot):
                 logwriter("Empece a andar autonomo", 2)
                 print("first auto")
                 first_auto = False
-            if is_rest and (time.perf_counter()-last_time_on > 600):
+            if is_rest and (time.perf_counter()-last_time_on > timer_rest.value):
                 is_rest = False
                 last_time_rest = time.perf_counter()
                 is_stopped.value = False
@@ -687,7 +687,7 @@ def auto(auto_req, auto_rate, taking_pics, is_stopped, stuck_flag, is_hot):
             timer = time.perf_counter()
             while auto_req.value == True and not is_rest:
 
-                if ((time.perf_counter() - last_time_rest > 1200) or is_hot.value) and not is_rest:
+                if ((time.perf_counter() - last_time_rest > timer_wake.value) or is_hot.value) and not is_rest:
                     is_rest = True
                     move(0, 0)
                     time.sleep(1)
@@ -697,9 +697,9 @@ def auto(auto_req, auto_rate, taking_pics, is_stopped, stuck_flag, is_hot):
                     logwriter("Empece descanso", 10)
                     break
 
-                if time.perf_counter() - timer < auto_rate.value:
-                    backward_counter = 0
-                    steer_counter = 0
+                if time.perf_counter() - timer < timer_boring.value:
+                    backward_count = 0
+                    steer_count = 0
 
                     if stuck_flag.value == True:
                         move(-1.0, 0)
@@ -714,9 +714,9 @@ def auto(auto_req, auto_rate, taking_pics, is_stopped, stuck_flag, is_hot):
                         else:
                             move(0, 1.0)
                             print("Going left")
-                        while (steer_counter < 1 and auto_req.value == True):
+                        while (steer_count < steer_counter.value and auto_req.value == True):
                             time.sleep(1)
-                            steer_counter += 1
+                            steer_count += 1
                         timer = time.perf_counter()
                     move(1.0, 0)
                     # print("Going forward")
@@ -730,27 +730,27 @@ def auto(auto_req, auto_rate, taking_pics, is_stopped, stuck_flag, is_hot):
                         timer = time.perf_counter()
                         move(-1.0, 0)
                         print("Going backwards")
-                        while (backward_counter < 1 and auto_req.value == True):
+                        while (backward_count < backwards_counter.value and auto_req.value == True):
                             time.sleep(1)
-                            backward_counter += 1
+                            backward_count += 1
                         move(0, 1.0)
                         print("Going right")
-                        while (steer_counter < 1 and auto_req.value == True):
+                        while (steer_count < steer_counter.value and auto_req.value == True):
                             time.sleep(1)
-                            steer_counter += 1
+                            steer_count += 1
                     elif button_right.is_pressed and not (button_middle.is_pressed or button_left.is_pressed):
                         timer = time.perf_counter()
                         print("Me apretaron de derecha")
                         move(-1.0, 0)
                         print("Going backwards")
-                        while (backward_counter < 1 and auto_req.value == True):
+                        while (backward_count < backwards_counter.value and auto_req.value == True):
                             time.sleep(1)
-                            backward_counter += 1
+                            backward_count += 1
                         move(0, -1.0)
                         print("Going left")
-                        while (steer_counter < 1 and auto_req.value == True):
+                        while (steer_count < steer_counter.value and auto_req.value == True):
                             time.sleep(1)
-                            steer_counter += 1
+                            steer_count += 1
                     elif not (button_middle.is_pressed or button_left.is_pressed or button_right.is_pressed):
                         pass
                     else:
@@ -758,9 +758,9 @@ def auto(auto_req, auto_rate, taking_pics, is_stopped, stuck_flag, is_hot):
                         timer = time.perf_counter()
                         move(-1.0, 0)
                         print("Going backwards")
-                        while (backward_counter < 1 and auto_req.value == True):
+                        while (backward_count < backwards_counter.value and auto_req.value == True):
                             time.sleep(1)
-                            backward_counter += 1
+                            backward_count += 1
                         go_right = random.choice([True, False])
                         if go_right == True:
                             move(0, -1.0)
@@ -768,17 +768,17 @@ def auto(auto_req, auto_rate, taking_pics, is_stopped, stuck_flag, is_hot):
                         else:
                             move(0, 1.0)
                             print("Going left")
-                        while (steer_counter < 1 and auto_req.value == True):
+                        while (steer_count < steer_counter.value and auto_req.value == True):
                             time.sleep(1)
-                            steer_counter += 1
+                            steer_count += 1
                 else:
                     print('No paso nada')
                     timer = time.perf_counter()
                     move(-1.0, 0)
                     print("Going backwards")
-                    while (backward_counter < 1 and auto_req.value == True):
+                    while (backward_count < backwards_counter.value and auto_req.value == True):
                         time.sleep(1)
-                        backward_counter += 1
+                        backward_count += 1
                     go_right = random.choice([True, False])
                     if go_right == True:
                         move(0, -1.0)
@@ -786,13 +786,13 @@ def auto(auto_req, auto_rate, taking_pics, is_stopped, stuck_flag, is_hot):
                     else:
                         move(0, 1.0)
                         print("Going left")
-                    while (steer_counter < 1 and auto_req.value == True):
+                    while (steer_count < steer_counter.value and auto_req.value == True):
                         time.sleep(1)
-                        steer_counter += 1
+                        steer_count += 1
         time.sleep(1)
 
 
-def camera(man, cam_req, cam_rate, img_index_num, taking_pics, is_stopped, stuck_flag):
+def camera(man):
 
     print("CAMERA SENDER INIT")
 
@@ -831,12 +831,13 @@ def main():
     # queue = multiprocessing.Queue()
     img_index_num = multiprocessing.Value('i', 0)
     cam_req = multiprocessing.Value('b', False)
-    cam_rate = multiprocessing.Value('i', 0)
+    camera_rate = multiprocessing.Value('i', 0)
     auto_req = multiprocessing.Value('b', False)
     flash_req = multiprocessing.Value('b', False)
-    auto_rate = multiprocessing.Value('i', 0)
+    timer_boring = multiprocessing.Value('i', 0)
     imu_req = multiprocessing.Value('b', False)
-    imu_flag = multiprocessing.Value('i', 0)
+    pitch_flag = multiprocessing.Value('i', 0)
+    pitch_counter = multiprocessing.Value('i', 0)
     stuck_flag = multiprocessing.Value('b', False)
     taking_pics = multiprocessing.Value('b', False)
     is_stopped = multiprocessing.Value('b', True)
@@ -846,30 +847,47 @@ def main():
     temp_out = multiprocessing.Value('d', 0)
     humedad = multiprocessing.Value('d', 0)
     amoniaco = multiprocessing.Value('d', 0)
+    timer_stuck_pic = multiprocessing.Value('d', 0)
+    timer_temp = multiprocessing.Value('i', 0)
+    timer_log = multiprocessing.Value('i', 0)
+    timer_rest = multiprocessing.Value('i', 0)
+    timer_wake = multiprocessing.Value('i', 0)
+    steer_counter = multiprocessing.Value('i', 0)
+    backwards_counter = multiprocessing.Value('i', 0)
+
     manager = multiprocessing.Manager()
     lst = manager.list()
     lst.append(None)
     flash_req.value = config["flash"]
     cam_req.value = config["camera"]
-    cam_rate.value = config["camera_rate"]
+    camera_rate.value = admin["camera_rate"]
     auto_req.value = config["auto"]
-    auto_rate.value = config["auto_rate"]
+    timer_boring.value = admin["timer_boring"]
     imu_req.value = config["imu_req"]
-    imu_flag.value = config["imu_flag"]
-    json_state = {"flash": flash_req.value, "auto": auto_req.value, "auto_rate": auto_rate.value,
-                  "camera": cam_req.value, "camera_rate": cam_rate.value, "imu_req": imu_req.value, "imu_flag": imu_flag.value}
+    pitch_flag.value = admin["pitch_flag"]
+    pitch_counter.value = admin["pitch_counter"]
+    timer_stuck_pic.value = admin["timer_stuck_pic"]
+    timer_temp.value = admin["timer_temp"]
+    timer_log.value = admin["timer_log"]
+    timer_rest.value = admin["timer_rest"]
+    timer_wake.value = admin["timer_wake"]
+    steer_counter.value = admin["steer_counter"]
+    backwards_counter.value = admin["backwards_counter"]
+
+    json_state = {"flash": flash_req.value, "auto": auto_req.value,
+                  "camera": cam_req.value, "imu_req": imu_req.value}
     with open('/var/www/html/state.json', 'w') as outfile:
         json.dump(json_state, outfile)
     # Set up our websocket handler
     command_handler = multiprocessing.Process(
-        target=command, args=(cam_req, cam_rate, auto_req, auto_rate, imu_req, imu_flag, stuck_flag, flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco,))
+        target=command, args=(cam_req, camera_rate, auto_req, imu_req, stuck_flag, flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, timer_rest, timer_wake, steer_counter, backwards_counter, timer_boring,))
     # Set up our camera
     camera_handler = multiprocessing.Process(
-        target=camera, args=(lst, cam_req, cam_rate, img_index_num, taking_pics, is_stopped, stuck_flag,))
+        target=camera, args=(lst,))
     auto_handler = multiprocessing.Process(
-        target=auto, args=(auto_req, auto_rate, taking_pics, is_stopped, stuck_flag, is_hot,))
+        target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter,))
     pitch_handler = multiprocessing.Process(
-        target=pitch, args=(lst, imu_req, imu_flag, stuck_flag, cam_req, cam_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco,))
+        target=pitch, args=(lst, imu_req, pitch_flag, stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log, timer_rest, timer_wake, steer_counter, backwards_counter,))
     # Add 'em to our list
     PROCESSES.append(camera_handler)
     PROCESSES.append(command_handler)
@@ -894,7 +912,10 @@ if __name__ == '__main__':
             wr.writerow(header)
     with open('/var/www/html/config.json') as json_file:
         config = json.load(json_file)
+    with open('/var/www/html/admin.json') as admin_file:
+        admin = json.load(admin_file)
     print(config)
+    print(admin)
     flash_enable.on()
     time.sleep(0.5)
     flash_enable.off()
@@ -933,7 +954,7 @@ if __name__ == '__main__':
     motors_enable.on()
     try:
         main()
-    except KeyboardInterrupt:
+    except:
         motor_1_pwm = DigitalOutputDevice("BOARD38")
         motor_2_pwm = DigitalOutputDevice("BOARD35")
         motor_1_pwm.off()
