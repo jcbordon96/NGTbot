@@ -268,8 +268,8 @@ def command(cam_req, camera_rate, auto_req, imu_req, stuck_flag, flash_req, temp
 
                 else:
                     logging.error("unsupported event: %s", data)
-                json_state = {"flash": flash_req.value, "auto": auto_req.value, "auto_rate": auto_rate.value,
-                              "camera": cam_req.value, "camera_rate": camera_rate.value, "imu_req": imu_req.value, "imu_flag": imu_flag.value}
+                json_state = {"flash": flash_req.value, "auto": auto_req.value, "auto_rate": timer_boring.value,
+                              "camera": cam_req.value, "camera_rate": camera_rate.value, "imu_req": imu_req.value, "imu_flag": pitch_flag.value}
                 with open('/var/www/html/state.json', 'w') as outfile:
                     json.dump(json_state, outfile)
         finally:
@@ -887,7 +887,7 @@ def main():
     auto_handler = multiprocessing.Process(
         target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter,))
     pitch_handler = multiprocessing.Process(
-        target=pitch, args=(lst, imu_req, pitch_flag, stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_log,))
+        target=pitch, args=(lst, imu_req, pitch_flag, stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log,))
     # Add 'em to our list
     PROCESSES.append(camera_handler)
     PROCESSES.append(command_handler)
@@ -954,7 +954,7 @@ if __name__ == '__main__':
     motors_enable.on()
     try:
         main()
-    except:
+    except KeyboardInterrupt:
         motor_1_pwm = DigitalOutputDevice("BOARD38")
         motor_2_pwm = DigitalOutputDevice("BOARD35")
         motor_1_pwm.off()

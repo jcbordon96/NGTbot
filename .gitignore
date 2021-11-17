@@ -3,4 +3,6 @@ stuck_count.json
 counter.json
 log/
 log/log.csv
+resources/
+resources/.
 __pycache__/
