@@ -255,13 +255,13 @@ def command(cam_req, camera_rate, auto_req, imu_req, stuck_flag, flash_req, temp
                 elif data["action"] == "reboot":
                     logwriter("Recibi pedido de reiniciar", 7)
                     time.sleep(1)
-                    os.system("reboot now")
+                    os.system("sudo reboot now")
                     # print(cam_req.value)
                     pass
                 elif data["action"] == "shutdown":
                     logwriter("Recibi pedido de apagado", 8)
                     time.sleep(1)
-                    os.system("shutdown now")
+                    os.system("sudo shutdown now")
 
                     # print(cam_req.value)
                     pass
@@ -575,7 +575,7 @@ def pitch(man, imu_req, pitch_flag, stuck_flag, cam_req, camera_rate, img_index_
                         RS = ((3.3/volt)-1)*47
                         ro = 196.086
                         ratio = RS/ro
-                        amoniaco.value = pow((math.log(ratio, 10)-0.323)/(-0.243), 10)
+                        amoniaco.value = round(pow((math.log(ratio, 10)-0.323)/(-0.243), 10),2)
                     except Exception as ex:
                         print(ex)
                         errorwriter(ex, "No se pudo tomar medicion de amoniaco")
