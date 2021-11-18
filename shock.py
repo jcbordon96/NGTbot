@@ -900,7 +900,7 @@ def main():
 
 
 if __name__ == '__main__':
-    # time.sleep(20)
+    time.sleep(20)
     print(bcolors.OKGREEN + "CHICKENBOT 1.0 APPELIE ROBOTICS - 2021" + bcolors.ENDC)
     flash_enable.off()
     if not os.path.exists("log/log.csv"):
