@@ -4,6 +4,9 @@
             url: 'http://192.168.4.1/state.json',
             })
             .then(function (response) {
+                autoRate.innerHTML = response.data.auto_rate;
+                cameraRate.innerHTML = response.data.camera_rate;
+                imuFlag.innerHTML = response.data.imu_flag
                 autoState = response.data.auto;
                 cameraState = response.data.camera;
                 lightsState = response.data.flash;
@@ -16,16 +19,16 @@
     
                 switch (data.type) { 
                     case 'temp':
-                        var splitted = data.data.split('/');
-                        temp.innerHTML = splitted[0] + '/' + splitted[1] + '/' + splitted[2];
-                        humidity.innerHTML= splitted[3];
-                        ammonia.innerHTML = splitted[4];
+                        temp.innerHTML = data.data
+                    default:
+                        console.error(
+                            "unsupported event", data);
                 }
             };
             //websocket.send(JSON.stringify({ action: 'temp_req'}));
             setInterval(() => {
                 websocket.send(JSON.stringify({ action: 'temp_req'}));
-            }, 1000);
+            }, 60000);
 
             function sendMessage(msg){
                 websocket.send(JSON.stringify(msg));
@@ -95,8 +98,6 @@
     
             }
             var temp = document.getElementById('temp')
-            var ammonia = document.getElementById('ammonia')
-            var humidity = document.getElementById('humidity')
             var autoOnBtn = document.getElementById('autoOnBtn')
             var autoOffBtn = document.getElementById('autoOffBtn')
             var cameraOnBtn = document.getElementById('cameraOnBtn')
@@ -106,9 +107,6 @@
             var imuOnBtn = document.getElementById('imuOnBtn')
             var imuOffBtn = document.getElementById('imuOffBtn')
             var saveConfigBtn = document.getElementById('saveConfigBtn')
-            var saveUsbBtn = document.getElementById('saveUsbBtn')
-            var shutdownBtn = document.getElementById('shutdownBtn')
-            var rebootBtn = document.getElementById('rebootBtn')
     
             var canvas = document.getElementById('msg')
             var showControls = document.getElementById('showControls')
@@ -130,21 +128,23 @@
             var saveRateCamera = document.getElementById('saveRateCamera')
             var saveFlagImu = document.getElementById('saveFlagImu')
     
-            saveUsbBtn.addEventListener('click', ()=>{
-                websocket.send(JSON.stringify({ action: 'save_req', req: true}))
+            saveRateAuto.addEventListener('click', () => {
+                autoRate.innerHTML = inputAuto.value;
+                websocket.send(JSON.stringify({ action: 'auto_rate', req: inputAuto.value }));
             })
-
-            shutdownBtn.addEventListener('click', ()=>{
-                websocket.send(JSON.stringify({ action: 'shutdown', req: true}))
-            })
-
-            rebootBtn.addEventListener('click', ()=>{
-                websocket.send(JSON.stringify({ action: 'reboot', req: true}))
-            })
-
 
             saveConfigBtn.addEventListener('click', ()=>{
                 websocket.send(JSON.stringify({ action: 'config', req: true}))
+            })
+    
+            saveRateCamera.addEventListener('click', () => {
+                cameraRate.innerHTML = inputCamera.value;
+                websocket.send(JSON.stringify({ action: 'camera_rate', req: inputCamera.value }));
+            })
+    
+            saveFlagImu.addEventListener('click', () => {
+                imuFlag.innerHTML = inputImu.value;
+                websocket.send(JSON.stringify({ action: 'imu_flag', req: inputImu.value }));
             })
     
             showControls.addEventListener('click', ()=>{

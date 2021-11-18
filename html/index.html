@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Chicken bot</title>
 
     <link rel="stylesheet" href="assets/css/fonts.css">
     <link rel="stylesheet" href="assets/css/styles.css">
@@ -19,14 +19,9 @@
     </div>
 
     <div id="infoBox2">
-        <span>Rate autónomo: <span id="autoRate" class="activated">0</span> </span>
-        <span>Rate cámara: <span id="cameraRate" class="activated">0</span> </span>
-        <span>Imu flag: <span id="imuFlag" class="activated">0</span> </span>
-    </div>
-    <div id="infoBox3">
         <span>Temperatura: <span id="temp" class="activated">0°/0°/0°</span> </span>
-        <span>Amoníaco: <span id="temp" class="activated">0</span> </span>
-        <span>Humedad: <span id="temp" class="activated">0%</span> </span>
+        <span>Amoníaco: <span id="ammonia" class="activated">0</span> </span>
+        <span>Humedad: <span id="humidity" class="activated">0%</span> </span>
     </div>
 
     <div id="buttonsConfigBox">
@@ -60,16 +55,10 @@
     </div>
     
     <div id="buttonsConfigBox2">
-        <span>Rate autónomo <input type="number" name="" id="inputAuto"></span>
-        <button id="saveRateAuto" class="saveRateBtn">Cambiar</button>
-        <br>
-        <span>Rate camara <input type="number" name="" id="inputCamera"></span>
-        <button id="saveRateCamera" class="saveRateBtn">Cambiar</button>
-        <br>
-        <span>Imu flag <input type="number" name="" id="inputImu"></span>
-        <button id="saveFlagImu" class="saveRateBtn">Cambiar</button>
-        <br>
         <button id="saveConfigBtn" class="configBtn">Guardar configuración</button>
+        <button id="saveUsbBtn" class="configBtn">Guardar usb</button>
+        <button id="shutdownBtn" class="configBtn">Apagar</button>
+        <button id="rebootBtn" class="configBtn">Reiniciar</button>
     </div>
 
     <button id="showControls">Mostrar controles</button>
