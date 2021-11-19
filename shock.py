@@ -124,7 +124,7 @@ STATE = {"value": 0}
 USERS = set()
 
 
-def command(cam_req, camera_rate, auto_req, imu_req, stuck_flag, flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, timer_rest, timer_wake, steer_counter, backwards_counter, timer_boring):
+def command(cam_req, camera_rate, auto_req, imu_req, stuck_flag, flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, timer_rest, timer_wake, steer_counter, backwards_counter, timer_boring, crash_timeout):
 
     motor_1_dir = DigitalOutputDevice("BOARD40")
     motor_1_pwm = DigitalOutputDevice("BOARD38")
@@ -599,7 +599,7 @@ def pitch(man, imu_req, pitch_flag, stuck_flag, cam_req, camera_rate, img_index_
                           temp_out.value, humedad.value, amoniaco.value)
 
 
-def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter ):
+def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout ):
     was_auto = False
     motor_1_dir = DigitalOutputDevice("BOARD40")
     motor_1_pwm = DigitalOutputDevice("BOARD38")
@@ -613,6 +613,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
     print("AUTO INIT")
     first_auto = True
     is_rest = False
+    crash_confirmed = False
 
     def move(x, z):
         if(z == 0):
@@ -725,32 +726,59 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                         time.sleep(1)
                         is_stopped.value = True
                     is_stopped.value = False
-                    if button_left.is_pressed and not (button_middle.is_pressed or button_right.is_pressed):
-                        print("Me apretaron de izquierda")
-                        timer = time.perf_counter()
-                        move(-1.0, 0)
-                        print("Going backwards")
-                        while (backward_count < backwards_counter.value and auto_req.value == True):
-                            time.sleep(1)
-                            backward_count += 1
-                        move(0, 1.0)
-                        print("Going right")
-                        while (steer_count < steer_counter.value and auto_req.value == True):
-                            time.sleep(1)
-                            steer_count += 1
-                    elif button_right.is_pressed and not (button_middle.is_pressed or button_left.is_pressed):
-                        timer = time.perf_counter()
-                        print("Me apretaron de derecha")
-                        move(-1.0, 0)
-                        print("Going backwards")
-                        while (backward_count < backwards_counter.value and auto_req.value == True):
-                            time.sleep(1)
-                            backward_count += 1
-                        move(0, -1.0)
-                        print("Going left")
-                        while (steer_count < steer_counter.value and auto_req.value == True):
-                            time.sleep(1)
-                            steer_count += 1
+                    if button_left.is_pressed and not button_right.is_pressed:
+                        crash_confirmed = False
+                        crash_timer = time.perf_counter()
+                        if crash_timeout > 0:
+                            while (time.perf_counter() - crash_timer) < crash_timeout:
+                                time.sleep(0.25)
+                                if button_left.is_pressed and not button_right.is_pressed:
+                                    crash_confirmed = True
+                                else:
+                                    crash_confirmed = False
+                                    break
+                        else:
+                            crash_confirmed = True
+                        if crash_confirmed:
+                            print("Me apretaron de izquierda")
+                            timer = time.perf_counter()
+                            move(-1.0, 0)
+                            print("Going backwards")
+                            while (backward_count < backwards_counter.value and auto_req.value == True):
+                                time.sleep(1)
+                                backward_count += 1
+                            move(0, 1.0)
+                            print("Going right")
+                            while (steer_count < steer_counter.value and auto_req.value == True):
+                                time.sleep(1)
+                                steer_count += 1
+
+                    elif button_right.is_pressed and button_left.is_pressed:
+                        crash_confirmed = False
+                        crash_timer = time.perf_counter()
+                        if crash_timeout > 0:
+                            while (time.perf_counter() - crash_timer) < crash_timeout:
+                                time.sleep(0.25)
+                                if button_right.is_pressed and not button_left.is_pressed:
+                                    crash_confirmed = True
+                                else:
+                                    crash_confirmed = False
+                                    break
+                        else:
+                            crash_confirmed = True
+                        if crash_confirmed:
+                            timer = time.perf_counter()
+                            print("Me apretaron de derecha")
+                            move(-1.0, 0)
+                            print("Going backwards")
+                            while (backward_count < backwards_counter.value and auto_req.value == True):
+                                time.sleep(1)
+                                backward_count += 1
+                            move(0, -1.0)
+                            print("Going left")
+                            while (steer_count < steer_counter.value and auto_req.value == True):
+                                time.sleep(1)
+                                steer_count += 1
                     elif not (button_middle.is_pressed or button_left.is_pressed or button_right.is_pressed):
                         pass
                     else:
@@ -854,7 +882,7 @@ def main():
     timer_wake = multiprocessing.Value('i', 0)
     steer_counter = multiprocessing.Value('i', 0)
     backwards_counter = multiprocessing.Value('i', 0)
-
+    crash_timeout = multiprocessing.Value('i', 0)
     manager = multiprocessing.Manager()
     lst = manager.list()
     lst.append(None)
@@ -873,6 +901,7 @@ def main():
     timer_wake.value = admin["timer_wake"]
     steer_counter.value = admin["steer_counter"]
     backwards_counter.value = admin["backwards_counter"]
+    crash_timeout = admin["crash_timeout"]
 
     json_state = {"flash": flash_req.value, "auto": auto_req.value,
                   "camera": cam_req.value, "imu_req": imu_req.value}
@@ -880,12 +909,12 @@ def main():
         json.dump(json_state, outfile)
     # Set up our websocket handler
     command_handler = multiprocessing.Process(
-        target=command, args=(cam_req, camera_rate, auto_req, imu_req, stuck_flag, flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, timer_rest, timer_wake, steer_counter, backwards_counter, timer_boring,))
+        target=command, args=(cam_req, camera_rate, auto_req, imu_req, stuck_flag, flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, timer_rest, timer_wake, steer_counter, backwards_counter, timer_boring, crash_timeout,))
     # Set up our camera
     camera_handler = multiprocessing.Process(
         target=camera, args=(lst,))
     auto_handler = multiprocessing.Process(
-        target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter,))
+        target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout,))
     pitch_handler = multiprocessing.Process(
         target=pitch, args=(lst, imu_req, pitch_flag, stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log, timer_rest, timer_wake, steer_counter, backwards_counter,))
     # Add 'em to our list
