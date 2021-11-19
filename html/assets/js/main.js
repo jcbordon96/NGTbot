@@ -22,10 +22,10 @@
                         ammonia.innerHTML = splitted[4];
                 }
             };
-            //websocket.send(JSON.stringify({ action: 'temp_req'}));
+            websocket.send(JSON.stringify({ action: 'temp_req'}));
             setInterval(() => {
                 websocket.send(JSON.stringify({ action: 'temp_req'}));
-            }, 1000);
+            }, 60000);
 
             function sendMessage(msg){
                 websocket.send(JSON.stringify(msg));
