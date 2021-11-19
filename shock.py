@@ -255,21 +255,21 @@ def command(cam_req, camera_rate, auto_req, imu_req, stuck_flag, flash_req, temp
                 elif data["action"] == "reboot":
                     logwriter("Recibi pedido de reiniciar", 7)
                     time.sleep(1)
-                    os.system("reboot now")
+                    os.system("sudo reboot now")
                     # print(cam_req.value)
                     pass
                 elif data["action"] == "shutdown":
                     logwriter("Recibi pedido de apagado", 8)
                     time.sleep(1)
-                    os.system("shutdown now")
+                    os.system("sudo shutdown now")
 
                     # print(cam_req.value)
                     pass
 
                 else:
                     logging.error("unsupported event: %s", data)
-                json_state = {"flash": flash_req.value, "auto": auto_req.value, "auto_rate": auto_rate.value,
-                              "camera": cam_req.value, "camera_rate": camera_rate.value, "imu_req": imu_req.value, "imu_flag": imu_flag.value}
+                json_state = {"flash": flash_req.value, "auto": auto_req.value, "auto_rate": timer_boring.value,
+                              "camera": cam_req.value, "camera_rate": camera_rate.value, "imu_req": imu_req.value, "imu_flag": pitch_flag.value}
                 with open('/var/www/html/state.json', 'w') as outfile:
                     json.dump(json_state, outfile)
         finally:
@@ -575,7 +575,7 @@ def pitch(man, imu_req, pitch_flag, stuck_flag, cam_req, camera_rate, img_index_
                         RS = ((3.3/volt)-1)*47
                         ro = 196.086
                         ratio = RS/ro
-                        amoniaco.value = pow((math.log(ratio, 10)-0.323)/(-0.243), 10)
+                        amoniaco.value = round(pow((math.log(ratio, 10)-0.323)/(-0.243), 10),2)
                     except Exception as ex:
                         print(ex)
                         errorwriter(ex, "No se pudo tomar medicion de amoniaco")
@@ -916,7 +916,7 @@ def main():
     auto_handler = multiprocessing.Process(
         target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout,))
     pitch_handler = multiprocessing.Process(
-        target=pitch, args=(lst, imu_req, pitch_flag, stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log, timer_rest, timer_wake, steer_counter, backwards_counter,))
+        target=pitch, args=(lst, imu_req, pitch_flag, stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log,))
     # Add 'em to our list
     PROCESSES.append(camera_handler)
     PROCESSES.append(command_handler)
@@ -929,7 +929,7 @@ def main():
 
 
 if __name__ == '__main__':
-    # time.sleep(20)
+    time.sleep(20)
     print(bcolors.OKGREEN + "CHICKENBOT 1.0 APPELIE ROBOTICS - 2021" + bcolors.ENDC)
     flash_enable.off()
     if not os.path.exists("log/log.csv"):
@@ -983,7 +983,7 @@ if __name__ == '__main__':
     motors_enable.on()
     try:
         main()
-    except:
+    except KeyboardInterrupt:
         motor_1_pwm = DigitalOutputDevice("BOARD38")
         motor_2_pwm = DigitalOutputDevice("BOARD35")
         motor_1_pwm.off()
