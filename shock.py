@@ -691,9 +691,9 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                 time.sleep(1)
                 backward_count += 1
             if last_touch == "IZQ":
-                go_right = True
-            elif last_touch == "DER":
                 go_right = False
+            elif last_touch == "DER":
+                go_right = True
             else:
                 go_right = random.choice([True, False])
             if go_right == True:
