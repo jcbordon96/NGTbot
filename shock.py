@@ -1060,7 +1060,7 @@ def main():
     crash_timeout.value = admin["crash_timeout"]
     last_touch_timeout.value = admin["last_touch_timeout"]
     last_touch_counter.value = admin["last_touch_counter"]
-    last_touch_osc_counter.value = admin["last_touch_counter"]
+    last_touch_osc_counter.value = admin["last_touch_osc_counter"]
 
 
     json_state = {"flash": flash_req.value, "auto": auto_req.value,
