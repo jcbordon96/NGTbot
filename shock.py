@@ -810,6 +810,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                                 last_touch_timer = time.perf_counter()
                             elif last_touch == "DER":
                                 last_touch_osc_count += 1
+                                last_touch_count = 0
                                 last_touch_osc_timer = time.perf_counter()
                             last_touch = "IZQ"
                             if last_touch_count >= last_touch_counter.value:
@@ -844,7 +845,6 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                             crash_confirmed = True
                         if crash_confirmed:
                             timer = time.perf_counter()
-<<<<<<< HEAD
                             print("Me apretaron de derecha")
                             if last_touch == "DER":
                                 last_touch_count +=1
@@ -852,6 +852,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                                 last_touch_timer = time.perf_counter()
                             elif last_touch == "IZQ":
                                 last_touch_osc_count += 1
+                                last_touch_count = 0
                                 last_touch_osc_timer = time.perf_counter()
                             last_touch = "DER"
                             if last_touch_count >= last_touch_counter.value:
@@ -870,20 +871,6 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                                     time.sleep(1)
                                     steer_count += 1
                     elif (button_middle.is_pressed and not (button_left.is_presed or button_right.is_pressed)):
-=======
-                            print("Choque confirmado de derecha")
-                            move(-1.0, 0)
-                            print("Going backwards")
-                            while (backward_count < backwards_counter.value and auto_req.value == True):
-                                time.sleep(1)
-                                backward_count += 1
-                            move(0, -1.0)
-                            print("Going left")
-                            while (steer_count < steer_counter.value and auto_req.value == True):
-                                time.sleep(1)
-                                steer_count += 1
-                    elif (button_middle.is_pressed and not (button_left.is_pressed or button_right.is_pressed)):
->>>>>>> 36e2bda41cae327976609c2491850b3d258a99c1
                         crash_confirmed = False
                         crash_timer = time.perf_counter()
                         print("Me apretaron de frente")
@@ -898,39 +885,20 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                         else:
                             crash_confirmed = True
                         if crash_confirmed:
-<<<<<<< HEAD
                             print("Choque frontal")
-                        timer = time.perf_counter()
-                        move(-1.0, 0)
-                        print("Going backwards")
-                        while (backward_count < backwards_counter.value and auto_req.value == True):
-                            time.sleep(1)
-                            backward_count += 1
-                        if last_touch == "IZQ":
-                            go_right = True
-                        elif last_touch == "DER":
-                            go_right = False
-                        else:
-                            go_right = random.choice([True, False])
-                        last_touch = "FRO"
-                        if go_right == True:
-                            move(0, 1.0)
-                            print("Going right")
-                        else:
-                            move(0, -1.0)
-                            print("Going left")
-                        while (steer_count < steer_counter.value and auto_req.value == True):
-                            time.sleep(1)
-                            steer_count += 1
-=======
-                            print("Choque confirmado frontal")
                             timer = time.perf_counter()
                             move(-1.0, 0)
                             print("Going backwards")
                             while (backward_count < backwards_counter.value and auto_req.value == True):
                                 time.sleep(1)
                                 backward_count += 1
-                            go_right = random.choice([True, False])
+                            if last_touch == "IZQ":
+                                go_right = True
+                            elif last_touch == "DER":
+                                go_right = False
+                            else:
+                                go_right = random.choice([True, False])
+                            last_touch = "FRO"
                             if go_right == True:
                                 move(0, 1.0)
                                 print("Going right")
@@ -940,7 +908,6 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                             while (steer_count < steer_counter.value and auto_req.value == True):
                                 time.sleep(1)
                                 steer_count += 1
->>>>>>> 36e2bda41cae327976609c2491850b3d258a99c1
 
                     elif not (button_middle.is_pressed or button_left.is_pressed or button_right.is_pressed):
                         pass
