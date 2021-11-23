@@ -751,9 +751,9 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                     flash_enable.off()
                     logwriter("Empece descanso", 10)
                     break
-                if time.perf_counter() - last_touch_timer > last_touch_timeout:
+                if time.perf_counter() - last_touch_timer > last_touch_timeout.value:
                     last_touch_count = 0
-                if time.perf_counter() - last_touch_osc_timer > last_touch_timeout:
+                if time.perf_counter() - last_touch_osc_timer > last_touch_timeout.value:
                     last_touch_osc_count = 0
                 if time.perf_counter() - timer < timer_boring.value:
                     backward_count = 0
