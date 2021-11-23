@@ -779,13 +779,13 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                             while (steer_count < steer_counter.value and auto_req.value == True):
                                 time.sleep(1)
                                 steer_count += 1
-                    elif (button_middle.is_pressed and not (button_left.is_presed or button_right.is_pressed)):
+                    elif (button_middle.is_pressed and not (button_left.is_pressed or button_right.is_pressed)):
                         crash_confirmed = False
                         crash_timer = time.perf_counter()
                         if crash_timeout > 0:
                             while (time.perf_counter() - crash_timer) < crash_timeout:
                                 time.sleep(0.25)
-                                if (button_middle.is_pressed and not (button_left.is_presed or button_right.is_pressed)):
+                                if (button_middle.is_pressed and not (button_left.is_pressed or button_right.is_pressed)):
                                     crash_confirmed = True
                                 else:
                                     crash_confirmed = False
@@ -819,7 +819,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                         if crash_timeout > 0:
                             while (time.perf_counter() - crash_timer) < crash_timeout:
                                 time.sleep(0.25)
-                                if (button_left.is_presed and button_right.is_pressed):
+                                if (button_left.is_pressed and button_right.is_pressed):
                                     crash_confirmed = True
                                 else:
                                     crash_confirmed = False
