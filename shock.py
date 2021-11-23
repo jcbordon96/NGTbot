@@ -599,7 +599,7 @@ def pitch(man, imu_req, pitch_flag, stuck_flag, cam_req, camera_rate, img_index_
                           temp_out.value, humedad.value, amoniaco.value)
 
 
-def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout ):
+def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout, flash_req ):
     was_auto = False
     motor_1_dir = DigitalOutputDevice("BOARD40")
     motor_1_pwm = DigitalOutputDevice("BOARD38")
@@ -683,7 +683,8 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                 is_stopped.value = False
                 is_hot.value = False
                 print("Vuelvo a andar")
-                logwriter("Termine descanso", 11)
+                if flash_req.value == True:
+                    flash_enable.on()
             was_auto = True
             timer = time.perf_counter()
             while auto_req.value == True and not is_rest:
@@ -695,6 +696,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                     is_stopped.value = True
                     last_time_on = time.perf_counter()
                     print("Voy a descansar")
+                    flash_enable.off()
                     logwriter("Empece descanso", 10)
                     break
 
@@ -963,7 +965,7 @@ def main():
     camera_handler = multiprocessing.Process(
         target=camera, args=(lst,))
     auto_handler = multiprocessing.Process(
-        target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout,))
+        target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout, flash_req,))
     pitch_handler = multiprocessing.Process(
         target=pitch, args=(lst, imu_req, pitch_flag, stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log,))
     # Add 'em to our list
