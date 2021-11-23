@@ -1,1 +1,1 @@
-{"timer_stuck_pic": 2.5, "pitch_flag": 10, "pitch_counter": 3, "timer_temp":60, "timer_log": 60, "timer_rest": 600, "timer_wake": 1200, "steer_counter": 1, "backwards_counter": 3, "timer_boring": 60, "camera_rate": 15} 
+{"timer_stuck_pic": 2.5, "pitch_flag": 10, "pitch_counter": 3, "timer_temp":60, "timer_log": 60, "timer_rest": 600, "timer_wake": 1200, "steer_counter": 1, "backwards_counter": 3, "timer_boring": 60, "camera_rate": 15, "crash_timeout": 2} 
