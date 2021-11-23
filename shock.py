@@ -599,7 +599,11 @@ def pitch(man, imu_req, pitch_flag, stuck_flag, cam_req, camera_rate, img_index_
                           temp_out.value, humedad.value, amoniaco.value)
 
 
+<<<<<<< HEAD
 def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout, last_touch_timeout, last_touch_counter, last_touch_osc_counter ):
+=======
+def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout, flash_req ):
+>>>>>>> 36e2bda41cae327976609c2491850b3d258a99c1
     was_auto = False
     motor_1_dir = DigitalOutputDevice("BOARD40")
     motor_1_pwm = DigitalOutputDevice("BOARD38")
@@ -735,7 +739,8 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                 is_stopped.value = False
                 is_hot.value = False
                 print("Vuelvo a andar")
-                logwriter("Termine descanso", 11)
+                if flash_req.value == True:
+                    flash_enable.on()
             was_auto = True
             timer = time.perf_counter()
             while auto_req.value == True and not is_rest:
@@ -747,6 +752,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                     is_stopped.value = True
                     last_time_on = time.perf_counter()
                     print("Voy a descansar")
+                    flash_enable.off()
                     logwriter("Empece descanso", 10)
                     break
                 if time.perf_counter() - last_touch_timer > last_touch_timeout:
@@ -784,6 +790,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                     if button_left.is_pressed and not button_right.is_pressed:
                         crash_confirmed = False
                         crash_timer = time.perf_counter()
+                        print("Me apretaron de izquierda")
                         if crash_timeout > 0:
                             while (time.perf_counter() - crash_timer) < crash_timeout:
                                 time.sleep(0.25)
@@ -795,7 +802,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                         else:
                             crash_confirmed = True
                         if crash_confirmed:
-                            print("Me apretaron de izquierda")
+                            print("Choque confirmado de izquierda")
                             timer = time.perf_counter()
                             if last_touch == "IZQ":
                                 last_touch_count +=1
@@ -824,6 +831,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                     elif button_right.is_pressed and not button_left.is_pressed:
                         crash_confirmed = False
                         crash_timer = time.perf_counter()
+                        print("Me apretaron de derecha")
                         if crash_timeout > 0:
                             while (time.perf_counter() - crash_timer) < crash_timeout:
                                 time.sleep(0.25)
@@ -836,6 +844,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                             crash_confirmed = True
                         if crash_confirmed:
                             timer = time.perf_counter()
+<<<<<<< HEAD
                             print("Me apretaron de derecha")
                             if last_touch == "DER":
                                 last_touch_count +=1
@@ -861,12 +870,27 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                                     time.sleep(1)
                                     steer_count += 1
                     elif (button_middle.is_pressed and not (button_left.is_presed or button_right.is_pressed)):
+=======
+                            print("Choque confirmado de derecha")
+                            move(-1.0, 0)
+                            print("Going backwards")
+                            while (backward_count < backwards_counter.value and auto_req.value == True):
+                                time.sleep(1)
+                                backward_count += 1
+                            move(0, -1.0)
+                            print("Going left")
+                            while (steer_count < steer_counter.value and auto_req.value == True):
+                                time.sleep(1)
+                                steer_count += 1
+                    elif (button_middle.is_pressed and not (button_left.is_pressed or button_right.is_pressed)):
+>>>>>>> 36e2bda41cae327976609c2491850b3d258a99c1
                         crash_confirmed = False
                         crash_timer = time.perf_counter()
+                        print("Me apretaron de frente")
                         if crash_timeout > 0:
                             while (time.perf_counter() - crash_timer) < crash_timeout:
                                 time.sleep(0.25)
-                                if (button_middle.is_pressed and not (button_left.is_presed or button_right.is_pressed)):
+                                if (button_middle.is_pressed and not (button_left.is_pressed or button_right.is_pressed)):
                                     crash_confirmed = True
                                 else:
                                     crash_confirmed = False
@@ -874,6 +898,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                         else:
                             crash_confirmed = True
                         if crash_confirmed:
+<<<<<<< HEAD
                             print("Choque frontal")
                         timer = time.perf_counter()
                         move(-1.0, 0)
@@ -897,16 +922,36 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                         while (steer_count < steer_counter.value and auto_req.value == True):
                             time.sleep(1)
                             steer_count += 1
+=======
+                            print("Choque confirmado frontal")
+                            timer = time.perf_counter()
+                            move(-1.0, 0)
+                            print("Going backwards")
+                            while (backward_count < backwards_counter.value and auto_req.value == True):
+                                time.sleep(1)
+                                backward_count += 1
+                            go_right = random.choice([True, False])
+                            if go_right == True:
+                                move(0, 1.0)
+                                print("Going right")
+                            else:
+                                move(0, -1.0)
+                                print("Going left")
+                            while (steer_count < steer_counter.value and auto_req.value == True):
+                                time.sleep(1)
+                                steer_count += 1
+>>>>>>> 36e2bda41cae327976609c2491850b3d258a99c1
 
                     elif not (button_middle.is_pressed or button_left.is_pressed or button_right.is_pressed):
                         pass
                     else:
+                        print("Toque randomn")
                         crash_confirmed = False
                         crash_timer = time.perf_counter()
                         if crash_timeout > 0:
                             while (time.perf_counter() - crash_timer) < crash_timeout:
                                 time.sleep(0.25)
-                                if (button_left.is_presed and button_right.is_pressed):
+                                if (button_left.is_pressed and button_right.is_pressed):
                                     crash_confirmed = True
                                 else:
                                     crash_confirmed = False
@@ -914,7 +959,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                         else:
                             crash_confirmed = True
                         if crash_confirmed:
-                            print("Choque randomn")
+                            print("Choque confirmado randomn")
                             timer = time.perf_counter()
                             move(-1.0, 0)
                             print("Going backwards")
@@ -1060,7 +1105,11 @@ def main():
     camera_handler = multiprocessing.Process(
         target=camera, args=(lst,))
     auto_handler = multiprocessing.Process(
+<<<<<<< HEAD
         target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout, last_touch_timeout,last_touch_counter, last_touch_osc_counter, ))
+=======
+        target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout, flash_req,))
+>>>>>>> 36e2bda41cae327976609c2491850b3d258a99c1
     pitch_handler = multiprocessing.Process(
         target=pitch, args=(lst, imu_req, pitch_flag, stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log,))
     # Add 'em to our list
