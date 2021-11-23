@@ -671,6 +671,8 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
     def antiloop(mode):
         backward_count = 0
         steer_count = 0
+        print("Antiloop")
+        print(mode)
         if mode == "IZQ":
             move(-1.0, 0)
             print("Going backwards")
@@ -804,10 +806,12 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                                 last_touch_count +=1
                                 last_touch_osc_count = 0
                                 last_touch_timer = time.perf_counter()
+                                print("Izquierda count: {}".format(last_touch_count))
                             elif last_touch == "DER":
                                 last_touch_osc_count += 1
                                 last_touch_count = 0
                                 last_touch_osc_timer = time.perf_counter()
+                                print("Osci count: {}".format(last_touch_osc_count))
                             last_touch = "IZQ"
                             if last_touch_count >= last_touch_counter.value:
                                 antiloop("IZQ")
@@ -846,10 +850,12 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                                 last_touch_count +=1
                                 last_touch_osc_count = 0
                                 last_touch_timer = time.perf_counter()
+                                print("Derecha count: {}".format(last_touch_count))
                             elif last_touch == "IZQ":
                                 last_touch_osc_count += 1
                                 last_touch_count = 0
                                 last_touch_osc_timer = time.perf_counter()
+                                print("Oscilation count: {}".format(last_touch_osc_count))
                             last_touch = "DER"
                             if last_touch_count >= last_touch_counter.value:
                                 antiloop("DER")
