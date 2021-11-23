@@ -599,11 +599,7 @@ def pitch(man, imu_req, pitch_flag, stuck_flag, cam_req, camera_rate, img_index_
                           temp_out.value, humedad.value, amoniaco.value)
 
 
-<<<<<<< HEAD
 def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout, last_touch_timeout, last_touch_counter, last_touch_osc_counter ):
-=======
-def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout, flash_req ):
->>>>>>> 36e2bda41cae327976609c2491850b3d258a99c1
     was_auto = False
     motor_1_dir = DigitalOutputDevice("BOARD40")
     motor_1_pwm = DigitalOutputDevice("BOARD38")
