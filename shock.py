@@ -814,23 +814,36 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                     elif not (button_middle.is_pressed or button_left.is_pressed or button_right.is_pressed):
                         pass
                     else:
-                        print("Choque randomn")
-                        timer = time.perf_counter()
-                        move(-1.0, 0)
-                        print("Going backwards")
-                        while (backward_count < backwards_counter.value and auto_req.value == True):
-                            time.sleep(1)
-                            backward_count += 1
-                        go_right = random.choice([True, False])
-                        if go_right == True:
-                            move(0, 1.0)
-                            print("Going right")
+                        crash_confirmed = False
+                        crash_timer = time.perf_counter()
+                        if crash_timeout > 0:
+                            while (time.perf_counter() - crash_timer) < crash_timeout:
+                                time.sleep(0.25)
+                                if (button_left.is_presed and button_right.is_pressed):
+                                    crash_confirmed = True
+                                else:
+                                    crash_confirmed = False
+                                    break
                         else:
-                            move(0, -1.0)
-                            print("Going left")
-                        while (steer_count < steer_counter.value and auto_req.value == True):
-                            time.sleep(1)
-                            steer_count += 1
+                            crash_confirmed = True
+                        if crash_confirmed:
+                            print("Choque randomn")
+                            timer = time.perf_counter()
+                            move(-1.0, 0)
+                            print("Going backwards")
+                            while (backward_count < backwards_counter.value and auto_req.value == True):
+                                time.sleep(1)
+                                backward_count += 1
+                            go_right = random.choice([True, False])
+                            if go_right == True:
+                                move(0, 1.0)
+                                print("Going right")
+                            else:
+                                move(0, -1.0)
+                                print("Going left")
+                            while (steer_count < steer_counter.value and auto_req.value == True):
+                                time.sleep(1)
+                                steer_count += 1
                 else:
                     print('No paso nada')
                     timer = time.perf_counter()
