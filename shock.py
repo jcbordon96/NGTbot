@@ -872,7 +872,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                                 while (steer_count < steer_counter.value and auto_req.value == True):
                                     time.sleep(1)
                                     steer_count += 1
-                    elif (button_middle.is_pressed and not (button_left.is_presed or button_right.is_pressed)):
+                    elif (button_middle.is_pressed and not (button_left.is_pressed or button_right.is_pressed)):
                         crash_confirmed = False
                         crash_timer = time.perf_counter()
                         print("Me apretaron de frente")
