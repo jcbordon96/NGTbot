@@ -845,7 +845,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                             crash_confirmed = True
                         if crash_confirmed:
                             timer = time.perf_counter()
-                            print("Me apretaron de derecha")
+                            print("Choque confirmado de derecha")
                             if last_touch == "DER":
                                 last_touch_count +=1
                                 last_touch_osc_count = 0
