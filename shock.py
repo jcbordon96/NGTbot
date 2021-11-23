@@ -684,7 +684,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
             while (steer_count < steer_counter.value and auto_req.value == True):
                 time.sleep(1)
                 steer_count += 1
-            last_touch = "DER"
+
         elif mode == "OSC":
             move(-1.0, 0)
             print("Going backwards")
@@ -717,7 +717,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
             while (steer_count < steer_counter.value and auto_req.value == True):
                 time.sleep(1)
                 steer_count += 1 
-            last_touch = "IZQ"
+            
     while True:
 
         if (auto_req.value == False and was_auto == True):
@@ -817,6 +817,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                             last_touch = "IZQ"
                             if last_touch_count >= last_touch_counter.value:
                                 antiloop("IZQ")
+                                last_touch = "DER"
                             elif last_touch_osc_count >= last_touch_osc_counter.value:
                                 antiloop("OSC")
                             else:
@@ -861,6 +862,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                             last_touch = "DER"
                             if last_touch_count >= last_touch_counter.value:
                                 antiloop("DER")
+                                last_touch = "IZQ"
                             elif last_touch_osc_count >= last_touch_osc_counter.value:
                                 antiloop("OSC")
                             else:
