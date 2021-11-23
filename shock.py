@@ -787,7 +787,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                         crash_confirmed = False
                         crash_timer = time.perf_counter()
                         print("Me apretaron de izquierda")
-                        if crash_timeout > 0:
+                        if crash_timeout.value > 0:
                             while (time.perf_counter() - crash_timer) < crash_timeout:
                                 time.sleep(0.25)
                                 if button_left.is_pressed and not button_right.is_pressed:
@@ -829,7 +829,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                         crash_confirmed = False
                         crash_timer = time.perf_counter()
                         print("Me apretaron de derecha")
-                        if crash_timeout > 0:
+                        if crash_timeout.value > 0:
                             while (time.perf_counter() - crash_timer) < crash_timeout:
                                 time.sleep(0.25)
                                 if button_right.is_pressed and not button_left.is_pressed:
@@ -911,7 +911,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                         print("Toque randomn")
                         crash_confirmed = False
                         crash_timer = time.perf_counter()
-                        if crash_timeout > 0:
+                        if crash_timeout.value > 0:
                             while (time.perf_counter() - crash_timer) < crash_timeout:
                                 time.sleep(0.25)
                                 if (button_left.is_pressed and button_right.is_pressed):
