@@ -671,6 +671,8 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
     def antiloop(mode):
         backward_count = 0
         steer_count = 0
+        print("Antiloop")
+        print(mode)
         if mode == "IZQ":
             move(-1.0, 0)
             print("Going backwards")
@@ -682,6 +684,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
             while (steer_count < steer_counter.value and auto_req.value == True):
                 time.sleep(1)
                 steer_count += 1
+
         elif mode == "OSC":
             move(-1.0, 0)
             print("Going backwards")
@@ -689,9 +692,9 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                 time.sleep(1)
                 backward_count += 1
             if last_touch == "IZQ":
-                go_right = True
-            elif last_touch == "DER":
                 go_right = False
+            elif last_touch == "DER":
+                go_right = True
             else:
                 go_right = random.choice([True, False])
             if go_right == True:
@@ -714,6 +717,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
             while (steer_count < steer_counter.value and auto_req.value == True):
                 time.sleep(1)
                 steer_count += 1 
+            
     while True:
 
         if (auto_req.value == False and was_auto == True):
@@ -751,9 +755,9 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                     flash_enable.off()
                     logwriter("Empece descanso", 10)
                     break
-                if time.perf_counter() - last_touch_timer > last_touch_timeout:
+                if time.perf_counter() - last_touch_timer > last_touch_timeout.value:
                     last_touch_count = 0
-                if time.perf_counter() - last_touch_osc_timer > last_touch_timeout:
+                if time.perf_counter() - last_touch_osc_timer > last_touch_timeout.value:
                     last_touch_osc_count = 0
                 if time.perf_counter() - timer < timer_boring.value:
                     backward_count = 0
@@ -787,8 +791,8 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                         crash_confirmed = False
                         crash_timer = time.perf_counter()
                         print("Me apretaron de izquierda")
-                        if crash_timeout > 0:
-                            while (time.perf_counter() - crash_timer) < crash_timeout:
+                        if crash_timeout.value > 0:
+                            while (time.perf_counter() - crash_timer) < crash_timeout.value:
                                 time.sleep(0.25)
                                 if button_left.is_pressed and not button_right.is_pressed:
                                     crash_confirmed = True
@@ -804,13 +808,16 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                                 last_touch_count +=1
                                 last_touch_osc_count = 0
                                 last_touch_timer = time.perf_counter()
+                                print("Izquierda count: {}".format(last_touch_count))
                             elif last_touch == "DER":
                                 last_touch_osc_count += 1
                                 last_touch_count = 0
                                 last_touch_osc_timer = time.perf_counter()
+                                print("Osci count: {}".format(last_touch_osc_count))
                             last_touch = "IZQ"
                             if last_touch_count >= last_touch_counter.value:
                                 antiloop("IZQ")
+                                last_touch = "DER"
                             elif last_touch_osc_count >= last_touch_osc_counter.value:
                                 antiloop("OSC")
                             else:
@@ -829,8 +836,8 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                         crash_confirmed = False
                         crash_timer = time.perf_counter()
                         print("Me apretaron de derecha")
-                        if crash_timeout > 0:
-                            while (time.perf_counter() - crash_timer) < crash_timeout:
+                        if crash_timeout.value > 0:
+                            while (time.perf_counter() - crash_timer) < crash_timeout.value:
                                 time.sleep(0.25)
                                 if button_right.is_pressed and not button_left.is_pressed:
                                     crash_confirmed = True
@@ -841,18 +848,21 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                             crash_confirmed = True
                         if crash_confirmed:
                             timer = time.perf_counter()
-                            print("Me apretaron de derecha")
+                            print("Choque confirmado de derecha")
                             if last_touch == "DER":
                                 last_touch_count +=1
                                 last_touch_osc_count = 0
                                 last_touch_timer = time.perf_counter()
+                                print("Derecha count: {}".format(last_touch_count))
                             elif last_touch == "IZQ":
                                 last_touch_osc_count += 1
                                 last_touch_count = 0
                                 last_touch_osc_timer = time.perf_counter()
+                                print("Oscilation count: {}".format(last_touch_osc_count))
                             last_touch = "DER"
                             if last_touch_count >= last_touch_counter.value:
                                 antiloop("DER")
+                                last_touch = "IZQ"
                             elif last_touch_osc_count >= last_touch_osc_counter.value:
                                 antiloop("OSC")
                             else:
@@ -866,12 +876,12 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                                 while (steer_count < steer_counter.value and auto_req.value == True):
                                     time.sleep(1)
                                     steer_count += 1
-                    elif (button_middle.is_pressed and not (button_left.is_presed or button_right.is_pressed)):
+                    elif (button_middle.is_pressed and not (button_left.is_pressed or button_right.is_pressed)):
                         crash_confirmed = False
                         crash_timer = time.perf_counter()
                         print("Me apretaron de frente")
-                        if crash_timeout > 0:
-                            while (time.perf_counter() - crash_timer) < crash_timeout:
+                        if crash_timeout.value > 0:
+                            while (time.perf_counter() - crash_timer) < crash_timeout.value:
                                 time.sleep(0.25)
                                 if (button_middle.is_pressed and not (button_left.is_pressed or button_right.is_pressed)):
                                     crash_confirmed = True
@@ -911,8 +921,8 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                         print("Toque randomn")
                         crash_confirmed = False
                         crash_timer = time.perf_counter()
-                        if crash_timeout > 0:
-                            while (time.perf_counter() - crash_timer) < crash_timeout:
+                        if crash_timeout.value > 0:
+                            while (time.perf_counter() - crash_timer) < crash_timeout.value:
                                 time.sleep(0.25)
                                 if (button_left.is_pressed and button_right.is_pressed):
                                     crash_confirmed = True
@@ -1054,7 +1064,7 @@ def main():
     crash_timeout.value = admin["crash_timeout"]
     last_touch_timeout.value = admin["last_touch_timeout"]
     last_touch_counter.value = admin["last_touch_counter"]
-    last_touch_osc_counter.value = admin["last_touch_counter"]
+    last_touch_osc_counter.value = admin["last_touch_osc_counter"]
 
 
     json_state = {"flash": flash_req.value, "auto": auto_req.value,
