@@ -238,12 +238,12 @@ def command(cam_req, camera_rate, auto_req, imu_req, stuck_flag, flash_req, temp
                             os.system("sudo mount /dev/sda1 /media/usb")
                             print("lo monte")
                             if not os.path.exists("/media/usb/backup"):
-                                os.system("mkdir /media/usb/backup ")
-                            os.system("cp -r log /media/usb/backup")
+                                os.system("sudo mkdir /media/usb/backup ")
+                            os.system("sudo cp -r log /media/usb/backup")
                             if not os.path.exists("/media/usb/backup/resources"):
-                                os.system("mkdir /media/usb/backup/resources ")
+                                os.system("sudo mkdir /media/usb/backup/resources ")
                             os.system(
-                                "rsync -aP --ignore-existing resources/ /media/usb/backup/resources")
+                                "sudo rsync -aP --ignore-existing resources/ /media/usb/backup/resources")
                             os.system("sudo umount /media/usb")
                             print("Termine backup")
                             await websocket.send(json.dumps({"type": "save_state", "data": True}))
