@@ -237,7 +237,7 @@ def command(cam_req, camera_rate, auto_req, imu_req, stuck_flag, flash_req, temp
                         if os.path.exists("/dev/sda"):
                             os.system("sudo mount /dev/sda1 /media/usb")
                             print("lo monte")
-                            if not os.path.exists("/media/usb/backup")
+                            if not os.path.exists("/media/usb/backup"):
                                 os.system("mkdir /media/usb/backup ")
                             os.system("cp -r log /media/usb/backup")
                             if not os.path.exists("/media/usb/backup/resources"):
