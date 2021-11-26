@@ -750,6 +750,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                 is_stopped.value = False
                 is_hot.value = False
                 print("Vuelvo a andar")
+                logwriter("Termine descanso", 11)
                 led_enable.on()
                 if flash_req.value == True:
                     flash_enable.on()
