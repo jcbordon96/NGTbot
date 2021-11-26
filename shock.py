@@ -1139,6 +1139,7 @@ if __name__ == '__main__':
     time.sleep(0.5)
     flash_enable.off()
     time.sleep(0.5)
+    led_enable.on()
     if not os.path.exists("log/error.log"):
         with open('log/error.log', 'w') as errlog:
             errlog.write("START ERROR LOG")
