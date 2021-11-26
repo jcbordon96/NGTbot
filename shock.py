@@ -40,6 +40,8 @@ GYRO_YOUT_H = 0x45
 GYRO_ZOUT_H = 0x47
 motors_enable = DigitalOutputDevice("BOARD8", active_high=False)
 flash_enable = DigitalOutputDevice("BOARD32", active_high=True)
+led_ground = DigitalOutputDevice("BOARD12", active_high=True)
+led_enable = DigitalOutputDevice("BOARD10", active_high=True)
 
 
 def last_on():
@@ -235,14 +237,15 @@ def command(cam_req, camera_rate, auto_req, imu_req, stuck_flag, flash_req, temp
                 elif data["action"] == "save_req":
                     try:
                         if os.path.exists("/dev/sda"):
-                            os.system("sudo mount /dev/sda /media/usb")
+                            os.system("sudo mount /dev/sda1 /media/usb")
                             print("lo monte")
-                            os.system("mkdir /media/usb/backup ")
-                            os.system("cp -r log /media/usb/backup")
+                            if not os.path.exists("/media/usb/backup"):
+                                os.system("mkdir /media/usb/backup ")
+                            os.system("sudo cp -r log /media/usb/backup")
                             if not os.path.exists("/media/usb/backup/resources"):
-                                os.system("mkdir /media/usb/backup/resources ")
+                                os.system("mkdir /media/usb/backup/resources")
                             os.system(
-                                "rsync -aP --ignore-existing resources/ /media/usb/backup/resources")
+                                "sudo rsync -aP --ignore-existing resources/ /media/usb/backup/resources")
                             os.system("sudo umount /media/usb")
                             print("Termine backup")
                             await websocket.send(json.dumps({"type": "save_state", "data": True}))
@@ -619,6 +622,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
     last_touch_count = 0
     last_touch_osc_count = 0
     last_touch_osc_timer = time.perf_counter()
+    led_on = True
     
     
 
@@ -719,6 +723,13 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                 steer_count += 1 
             
     while True:
+        if is_rest:
+            if led_on:
+                led_enable.off()
+                led_on = False
+            else:
+                led_enable.on()
+                led_on = True
 
         if (auto_req.value == False and was_auto == True):
             move(0, 0)
@@ -739,6 +750,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                 is_stopped.value = False
                 is_hot.value = False
                 print("Vuelvo a andar")
+                led_enable.on()
                 if flash_req.value == True:
                     flash_enable.on()
             was_auto = True
@@ -1093,7 +1105,13 @@ def main():
 
 
 if __name__ == '__main__':
-    time.sleep(20)
+    start_time = time.perf_counter()
+    led_ground.off()
+    while time.perf_counter()-start_time < 20:
+        led_enable.on()
+        time.sleep(0.5)
+        led_enable.off()
+        time.sleep(0.5)
     print(bcolors.OKGREEN + "CHICKENBOT 1.0 APPELIE ROBOTICS - 2021" + bcolors.ENDC)
     flash_enable.off()
     if not os.path.exists("log/log.csv"):
@@ -1121,6 +1139,7 @@ if __name__ == '__main__':
     time.sleep(0.5)
     flash_enable.off()
     time.sleep(0.5)
+    led_enable.on()
     if not os.path.exists("log/error.log"):
         with open('log/error.log', 'w') as errlog:
             errlog.write("START ERROR LOG")
@@ -1152,5 +1171,6 @@ if __name__ == '__main__':
         motor_2_pwm = DigitalOutputDevice("BOARD35")
         motor_1_pwm.off()
         motor_2_pwm.off()
+        led_enable.off()
         for p in PROCESSES:
             p.terminate()
