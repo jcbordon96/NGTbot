@@ -475,6 +475,8 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                             # logwriter("Cam Destuck", 15)
                             log_cam_stuck = True
                         cam_stuck_flag.value = False
+                else:
+                    cam_stuck_flag.value = False
 
                 image_to_compare0 = f
                 compare_timer = time.perf_counter()
