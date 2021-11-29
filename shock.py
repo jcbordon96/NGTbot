@@ -1144,7 +1144,7 @@ if __name__ == '__main__':
                 "sudo rsync -aP --ignore-existing resources/ /media/usb/backup/resources")
             os.system("sudo umount /media/usb")
             print("Termine backup")
-            while os.path.exists("/dev/sda"):
+            while True:
                 led_enable.on()
                 time.sleep(0.2)
                 led_enable.off()
