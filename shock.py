@@ -126,7 +126,7 @@ STATE = {"value": 0}
 USERS = set()
 
 
-def command(cam_req, camera_rate, auto_req, imu_req, stuck_flag, flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, timer_rest, timer_wake, steer_counter, backwards_counter, timer_boring, crash_timeout):
+def command(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_flag,  flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, timer_rest, timer_wake, steer_counter, backwards_counter, timer_boring, crash_timeout):
 
     motor_1_dir = DigitalOutputDevice("BOARD40")
     motor_1_pwm = DigitalOutputDevice("BOARD38")
