@@ -744,6 +744,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                 logwriter("Empece a andar autonomo", 2)
                 print("first auto")
                 first_auto = False
+                is_stopped.value = False
             if is_rest and (time.perf_counter()-last_time_on > timer_rest.value):
                 is_rest = False
                 last_time_rest = time.perf_counter()
