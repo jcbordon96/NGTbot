@@ -129,9 +129,9 @@ USERS = set()
 def command(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_flag,  flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, timer_rest, timer_wake, steer_counter, backwards_counter, timer_boring, crash_timeout):
 
     motor_1_dir = DigitalOutputDevice("BOARD40")
-    motor_1_pwm = DigitalOutputDevice("BOARD38")
+    # motor_1_pwm = DigitalOutputDevice("BOARD38")
     motor_2_dir = DigitalOutputDevice("BOARD37")
-    motor_2_pwm = DigitalOutputDevice("BOARD35")
+    # motor_2_pwm = DigitalOutputDevice("BOARD35")
     print("COMMAND INIT")
 
     def state_event():
@@ -607,9 +607,9 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
 def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout, last_touch_timeout, last_touch_counter, last_touch_osc_counter, flash_req ):
     was_auto = False
     motor_1_dir = DigitalOutputDevice("BOARD40")
-    motor_1_pwm = DigitalOutputDevice("BOARD38")
+    # motor_1_pwm = DigitalOutputDevice("BOARD38")
     motor_2_dir = DigitalOutputDevice("BOARD37")
-    motor_2_pwm = DigitalOutputDevice("BOARD35")
+    # motor_2_pwm = DigitalOutputDevice("BOARD35")
     button_left = Button("BOARD15")
     button_middle = Button("BOARD13")
     button_right = Button("BOARD11")
@@ -1124,8 +1124,35 @@ def main():
 
 
 if __name__ == '__main__':
+    motor_1_pwm = DigitalOutputDevice("BOARD38")
+    motor_2_pwm = DigitalOutputDevice("BOARD35")
     start_time = time.perf_counter()
     led_ground.off()
+    motor_1_pwm.off()
+    motor_2_pwm.off()
+    try:
+        if os.path.exists("/dev/sda"):
+            led_enable.on()
+            os.system("sudo mount /dev/sda1 /media/usb")
+            print("lo monte")
+            if not os.path.exists("/media/usb/backup"):
+                os.system("mkdir /media/usb/backup ")
+            os.system("sudo cp -r log /media/usb/backup")
+            if not os.path.exists("/media/usb/backup/resources"):
+                os.system("mkdir /media/usb/backup/resources")
+            os.system(
+                "sudo rsync -aP --ignore-existing resources/ /media/usb/backup/resources")
+            os.system("sudo umount /media/usb")
+            print("Termine backup")
+            while os.path.exists("/dev/sda"):
+                led_enable.on()
+                time.sleep(0.2)
+                led_enable.off()
+                time.sleep(0.2)
+        else:
+            pass
+    except:
+        pass
     while time.perf_counter()-start_time < 20:
         led_enable.on()
         time.sleep(0.5)
