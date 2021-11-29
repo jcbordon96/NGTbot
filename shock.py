@@ -167,7 +167,7 @@ def command(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_f
 
             async for message in websocket:
                 data = json.loads(message)
-                print(data)
+                # print(data)
                 if data["action"] == "move":
                     x = data["x"]
                     z = data["z"]
@@ -229,7 +229,7 @@ def command(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_f
                 elif data["action"] == "temp_req":
                     state_string = ""
                     state_string = str(temp_cpu.value) + "°C/" + str(temp_clock.value) + "°C/" + str(temp_out.value) + "°C/" + str(humedad.value) + "%HR/" + str(amoniaco.value) + "ppm"
-                    print(state_string)
+                    # print(state_string)
  
                     await websocket.send(json.dumps({"type": "temp", "data": state_string}))
 
