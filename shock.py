@@ -326,7 +326,7 @@ def command(cam_req, camera_rate, auto_req, imu_req, stuck_flag, flash_req, temp
     asyncio.get_event_loop().run_forever()
 
 
-def pitch(man, imu_req, pitch_flag, stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log):
+def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log):
     
     counter = 0
     GAIN = 1
@@ -468,13 +468,13 @@ def pitch(man, imu_req, pitch_flag, stuck_flag, cam_req, camera_rate, img_index_
                                 "IMU": imu_count, "Cam": cam_count}
                             with open('stuck_count.json', 'w') as outfile:
                                 json.dump(json_stuck_line, outfile)
-                        stuck_flag.value = True
+                        cam_stuck_flag.value = True
                     else:
                         if not log_cam_stuck:
                             print("destuck")
                             # logwriter("Cam Destuck", 15)
                             log_cam_stuck = True
-                        stuck_flag.value = False
+                        cam_stuck_flag.value = False
 
                 image_to_compare0 = f
                 compare_timer = time.perf_counter()
@@ -527,7 +527,7 @@ def pitch(man, imu_req, pitch_flag, stuck_flag, cam_req, camera_rate, img_index_
                             counter += 1
                         else:
                             counter = 0
-                            stuck_flag.value = False
+                            imu_stuck_flag.value = False
                             if log_imu_stuck == False:
                                 # logwriter("IMU Destuck", 17)
                                 pass
@@ -544,7 +544,7 @@ def pitch(man, imu_req, pitch_flag, stuck_flag, cam_req, camera_rate, img_index_
                                 with open('stuck_count.json', 'w') as outfile:
                                     json.dump(json_stuck_line, outfile)
 
-                            stuck_flag.value = True
+                            imu_stuck_flag.value = True
                     except Exception as ex:
                         errorwriter(ex, "El IMU no pudo tomar lectura")
                         print("Ups! El IMU no pudo tomar lectura")
@@ -602,7 +602,7 @@ def pitch(man, imu_req, pitch_flag, stuck_flag, cam_req, camera_rate, img_index_
                           temp_out.value, humedad.value, amoniaco.value)
 
 
-def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout, last_touch_timeout, last_touch_counter, last_touch_osc_counter, flash_req ):
+def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout, last_touch_timeout, last_touch_counter, last_touch_osc_counter, flash_req ):
     was_auto = False
     motor_1_dir = DigitalOutputDevice("BOARD40")
     motor_1_pwm = DigitalOutputDevice("BOARD38")
@@ -776,12 +776,14 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, ti
                     backward_count = 0
                     steer_count = 0
 
-                    if stuck_flag.value == True:
+                    if cam_stuck_flag.value == True or imu_stuck_flag == True:
                         move(-1.0, 0)
                         print("Retrocediendo para desencajarme")
-                        while stuck_flag.value == True:
+                        while cam_stuck_flag.value == True or imu_stuck_flag == True:
                             time.sleep(1)
-                        time.sleep(1)
+                        while (backward_count < backwards_counter.value and auto_req.value == True):
+                            time.sleep(1)
+                            backward_count += 1
                         go_right = random.choice([True, False])
                         if go_right == True:
                             move(0, -1.0)
@@ -1035,7 +1037,8 @@ def main():
     imu_req = multiprocessing.Value('b', False)
     pitch_flag = multiprocessing.Value('i', 0)
     pitch_counter = multiprocessing.Value('i', 0)
-    stuck_flag = multiprocessing.Value('b', False)
+    cam_stuck_flag = multiprocessing.Value('b', False)
+    imu_stuck_flag = multiprocessing.Value('b', False)
     taking_pics = multiprocessing.Value('b', False)
     is_stopped = multiprocessing.Value('b', True)
     is_hot = multiprocessing.Value('b', False)
@@ -1051,7 +1054,7 @@ def main():
     timer_wake = multiprocessing.Value('i', 0)
     steer_counter = multiprocessing.Value('i', 0)
     backwards_counter = multiprocessing.Value('i', 0)
-    crash_timeout = multiprocessing.Value('i', 0)
+    crash_timeout = multiprocessing.Value('d', 0)
     last_touch_timeout = multiprocessing.Value('i', 0)
     last_touch_counter = multiprocessing.Value('i', 0)
     last_touch_osc_counter = multiprocessing.Value('i', 0)
@@ -1074,10 +1077,22 @@ def main():
     timer_wake.value = admin["timer_wake"]
     steer_counter.value = admin["steer_counter"]
     backwards_counter.value = admin["backwards_counter"]
-    crash_timeout.value = admin["crash_timeout"]
+    date_crash_timeout = admin["date_crash_timeout"]
+    crash_timeout_before = admin["crash_timeout_before"]
+    crash_timeout_after = admin["crash_timeout_after"]
     last_touch_timeout.value = admin["last_touch_timeout"]
     last_touch_counter.value = admin["last_touch_counter"]
     last_touch_osc_counter.value = admin["last_touch_osc_counter"]
+    today = datetime.now()
+    date_int = today.year*10000+today.month*100+today.day
+    if date_int >= date_crash_timeout:
+        crash_timeout.value = crash_timeout_after
+        print("SENSIBILIDAD BAJA")
+        logwriter("Sensibilidad baja", 15)
+    else:
+        print("SENSIBILIDAD ALTA")
+        crash_timeout.value = crash_timeout_before
+        logwriter("Sensibilidad alta", 15)
 
 
     json_state = {"flash": flash_req.value, "auto": auto_req.value,
@@ -1086,14 +1101,14 @@ def main():
         json.dump(json_state, outfile)
     # Set up our websocket handler
     command_handler = multiprocessing.Process(
-        target=command, args=(cam_req, camera_rate, auto_req, imu_req, stuck_flag, flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, timer_rest, timer_wake, steer_counter, backwards_counter, timer_boring, crash_timeout,))
+        target=command, args=(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_flag, flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, timer_rest, timer_wake, steer_counter, backwards_counter, timer_boring, crash_timeout,))
     # Set up our camera
     camera_handler = multiprocessing.Process(
         target=camera, args=(lst,))
     auto_handler = multiprocessing.Process(
-        target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout, last_touch_timeout,last_touch_counter, last_touch_osc_counter, flash_req ))
+        target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout, last_touch_timeout,last_touch_counter, last_touch_osc_counter, flash_req ))
     pitch_handler = multiprocessing.Process(
-        target=pitch, args=(lst, imu_req, pitch_flag, stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log,))
+        target=pitch, args=(lst, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log,))
     # Add 'em to our list
     PROCESSES.append(camera_handler)
     PROCESSES.append(command_handler)
