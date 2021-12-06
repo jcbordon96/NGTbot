@@ -562,7 +562,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                                 if feature.label == "temp1":
                                     print("el nombre del chip es:")
                                     print(chip.adapter_name)
-                                    if chip.adapter_name == "bcm2835 (i2c@7e804000)":
+                                    if chip.adapter_name == "bcm2835 (i2c@7e804000)" or chip.adapter_name == "i2c-gpio-rtc@0":
                                         temp_clock.value = round(feature.get_value(), 1)
                                     if chip.adapter_name == "Virtual device":
                                         temp_cpu.value = round(feature.get_value(), 1)
