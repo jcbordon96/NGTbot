@@ -438,170 +438,174 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
     cam_count = 0
     imu_count = 0
     while True:
-        for frame in camera.capture_continuous(raw_capture, format="bgr", use_video_port=True):
-            f = frame.array
+        try:
+            for frame in camera.capture_continuous(raw_capture, format="bgr", use_video_port=True):
+                f = frame.array
 
-            cv2.waitKey(1)
-            # cv2.imshow('frame', f)
-            f = cv2.resize(f, (640, 480))
-            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 65]
-            # The function imencode compresses the image and stores it in the memory buffer that is resized to fit
+                cv2.waitKey(1)
+                # cv2.imshow('frame', f)
+                f = cv2.resize(f, (640, 480))
+                encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 65]
+                # The function imencode compresses the image and stores it in the memory buffer that is resized to fit
 
-            man[0] = cv2.imencode('.jpg', f, encode_param)[1]
-            if first:
-                image_to_compare0 = f
-                first = False
-                compare_timer = time.perf_counter()
-            if time.perf_counter() - compare_timer > timer_stuck_pic.value:
-                img0 = to_grayscale(image_to_compare0.astype(float))
-                img1 = to_grayscale(f.astype(float))
-                n_m = compare_images(img0, img1)
-                # print("Manhattan norm per pixel:", n_m/img0.size)
-                if not is_stopped.value:
-                    if ((n_m/img0.size) < 10) or math.isnan(n_m):
-                        print("Estoy trabado!!! Dos fotos iguales")
-                        if log_cam_stuck:
-                            # logwriter("Cam Stuck", 14)
-                            log_cam_stuck = False
-                            cam_count += 1
-                            json_stuck_line = {
-                                "IMU": imu_count, "Cam": cam_count}
-                            with open('stuck_count.json', 'w') as outfile:
-                                json.dump(json_stuck_line, outfile)
-                        cam_stuck_flag.value = True
-                    else:
-                        if not log_cam_stuck:
-                            print("destuck")
-                            # logwriter("Cam Destuck", 15)
-                            log_cam_stuck = True
-                        cam_stuck_flag.value = False
-                else:
-                    cam_stuck_flag.value = False
-
-                image_to_compare0 = f
-                compare_timer = time.perf_counter()
-            if (cam_req.value == True and was_taking == False):
-                img_index_num.value = img_index_num.value + 1
-                json_string = {"num": int(img_index_num.value)}
-                with open('counter.json', 'w') as outfile:
-                    json.dump(json_string, outfile)
-                img_counter = 0
-                logwriter("Empece a sacar fotos", 3)
-                log_cam = True
-            if cam_req.value == True:
-                was_taking = True
-                if time.perf_counter() - last_pic > camera_rate.value:
-                    taking_pics.value = True
-                    if is_stopped.value == True:
-                        now = datetime.now()
-                        d1 = now.strftime("%Y%m%d_%H%M%S")
-                        img_name = "resources/{}_{}_{}.png".format(d1,
-                                                                   img_index_num.value, img_counter)
-                        camera.capture(img_name)
-                        last_pic = time.perf_counter()
-                        img_counter += 1
-                        taking_pics.value = False
-                        print("Just take a pic")
-            else:
-                was_taking = False
-                if log_cam:
-                    logwriter("Termine de sacar fotos", 4)
-                    log_cam = False
-            raw_capture.truncate(0)
-            if imu_req.value == True and imu_ok == True:
-                if time.perf_counter()-last_imu > 0.5:
-                    try:
-                        last_imu = time.perf_counter()
-                        acc_x = read_raw_data(ACCEL_XOUT_H)
-                        acc_y = read_raw_data(ACCEL_YOUT_H)
-                        acc_z = read_raw_data(ACCEL_ZOUT_H)
-
-                        # Full scale range +/- 250 degree/C as per sensitivity scale factor
-                        Ax = acc_x/16384.0
-                        Ay = acc_y/16384.0
-                        Az = acc_z/16384.0
-                        
-
-                        pitch = math.atan2(Ay,  Az) * 57.3
-                        # print(
-                        #     "AX: {0:2.2f} / AY: {1:2.2f} / AZ: {2:2.2f}".format(Ax, Ay, Az))
-                        if pitch > pitch_flag.value:
-                            counter += 1
-                        else:
-                            counter = 0
-                            imu_stuck_flag.value = False
-                            if log_imu_stuck == False:
-                                # logwriter("IMU Destuck", 17)
-                                pass
-                            log_imu_stuck = True
-                        if counter > pitch_counter.value:
-                            print(
-                                "Estoy trabado!!! Detecte inclinacion mayor a la safe")
-                            if log_imu_stuck:
-                                # logwriter("IMU Stuck", 16)
-                                log_imu_stuck = False
-                                imu_count += 1
+                man[0] = cv2.imencode('.jpg', f, encode_param)[1]
+                if first:
+                    image_to_compare0 = f
+                    first = False
+                    compare_timer = time.perf_counter()
+                if time.perf_counter() - compare_timer > timer_stuck_pic.value:
+                    img0 = to_grayscale(image_to_compare0.astype(float))
+                    img1 = to_grayscale(f.astype(float))
+                    n_m = compare_images(img0, img1)
+                    # print("Manhattan norm per pixel:", n_m/img0.size)
+                    if not is_stopped.value:
+                        if ((n_m/img0.size) < 10) or math.isnan(n_m):
+                            print("Estoy trabado!!! Dos fotos iguales")
+                            if log_cam_stuck:
+                                # logwriter("Cam Stuck", 14)
+                                log_cam_stuck = False
+                                cam_count += 1
                                 json_stuck_line = {
                                     "IMU": imu_count, "Cam": cam_count}
                                 with open('stuck_count.json', 'w') as outfile:
                                     json.dump(json_stuck_line, outfile)
+                            cam_stuck_flag.value = True
+                        else:
+                            if not log_cam_stuck:
+                                print("destuck")
+                                # logwriter("Cam Destuck", 15)
+                                log_cam_stuck = True
+                            cam_stuck_flag.value = False
+                    else:
+                        cam_stuck_flag.value = False
 
-                            imu_stuck_flag.value = True
-                    except Exception as ex:
-                        errorwriter(ex, "El IMU no pudo tomar lectura")
-                        print("Ups! El IMU no pudo tomar lectura")
-                        
-            if time.perf_counter() - temp_timer > timer_temp.value:
-                temp_timer = time.perf_counter()
-                last_on()
-                sensors.init()
-                try:
-                    for chip in sensors.iter_detected_chips():
-                        for feature in chip:
-                            if feature.label == "temp1":
-                                print("el nombre del chip es:")
-                                print(chip.adapter_name)
-                                if chip.adapter_name == "bcm2835 (i2c@7e804000)":
-                                    temp_clock.value = round(feature.get_value(), 1)
-                                if chip.adapter_name == "Virtual device":
-                                    temp_cpu.value = round(feature.get_value(), 1)
-                finally:
-                    if (temp_cpu.value > 80 or temp_clock.value > 80) and not is_hot.value:
-                        is_hot.value = True
-                        logwriter("Alta temperatura", 9, temp_cpu.value, temp_clock.value)
-                    sensors.cleanup()
-            if time.perf_counter() - state_timer > timer_log.value:
-
-                state_timer = time.perf_counter()
-                if adc_ok:
-                    try:
-                        value_adc = adc.read_adc(0, gain=GAIN)
-                        volt = (value_adc/32768)*4.096
-                        RS = ((3.3/volt)-1)*47
-                        ro = 196.086
-                        ratio = RS/ro
-                        amoniaco.value = round(pow((math.log(ratio, 10)-0.323)/(-0.243), 10),2)
-                    except Exception as ex:
-                        print(ex)
-                        errorwriter(ex, "No se pudo tomar medicion de amoniaco")
-                        print("Algo salio mal con el sensor de amoniaco")
-                        pass
-                if dht_init:
-                    dht_fail_counter = 0
-                    while not dht_ok:
-                        dht_ok = True
+                    image_to_compare0 = f
+                    compare_timer = time.perf_counter()
+                if (cam_req.value == True and was_taking == False):
+                    img_index_num.value = img_index_num.value + 1
+                    json_string = {"num": int(img_index_num.value)}
+                    with open('counter.json', 'w') as outfile:
+                        json.dump(json_string, outfile)
+                    img_counter = 0
+                    logwriter("Empece a sacar fotos", 3)
+                    log_cam = True
+                if cam_req.value == True:
+                    was_taking = True
+                    if time.perf_counter() - last_pic > camera_rate.value:
+                        taking_pics.value = True
+                        if is_stopped.value == True:
+                            now = datetime.now()
+                            d1 = now.strftime("%Y%m%d_%H%M%S")
+                            img_name = "resources/{}_{}_{}.png".format(d1,
+                                                                    img_index_num.value, img_counter)
+                            camera.capture(img_name)
+                            last_pic = time.perf_counter()
+                            img_counter += 1
+                            taking_pics.value = False
+                            print("Just take a pic")
+                else:
+                    was_taking = False
+                    if log_cam:
+                        logwriter("Termine de sacar fotos", 4)
+                        log_cam = False
+                raw_capture.truncate(0)
+                if imu_req.value == True and imu_ok == True:
+                    if time.perf_counter()-last_imu > 0.5:
                         try:
-                            temp_out.value = dhtDevice.temperature
-                            humedad.value = dhtDevice.humidity
-                        except:
-                            dht_ok = False
-                            dht_fail_counter =+ 1
-                        if dht_fail_counter > 20:
-                            print("No pude sacar medicion del DHT")
-                            errorwriter("DHT", "No se pudo tomar medicion de Humedad y Temperatura")
-                            break
-                logwriter("Estado", 14, temp_cpu.value, temp_clock.value,
-                          temp_out.value, humedad.value, amoniaco.value)
+                            last_imu = time.perf_counter()
+                            acc_x = read_raw_data(ACCEL_XOUT_H)
+                            acc_y = read_raw_data(ACCEL_YOUT_H)
+                            acc_z = read_raw_data(ACCEL_ZOUT_H)
+
+                            # Full scale range +/- 250 degree/C as per sensitivity scale factor
+                            Ax = acc_x/16384.0
+                            Ay = acc_y/16384.0
+                            Az = acc_z/16384.0
+                            
+
+                            pitch = math.atan2(Ay,  Az) * 57.3
+                            # print(
+                            #     "AX: {0:2.2f} / AY: {1:2.2f} / AZ: {2:2.2f}".format(Ax, Ay, Az))
+                            if pitch > pitch_flag.value:
+                                counter += 1
+                            else:
+                                counter = 0
+                                imu_stuck_flag.value = False
+                                if log_imu_stuck == False:
+                                    # logwriter("IMU Destuck", 17)
+                                    pass
+                                log_imu_stuck = True
+                            if counter > pitch_counter.value:
+                                print(
+                                    "Estoy trabado!!! Detecte inclinacion mayor a la safe")
+                                if log_imu_stuck:
+                                    # logwriter("IMU Stuck", 16)
+                                    log_imu_stuck = False
+                                    imu_count += 1
+                                    json_stuck_line = {
+                                        "IMU": imu_count, "Cam": cam_count}
+                                    with open('stuck_count.json', 'w') as outfile:
+                                        json.dump(json_stuck_line, outfile)
+
+                                imu_stuck_flag.value = True
+                        except Exception as ex:
+                            errorwriter(ex, "El IMU no pudo tomar lectura")
+                            print("Ups! El IMU no pudo tomar lectura")
+                            
+                if time.perf_counter() - temp_timer > timer_temp.value:
+                    temp_timer = time.perf_counter()
+                    last_on()
+                    sensors.init()
+                    try:
+                        for chip in sensors.iter_detected_chips():
+                            for feature in chip:
+                                if feature.label == "temp1":
+                                    print("el nombre del chip es:")
+                                    print(chip.adapter_name)
+                                    if chip.adapter_name == "bcm2835 (i2c@7e804000)":
+                                        temp_clock.value = round(feature.get_value(), 1)
+                                    if chip.adapter_name == "Virtual device":
+                                        temp_cpu.value = round(feature.get_value(), 1)
+                    finally:
+                        if (temp_cpu.value > 80 or temp_clock.value > 80) and not is_hot.value:
+                            is_hot.value = True
+                            logwriter("Alta temperatura", 9, temp_cpu.value, temp_clock.value)
+                        sensors.cleanup()
+                if time.perf_counter() - state_timer > timer_log.value:
+
+                    state_timer = time.perf_counter()
+                    if adc_ok:
+                        try:
+                            value_adc = adc.read_adc(0, gain=GAIN)
+                            volt = (value_adc/32768)*4.096
+                            RS = ((3.3/volt)-1)*47
+                            ro = 196.086
+                            ratio = RS/ro
+                            amoniaco.value = round(pow((math.log(ratio, 10)-0.323)/(-0.243), 10),2)
+                        except Exception as ex:
+                            print(ex)
+                            errorwriter(ex, "No se pudo tomar medicion de amoniaco")
+                            print("Algo salio mal con el sensor de amoniaco")
+                            pass
+                    if dht_init:
+                        dht_fail_counter = 0
+                        while not dht_ok:
+                            dht_ok = True
+                            try:
+                                temp_out.value = dhtDevice.temperature
+                                humedad.value = dhtDevice.humidity
+                            except:
+                                dht_ok = False
+                                dht_fail_counter =+ 1
+                            if dht_fail_counter > 20:
+                                print("No pude sacar medicion del DHT")
+                                errorwriter("DHT", "No se pudo tomar medicion de Humedad y Temperatura")
+                                break
+                    logwriter("Estado", 14, temp_cpu.value, temp_clock.value,
+                            temp_out.value, humedad.value, amoniaco.value)
+        except:
+            errorwriter("Camara", "Fallo timeout")
+
 
 
 def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout, last_touch_timeout, last_touch_counter, last_touch_osc_counter, flash_req ):
