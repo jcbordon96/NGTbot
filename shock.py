@@ -54,7 +54,7 @@ def last_on():
         json.dump(json_last, outfile)
 
 def errorwriter(error, comentario = ""):
-    error_date = datetime.now()
+    error_date = str(datetime.now())
     err = str(error)
     errlog = error_date + " Error: "+ err + " Comentario: "+ comentario
     with open("log/error.log",'a', newline='') as logerror:
@@ -425,18 +425,19 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
     camera.framerate = 32
     raw_capture = PiRGBArray(camera, size=(640, 480))
 
-    last_pic = time.perf_counter()
-    last_imu = time.perf_counter()
+    last_pic = 0
+    last_imu = 0
     was_taking = False
     first = True
     log_imu_stuck = True
     log_cam_stuck = True
     log_cam = False
-    temp_timer = time.perf_counter()
-    state_timer = time.perf_counter()
+    temp_timer = 0
+    state_timer = 0
     is_hot.value = False
     cam_count = 0
     imu_count = 0
+    is_tails = False
     while True:
         try:
             for frame in camera.capture_continuous(raw_capture, format="bgr", use_video_port=True):
@@ -564,6 +565,8 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                                     print(chip.adapter_name)
                                     if chip.adapter_name == "bcm2835 (i2c@7e804000)" or chip.adapter_name == "i2c-gpio-rtc@0":
                                         temp_clock.value = round(feature.get_value(), 1)
+                                        if chip.adapter_name == "i2c-gpio-rtc@0":
+                                            is_tails = True
                                     if chip.adapter_name == "Virtual device":
                                         temp_cpu.value = round(feature.get_value(), 1)
                     finally:
@@ -579,7 +582,10 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                             value_adc = adc.read_adc(0, gain=GAIN)
                             volt = (value_adc/32768)*4.096
                             RS = ((3.3/volt)-1)*47
-                            ro = 196.086
+                            if is_tails:
+                                ro = 196.086
+                            else:
+                                ro = 260.5
                             ratio = RS/ro
                             amoniaco.value = round(pow((math.log(ratio, 10)-0.323)/(-0.243), 10),2)
                         except Exception as ex:
