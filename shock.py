@@ -583,7 +583,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                             volt = (value_adc/32768)*4.096
                             RS = ((3.3/volt)-1)*47
                             if is_tails:
-                                ro = 196.086
+                                ro = 326.52
                             else:
                                 ro = 260.5
                             ratio = RS/ro
