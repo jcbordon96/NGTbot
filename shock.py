@@ -783,7 +783,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                     backward_count = 0
                     steer_count = 0
 
-                    if cam_stuck_flag.value == True or imu_stuck_flag == True:
+                    if cam_stuck_flag.value == True or imu_stuck_flag.value == True:
                         move(-1.0, 0)
                         print("Retrocediendo para desencajarme")
                         while ((cam_stuck_flag.value == True or imu_stuck_flag == True) and auto_req.value == True):
