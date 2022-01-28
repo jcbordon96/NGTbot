@@ -460,7 +460,6 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                     n_m = compare_images(img0, img1)
                     # print("Manhattan norm per pixel:", n_m/img0.size)
                     if not is_stopped.value:
-<<<<<<< HEAD
                         if not math.isnan(n_m):
                             if ((n_m/img0.size) < pic_sensibility.value):
                                 print("Estoy trabado!!! Dos fotos iguales")
@@ -479,25 +478,6 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                                     # logwriter("Cam Destuck", 15)
                                     log_cam_stuck = True
                                 cam_stuck_flag.value = False
-=======
-                        if ((n_m/img0.size) < 10) or math.isnan(n_m):
-                            print("Estoy trabado!!! Dos fotos iguales")
-                            if log_cam_stuck:
-                                # logwriter("Cam Stuck", 14)
-                                log_cam_stuck = False
-                                cam_count += 1
-                                json_stuck_line = {
-                                    "IMU": imu_count, "Cam": cam_count}
-                                with open('stuck_count.json', 'w') as outfile:
-                                    json.dump(json_stuck_line, outfile)
-                            cam_stuck_flag.value = True
-                        else:
-                            if not log_cam_stuck:
-                                print("destuck")
-                                # logwriter("Cam Destuck", 15)
-                                log_cam_stuck = True
-                            cam_stuck_flag.value = False
->>>>>>> c37b8ae1fba4c0a52104d5e9298b143f27ea655a
                     else:
                         cam_stuck_flag.value = False
 
