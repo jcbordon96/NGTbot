@@ -188,6 +188,8 @@ def command(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_f
                             state = json.load(json_file)
                         with open('/var/www/html/config.json', 'w') as outfile:
                             json.dump(state, outfile)
+                        with open('/var/www/html/backup_config.json', 'w') as outfile:
+                            json.dump(state, outfile)
                     # auto(auto_req)
                     pass
                 elif data["action"] == "auto":
@@ -412,12 +414,16 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
         errorwriter(ex, "Error al iniciar el IMU")
         print("El IMU no pudo iniciar")
 
-    if  not os.path.exists('counter.json'):
+    try:
+        with open('counter.json') as json_file:
+            img_index = json.load(json_file)
+    except:
         json_string = {"num": 0}
         with open('counter.json', 'w') as outfile:
             json.dump(json_string, outfile)
-    with open('counter.json') as json_file:
-        img_index = json.load(json_file)
+        with open('counter.json') as json_file:
+            img_index = json.load(json_file)
+
     img_index_num.value = img_index["num"]
     print("CAMERA INIT")
     camera = PiCamera()
@@ -611,7 +617,8 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                     logwriter("Estado", 14, temp_cpu.value, temp_clock.value,
                             temp_out.value, humedad.value, amoniaco.value)
         except:
-            errorwriter("Camara", "Fallo timeout")
+            # errorwriter("Camara", "Fallo timeout")
+            pass
 
 
 
@@ -1537,7 +1544,7 @@ if __name__ == '__main__':
         time.sleep(0.5)
         led_enable.off()
         time.sleep(0.5)
-    print(bcolors.OKGREEN + "CHICKENBOT 1.0 APPELIE ROBOTICS - 2021" + bcolors.ENDC)
+    print(bcolors.OKGREEN + "CHICKENBOT 2.0 APPELIE ROBOTICS - 2022" + bcolors.ENDC)
     flash_enable.off()
     if not os.path.exists("log/log.csv"):
         print("No existe el logfile")
@@ -1546,10 +1553,26 @@ if __name__ == '__main__':
         with open('log/log.csv', 'w') as logfile:
             wr = csv.writer(logfile)
             wr.writerow(header)
-    with open('/var/www/html/config.json') as json_file:
-        config = json.load(json_file)
-    with open('/var/www/html/admin.json') as admin_file:
-        admin = json.load(admin_file)
+    try:
+        with open('/var/www/html/config.json') as json_file:
+            config = json.load(json_file)
+        with open('/var/www/html/backup_config.json', 'w') as outfile:
+            json.dump(config, outfile)
+    except:
+        with open('/var/www/html/backup_config.json') as json_file:
+            config = json.load(json_file)
+        with open('/var/www/html/config.json', 'w') as outfile:
+            json.dump(config, outfile)
+    try:
+        with open('/var/www/html/admin.json') as admin_file:
+            admin = json.load(admin_file)
+        with open('/var/www/html/backup_admin.json', 'w') as outfile:
+            json.dump(admin, outfile)
+    except:
+        with open('/var/www/html/backup_admin.json') as admin_file:
+            admin = json.load(admin_file)
+        with open('/var/www/html/admin.json', 'w') as outfile:
+            json.dump(admin, outfile)
     print(config)
     print(admin)
     flash_enable.on()
@@ -1576,21 +1599,26 @@ if __name__ == '__main__':
         with open('stuck_count.json') as json_stuck:
             last_stuck = json.load(json_stuck)
     except:
-        json_stuck_line = {"IMU": 0, "Cam": 0}
+        json_stuck_line = {"IMU": -1, "Cam": -1}
         with open('stuck_count.json', 'w') as outfile:
             json.dump(json_stuck_line, outfile)
-    if not os.path.exists("last_on.json"):
-        last_on()
-    else:
+    try:
         with open('last_on.json') as json_on:
             last_watch = json.load(json_on)
-        with open('stuck_count.json') as json_stuck:
-            last_stuck = json.load(json_stuck)
-        start_log = "Me apague, atascos detectados por imu: " + \
-            str(last_stuck["IMU"]) + \
-            ", detectados por camara: " + str(last_stuck["Cam"])
-        logwriter(start_log, 15, watch_dog=True,
-                  last_date=last_watch["Fecha"], last_hour=last_watch["Hora"], last_name=last_watch["Name"])
+    except:
+        last_on()
+        with open('last_on.json') as json_on:
+            last_watch = json.load(json_on)
+    
+    with open('last_on.json') as json_on:
+        last_watch = json.load(json_on)
+    with open('stuck_count.json') as json_stuck:
+        last_stuck = json.load(json_stuck)
+    start_log = "Me apague, atascos detectados por imu: " + \
+        str(last_stuck["IMU"]) + \
+        ", detectados por camara: " + str(last_stuck["Cam"])
+    logwriter(start_log, 15, watch_dog=True,
+                last_date=last_watch["Fecha"], last_hour=last_watch["Hora"], last_name=last_watch["Name"])
     json_stuck_line = {"IMU": 0, "Cam": 0}
     with open('stuck_count.json', 'w') as outfile:
         json.dump(json_stuck_line, outfile)
