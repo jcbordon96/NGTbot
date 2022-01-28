@@ -43,7 +43,7 @@ while True:
     volt = (value/32768)*4.096
     RS = ((3.3/volt)-1)*47
     RO = RS/3.6
-    ro = 196.086
+    ro = 251.8
     ratio = RS/ro
     ppm = pow((math.log(ratio,10)-0.323)/(-0.243),10)
     print("El voltaje: {}, rs: {}, ro: {}, ppm: {}".format(volt,RS, RO,ppm))
