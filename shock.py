@@ -609,7 +609,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                                 humedad.value = dhtDevice.humidity
                             except:
                                 dht_ok = False
-                                dht_fail_counter =+ 1
+                                dht_fail_counter += 1
                             if dht_fail_counter > 20:
                                 print("No pude sacar medicion del DHT")
                                 errorwriter("DHT", "No se pudo tomar medicion de Humedad y Temperatura")
