@@ -41,7 +41,7 @@ GYRO_ZOUT_H = 0x47
 # motors_enable = DigitalOutputDevice("BOARD8", active_high=False)
 flash_enable = DigitalOutputDevice("BOARD12", active_high=True)
 # led_ground = DigitalOutputDevice("BOARD12", active_high=True)
-led_enable = DigitalOutputDevice("BOARD1", active_high=True)
+led_enable = DigitalOutputDevice("BOARD16", active_high=True)
 
 
 def last_on():
