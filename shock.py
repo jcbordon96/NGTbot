@@ -630,7 +630,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
     # motor_2_pwm = DigitalOutputDevice("BOARD35")
     button_left = Button("BOARD40")
     button_middle = Button("BOARD38")
-    button_right = Button("BOARD136")
+    button_right = Button("BOARD36")
     motor_1_pwm.off()
     motor_2_pwm.off()
     print("AUTO INIT")
