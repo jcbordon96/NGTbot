@@ -38,10 +38,10 @@ ACCEL_ZOUT_H = 0x3F
 GYRO_XOUT_H = 0x43
 GYRO_YOUT_H = 0x45
 GYRO_ZOUT_H = 0x47
-motors_enable = DigitalOutputDevice("BOARD8", active_high=False)
-flash_enable = DigitalOutputDevice("BOARD32", active_high=True)
-led_ground = DigitalOutputDevice("BOARD12", active_high=True)
-led_enable = DigitalOutputDevice("BOARD10", active_high=True)
+# motors_enable = DigitalOutputDevice("BOARD8", active_high=False)
+flash_enable = DigitalOutputDevice("BOARD12", active_high=True)
+# led_ground = DigitalOutputDevice("BOARD12", active_high=True)
+led_enable = DigitalOutputDevice("BOARD1", active_high=True)
 
 
 def last_on():
@@ -128,9 +128,9 @@ USERS = set()
 
 def command(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_flag,  flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, timer_rest, timer_wake, steer_counter, backwards_counter, timer_boring, crash_timeout):
 
-    motor_1_dir = DigitalOutputDevice("BOARD40")
+    motor_1_dir = DigitalOutputDevice("BOARD31")
     # motor_1_pwm = DigitalOutputDevice("BOARD38")
-    motor_2_dir = DigitalOutputDevice("BOARD37")
+    motor_2_dir = DigitalOutputDevice("BOARD35")
     # motor_2_pwm = DigitalOutputDevice("BOARD35")
     print("COMMAND INIT")
 
@@ -346,7 +346,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
         print("Error al iniciar el ADC")
         pass
     try:
-        dhtDevice = adafruit_dht.DHT11(board.D14, use_pulseio=False)
+        dhtDevice = adafruit_dht.DHT22(board.D26, use_pulseio=False)
         dht_init = True
     except Exception as ex:
         errorwriter(ex, "Error al iniciar el DHT")
@@ -624,13 +624,13 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
 
 def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout, last_touch_timeout, last_touch_counter, last_touch_osc_counter, flash_req ):
     was_auto = False
-    motor_1_dir = DigitalOutputDevice("BOARD40")
+    motor_1_dir = DigitalOutputDevice("BOARD31")
     # motor_1_pwm = DigitalOutputDevice("BOARD38")
-    motor_2_dir = DigitalOutputDevice("BOARD37")
+    motor_2_dir = DigitalOutputDevice("BOARD35")
     # motor_2_pwm = DigitalOutputDevice("BOARD35")
-    button_left = Button("BOARD15")
-    button_middle = Button("BOARD13")
-    button_right = Button("BOARD11")
+    button_left = Button("BOARD40")
+    button_middle = Button("BOARD38")
+    button_right = Button("BOARD136")
     motor_1_pwm.off()
     motor_2_pwm.off()
     print("AUTO INIT")
@@ -1510,10 +1510,10 @@ def main():
 
 
 if __name__ == '__main__':
-    motor_1_pwm = DigitalOutputDevice("BOARD38")
-    motor_2_pwm = DigitalOutputDevice("BOARD35")
+    motor_1_pwm = DigitalOutputDevice("BOARD29")
+    motor_2_pwm = DigitalOutputDevice("BOARD33")
     start_time = time.perf_counter()
-    led_ground.off()
+    # led_ground.off()
     motor_1_pwm.off()
     motor_2_pwm.off()
     try:
@@ -1627,12 +1627,12 @@ if __name__ == '__main__':
     if config["flash"] == True:
         flash_enable.on()
         logwriter("Prendi luces", 12)
-    motors_enable.on()
+    # motors_enable.on()
     try:
         main()
     except KeyboardInterrupt:
-        motor_1_pwm = DigitalOutputDevice("BOARD38")
-        motor_2_pwm = DigitalOutputDevice("BOARD35")
+        motor_1_pwm = DigitalOutputDevice("BOARD29")
+        motor_2_pwm = DigitalOutputDevice("BOARD33")
         motor_1_pwm.off()
         motor_2_pwm.off()
         led_enable.off()
