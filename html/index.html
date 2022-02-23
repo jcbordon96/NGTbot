@@ -4,85 +4,97 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chicken bot</title>
+    <title>Chicken Bot</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;1,300&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./assets/css/switcher.css">
+    <link rel="stylesheet" href="./assets/css/fonts.css">
+    <link rel="stylesheet" href="./assets/css/index.css">
 
-    <link rel="stylesheet" href="assets/css/fonts.css">
-    <link rel="stylesheet" href="assets/css/styles.css">
 </head>
-<body>
+<body id="body">
+    <div id="rotate-device-warning">
+        <img src="./assets/icons/girar-pantalla.png" alt="">
+    </div>
+    <div id="menu" class="menu">
+        <p class="title">Chicken Bot</p>
+        <button id="openmenuControlsBtn">Controles</button>
+        <button id="openmenuConfBtn">Estado</button>
+
+        <button id="rebootBtn" class="bg-warning">Reiniciar</button>
+        <button id="shutdownBtn" class="bg-danger">Apagar</button>
+    </div>
+    <div id="menuConf" class="menu hide">
+        <p class="title"> <button id="backBtn1" class="backBtn"> <img src="./assets/icons/left-arrow.png" alt=""></button> Estado</p>
+
+        <div class="switcher">
+            <img src="./assets/icons/termometer.png" alt="">
+            <span id="temp">0°/0°/0°</span>
+        </div>
+
+        <div class="switcher">
+            <img src="./assets/icons/humidity.png" alt="">
+            <span id="humidity">0%</span>
+        </div>
+        
+        <div class="switcher">
+            <span style="font-size: 0.8rem;"><img src="./assets/icons/cloud.png" alt=""> NH3</span>
+            <span id="ammonia">0</span>
+        </div>
+
+        <div class="switcher">
+            <span>Luces</span>
+            <label class="switch">
+                <input id="lightStatus" type="checkbox">
+                <span class="slider round"></span>
+            </label>
+        </div>
+
+        <div class="switcher">
+            <span>Autonomo</span>
+            <label class="switch">
+                <input id="autoStatus" type="checkbox">
+                <span class="slider round"></span>
+            </label>
+        </div>
+
+        <div class="switcher">
+            <span>Camara</span>
+            <label class="switch">
+                <input id="cameraStatus" type="checkbox">
+                <span class="slider round"></span>
+            </label>
+        </div>
+        
+        <button id="saveConfigBtn">Guardar configuración</button>
+    </div>
+
+    <div id="menuControls" class="menu hide">
+        <p class="title"> <button id="backBtn2" class="backBtn"> <img src="./assets/icons/left-arrow.png" alt=""></button> Controles</p>
+        <div class="controlsBox">
+            <div class="controlsIconsBox">
+                <img id="forwardBtn" src="./assets/icons/down.png" alt="">
+            </div>
+
+            <div class="controlsIconsBox2">
+                <img id="leftBtn" src="./assets/icons/previous.png" alt="">
+                <img id="rightBtn" src="./assets/icons/next.png" alt="">
+            </div>
+
+            <div class="controlsIconsBox">
+                <img id="backBtn" src="./assets/icons/down.png" alt="">
+            </div>
+        </div>
+    </div>
     
-    <div id="infoBox">
-        <span>Autónomo: <span  id="autoSpan" class="deactivated">Desactivado</span> </span>
-        <span>Sacar fotos: <span id="cameraSpan" class="deactivated">Desactivado</span> </span>
-        <span>Luces: <span id="lightsSpan" class="deactivated">Desactivado</span> </span>
-        <span>Imu: <span id="imuSpan" class="deactivated">Desactivado</span> </span>
-    </div>
+    <canvas id="msg" width="640" height="480"></canvas>
 
-    <div id="infoBox2">
-        <span>Temperatura: <span id="temp" class="activated">0°/0°/0°</span> </span>
-        <span>Amoníaco: <span id="ammonia" class="activated">0</span> </span>
-        <span>Humedad: <span id="humidity" class="activated">0%</span> </span>
-    </div>
-
-    <div id="buttonsConfigBox">
-        <button id="autoOnBtn" class="configBtn">
-            Activar autónomo
-        </button>
-        <button id="autoOffBtn" class="configBtn hide"> 
-            Desactivar autónomo
-        </button>
-
-        <button id="cameraOnBtn" class="configBtn">
-            Activar camara
-        </button>
-        <button id="cameraOffBtn" class="configBtn hide"> 
-            Desactivar camara
-        </button>
-
-        <button id="lightsOnBtn" class="configBtn">
-            Activar luces
-        </button>
-        <button id="lightsOffBtn" class="configBtn hide"> 
-            Desactivar luces
-        </button>
-
-        <button id="imuOnBtn" class="configBtn">
-            Activar imu
-        </button>
-        <button id="imuOffBtn" class="configBtn hide"> 
-            Desactivar imu
-        </button>
-    </div>
-    
-    <div id="buttonsConfigBox2">
-        <button id="saveConfigBtn" class="configBtn">Guardar configuración</button>
-        <button id="saveUsbBtn" class="configBtn">Guardar usb</button>
-        <button id="shutdownBtn" class="configBtn">Apagar</button>
-        <button id="rebootBtn" class="configBtn">Reiniciar</button>
-    </div>
-
-    <button id="showControls">Mostrar controles</button>
-    <button id="hideControls">Ocultar controles</button>
-
-    <div id="moveControls">
-        <div id="up" class="controlArrow">
-            <img class="imgVertical" src="assets/up.png" alt="">
-        </div>
-        <div id="left" class="controlArrow">
-            <img class="imgHorizontal" src="assets/left.png" alt="">
-        </div>
-        <div id="right" class="controlArrow">
-            <img class="imgHorizontal" src="assets/right.png" alt="">
-        </div>
-        <div id="down" class="controlArrow">
-            <img class="imgVertical" src="assets/down.png" alt="">
-        </div>
-    </div>
-
-
-    <canvas id="msg" style="display:inline-block" />
-    <script src="assets/js/axios.min.js"></script>
-    <script src="assets/js/main.js"></script>
-
+    <script src="./assets/js/sweetAlert2.js"></script>
+    <script src="./assets/js/jquery.min.js"></script>
+    <script src="./assets/js/axios.min.js"></script>
+    <script src="./assets/js/index/variables.js"></script>
+    <script src="./assets/js/index/workflow.js"></script>
+    <script src="./assets/js/index/cameraImg.js"></script>
 </body>
 </html>

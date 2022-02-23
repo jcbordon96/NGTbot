@@ -1,0 +1,187 @@
+#msg{
+    position: absolute;
+    top: 0;
+    left: 0;
+    margin: auto;
+    z-index: 1;
+}
+
+body{
+    height: 100vh;
+    
+}
+button{
+    cursor: pointer;
+}
+*{
+    font-family: 'Roboto', sans-serif;
+    overflow: hidden;
+    font-weight: bold;
+}
+#saveConfigBtn{
+    border: none;
+    width: 80%;
+    height: 10%;
+    margin-left: 10%;
+    margin-top: 1%;
+    background-color: rgb(11, 75, 131);
+    border-radius: 10px;
+    color: white;
+    
+}
+.backBtn{
+    position: absolute;
+    left: 1.5rem;
+    border:none;
+    background-color: transparent;
+}
+.on{
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: rgb(0, 255, 136);
+    display: inline-block;
+    margin-left: 10px;
+}
+.off{
+    width: 0.8rem;
+    height: 0.8rem;
+    border-radius: 50%;
+    background-color: rgb(250, 66, 66);
+    display: inline-block;
+    margin-left: 10px;
+}
+.infoBox{
+    color: white;
+    font-size: 1.2rem;
+    padding: 0.5rem;
+}
+.infoBoxElement{
+    width: 50vw;
+    margin-bottom: 1vh;
+}
+.hide{
+    opacity: 0;
+    visibility: hidden
+}
+.menu{
+    position: absolute;
+    right: 0;
+    top: 0;
+    height: 100vh;
+    background-color: white;
+    padding-inline: 1.5rem;
+    transition: all .5s ease;
+    z-index: 999;
+}
+
+.menu .title{
+    text-align: center;
+    font-size: 1.2rem;
+    border-bottom: 2px solid rgb(224, 224, 224);
+    padding-bottom: 5%;
+}
+
+#menu{
+    justify-content: center;
+    text-align: center;
+}
+#menu button{
+    width: 80%;
+    height: 10%;
+    margin-bottom: 1vh;
+    border-radius: 10px;
+    color: white;
+    font-size: 1.1rem;
+    border: none;
+    background-color: rgb(11, 75, 131);
+}
+.switcher{
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.4rem;
+    line-height: 24px;
+    
+}
+.success{
+    color: rgb(0, 255, 136);
+}
+.warning{
+    color: rgb(236, 218, 52);
+}
+.danger{
+    color: rgb(250, 66, 66);
+}
+
+#rebootBtn{
+    margin-top: 20%;
+}
+.bg-success{
+    background-color: rgb(0, 255, 136) !important;
+}
+.bg-warning{
+    background-color: rgb(255, 196, 0) !important;
+}
+.bg-danger{
+    background-color: rgb(250, 66, 66) !important;
+}
+
+.controlsBox{
+    height: 65%;
+    margin-bottom: 1%;
+}
+
+.controlsIconsBox{
+    text-align: center;
+    height: 27%;
+}
+
+.controlsIconsBox2{
+    margin-top: 8%;
+    margin-bottom: 8%;
+    display: flex;
+    justify-content: space-around;
+    height: 25%;
+}
+
+.controlsIconsBox img{
+    height: 100%;
+}
+
+#forwardBtn{
+    transform: rotate(180deg);
+}
+
+
+@media screen and (orientation: landscape) {
+    #rotate-device-warning {
+        display: none;
+    }
+}
+
+@media screen and (orientation: portrait) {
+    #menu{
+        display: none;
+    }
+    #msg{
+        display: none;
+    }
+    #rotate-device-warning {
+        display: flex;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 1000;
+        background-color: white;
+        padding: 10px;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+    }
+    #rotate-device-warning img{
+        width: 256px;
+        height: 256px;
+    }
+}
