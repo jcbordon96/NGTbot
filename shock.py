@@ -52,6 +52,8 @@ def last_on():
     json_last = {"Fecha": log_date, "Hora": log_hour, "Name": date_name}
     with open('last_on.json', 'w') as outfile:
         json.dump(json_last, outfile)
+    with open('last_on_backup.json', 'w') as outfile:
+        json.dump(json_last, outfile)
 
 def errorwriter(error, comentario = ""):
     error_date = str(datetime.now())
@@ -60,7 +62,7 @@ def errorwriter(error, comentario = ""):
     with open("log/error.log",'a', newline='') as logerror:
         logerror.write(errlog)
 
-def logwriter(event, id, t_cpu=0, t_clock=0, t_ambiente=0, humedad=0, amoniaco=0, watch_dog=False, last_date=-1, last_hour=-1, last_name=-1):
+def logwriter(event, id, t_cpu=0, minutos =0, t_clock=0, t_ambiente=0, humedad=0, amoniaco=0, watch_dog=False, last_date=-1, last_hour=-1, last_name=-1):
     nowlogdate = datetime.now()
     if watch_dog:
         logdate = last_date
@@ -75,31 +77,31 @@ def logwriter(event, id, t_cpu=0, t_clock=0, t_ambiente=0, humedad=0, amoniaco=0
 
     if not os.path.exists(stringdatelog):
         print("No existe el logfile diario")
-        header = ["#", "Fecha", "Hora", "Evento", "T. CPU",
+        header = ["#", "Fecha", "Hora", "Evento", "Minutos", "T. CPU",
                   "T. Clock", "T. Ambiente", "Humedad", "NH3", "ID"]
         with open(stringdatelog, 'w') as logfile:
             wr = csv.writer(logfile)
             wr.writerow(header)
     with open(stringdatelog, 'a', newline='') as logfile:
         wr = csv.writer(logfile)
-        wr.writerow(["", logdate, loghour, event, t_cpu,
+        wr.writerow(["", logdate, loghour, event, minutos, t_cpu,
                     t_clock, t_ambiente, humedad, amoniaco, id])
 
     if not os.path.exists(stringdatelogbackup):
         print("No existe el logfile diario de backup")
-        header = ["#", "Fecha", "Hora", "Evento", "T. CPU",
+        header = ["#", "Fecha", "Hora", "Evento","Minutos", "T. CPU",
                   "T. Clock", "T. Ambiente", "Humedad", "NH3", "ID"]
         with open(stringdatelogbackup, 'w') as logfile:
             wr = csv.writer(logfile)
             wr.writerow(header)
     with open(stringdatelogbackup, 'a', newline='') as logfile:
         wr = csv.writer(logfile)
-        wr.writerow(["", logdate, loghour, event, t_cpu,
+        wr.writerow(["", logdate, loghour, event, minutos, t_cpu,
                     t_clock, t_ambiente, humedad, amoniaco, id])
 
     with open('log/log.csv', 'a', newline='') as logfile:
         wr = csv.writer(logfile)
-        wr.writerow(["", logdate, loghour, event, t_cpu,
+        wr.writerow(["", logdate, loghour, event, minutos, t_cpu,
                     t_clock, t_ambiente, humedad, amoniaco, id])
 
 
@@ -441,8 +443,14 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
     temp_timer = 0
     state_timer = 0
     is_hot.value = False
-    cam_count = 0
-    imu_count = 0
+    start_cam_stuck = 0
+    start_imu_stuck = 0
+    elapsed_cam_stuck = 0
+    elapsed_imu_stuck = 0
+    total_elapsed_cam_stuck = 0
+    total_elapsed_imu_stuck = 0
+    last_total_elapsed_cam_stuck = 0
+    last_total_elapsed_imu_stuck = 0
     is_tails = False
     while True:
         try:
@@ -468,20 +476,32 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                     if not is_stopped.value:
                         if not math.isnan(n_m):
                             if ((n_m/img0.size) < pic_sensibility.value):
-                                print("Estoy trabado!!! Dos fotos iguales")
                                 if log_cam_stuck:
-                                    # logwriter("Cam Stuck", 14)
+                                    print("Estoy trabado!!! Dos fotos iguales")
+                                    logwriter("Me trabe, camara", id=16)
                                     log_cam_stuck = False
-                                    cam_count += 1
-                                    json_stuck_line = {
-                                        "IMU": imu_count, "Cam": cam_count}
-                                    with open('stuck_count.json', 'w') as outfile:
-                                        json.dump(json_stuck_line, outfile)
+                                    start_cam_stuck = time.perf_counter()
+                                    last_total_elapsed_cam_stuck = total_elapsed_cam_stuck
                                 cam_stuck_flag.value = True
+                                elapsed_cam_stuck = math.round((time.perf_counter() - start_cam_stuck)/60.0, 2)
+                                total_elapsed_cam_stuck = last_total_elapsed_cam_stuck + elapsed_cam_stuck
+                                json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck}
+                                with open('stuck_count.json', 'w') as outfile:
+                                    json.dump(json_stuck_line, outfile)
+                                with open('stuck_count_backup.json', 'w') as outfile:
+                                    json.dump(json_stuck_line, outfile)
+                                
                             else:
                                 if not log_cam_stuck:
-                                    print("destuck")
-                                    # logwriter("Cam Destuck", 15)
+                                    elapsed_cam_stuck = math.round((time.perf_counter() - start_cam_stuck)/60.0, 2)
+                                    total_elapsed_cam_stuck = last_total_elapsed_cam_stuck + elapsed_cam_stuck
+                                    json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck}
+                                    with open('stuck_count.json', 'w') as outfile:
+                                        json.dump(json_stuck_line, outfile)
+                                    with open('stuck_count_backup.json', 'w') as outfile:
+                                        json.dump(json_stuck_line, outfile)
+                                    print(" Cam destuck")
+                                    logwriter("Me destrabe, camara, minutos:", minutos=elapsed_cam_stuck, id=17)
                                     log_cam_stuck = True
                                 cam_stuck_flag.value = False
                     else:
@@ -521,12 +541,12 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                     if time.perf_counter()-last_imu > 0.5:
                         try:
                             last_imu = time.perf_counter()
-                            acc_x = read_raw_data(ACCEL_XOUT_H)
+                            # acc_x = read_raw_data(ACCEL_XOUT_H)
                             acc_y = read_raw_data(ACCEL_YOUT_H)
                             acc_z = read_raw_data(ACCEL_ZOUT_H)
 
                             # Full scale range +/- 250 degree/C as per sensitivity scale factor
-                            Ax = acc_x/16384.0
+                            # Ax = acc_x/16384.0
                             Ay = acc_y/16384.0
                             Az = acc_z/16384.0
                             
@@ -540,21 +560,30 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                                 counter = 0
                                 imu_stuck_flag.value = False
                                 if log_imu_stuck == False:
-                                    # logwriter("IMU Destuck", 17)
-                                    pass
-                                log_imu_stuck = True
-                            if counter > pitch_counter.value:
-                                print(
-                                    "Estoy trabado!!! Detecte inclinacion mayor a la safe")
-                                if log_imu_stuck:
-                                    # logwriter("IMU Stuck", 16)
-                                    log_imu_stuck = False
-                                    imu_count += 1
-                                    json_stuck_line = {
-                                        "IMU": imu_count, "Cam": cam_count}
+                                    elapsed_imu_stuck = math.round((time.perf_counter() - start_imu_stuck)/60.0, 2)
+                                    total_elapsed_imu_stuck = last_total_elapsed_imu_stuck + elapsed_imu_stuck
+                                    json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck}
                                     with open('stuck_count.json', 'w') as outfile:
                                         json.dump(json_stuck_line, outfile)
-
+                                    with open('stuck_count_backup.json', 'w') as outfile:
+                                        json.dump(json_stuck_line, outfile)
+                                    print("IMU destuck")
+                                    logwriter("Me destrabe, IMU, minutos", minutos=elapsed_imu_stuck)
+                                    log_imu_stuck = True
+                            if counter > pitch_counter.value:
+                                if log_imu_stuck:
+                                    print("Estoy trabado!!! Detecte inclinacion mayor a la safe")
+                                    logwriter("Me trabe, IMU", id=18)
+                                    log_imu_stuck = False
+                                    start_imu_stuck = time.perf_counter()
+                                    last_total_elapsed_imu_stuck = total_elapsed_imu_stuck
+                                elapsed_imu_stuck =  math.round((time.perf_counter() - start_imu_stuck)/60.0, 2)
+                                total_elapsed_imu_stuck = last_total_elapsed_imu_stuck + elapsed_imu_stuck
+                                json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck}
+                                with open('stuck_count.json', 'w') as outfile:
+                                    json.dump(json_stuck_line, outfile)
+                                with open('stuck_count_backup.json', 'w') as outfile:
+                                        json.dump(json_stuck_line, outfile)
                                 imu_stuck_flag.value = True
                         except Exception as ex:
                             errorwriter(ex, "El IMU no pudo tomar lectura")
@@ -1548,7 +1577,7 @@ if __name__ == '__main__':
     flash_enable.off()
     if not os.path.exists("log/log.csv"):
         print("No existe el logfile")
-        header = ["#", "Fecha", "Hora", "Evento", "T. CPU",
+        header = ["#", "Fecha", "Hora", "Evento","Minutos", "T. CPU",
                   "T. Clock", "T. Ambiente", "Humedad", "NH3", "ID"]
         with open('log/log.csv', 'w') as logfile:
             wr = csv.writer(logfile)
@@ -1588,6 +1617,15 @@ if __name__ == '__main__':
     flash_enable.off()
     time.sleep(0.5)
     led_enable.on()
+    #  with open('/var/www/html/config.json') as json_file:
+    #         config = json.load(json_file)
+    #     with open('/var/www/html/backup_config.json', 'w') as outfile:
+    #         json.dump(config, outfile)
+    # except:
+    #     with open('/var/www/html/backup_config.json') as json_file:
+    #         config = json.load(json_file)
+    #     with open('/var/www/html/config.json', 'w') as outfile:
+    #         json.dump(config, outfile)
     if not os.path.exists("log/error.log"):
         with open('log/error.log', 'w') as errlog:
             errlog.write("START ERROR LOG")
@@ -1598,26 +1636,38 @@ if __name__ == '__main__':
     try:
         with open('stuck_count.json') as json_stuck:
             last_stuck = json.load(json_stuck)
+        with open('stuck_count_backup.json', 'w') as outfile:
+            json.dump(last_stuck, outfile)
     except:
-        json_stuck_line = {"IMU": -1, "Cam": -1}
-        with open('stuck_count.json', 'w') as outfile:
-            json.dump(json_stuck_line, outfile)
+        try:
+            with open('stuck_count_backup.json') as json_stuck:
+                last_stuck = json.load(json_stuck)
+            with open('stuck_count.json', 'w') as outfile:
+                json.dump(last_stuck, outfile)
+        except:
+            json_stuck_line = {"IMU": -1, "Cam": -1}
+            with open('stuck_count.json', 'w') as outfile:
+                json.dump(json_stuck_line, outfile)
+            with open('stuck_count.json') as json_stuck:
+                last_stuck = json.load(json_stuck)
     try:
         with open('last_on.json') as json_on:
             last_watch = json.load(json_on)
     except:
-        last_on()
-        with open('last_on.json') as json_on:
-            last_watch = json.load(json_on)
+        try:
+            with open('last_on_backup.json') as json_on:
+                last_watch = json.load(json_on)
+            with open('last_on.json', 'w') as outfile:
+                json.dump(last_watch, outfile)
+        except:
+            last_on()
+            with open('last_on.json') as json_on:
+                last_watch = json.load(json_on)
     
-    with open('last_on.json') as json_on:
-        last_watch = json.load(json_on)
-    with open('stuck_count.json') as json_stuck:
-        last_stuck = json.load(json_stuck)
-    start_log = "Me apague, atascos detectados por imu: " + \
-        str(last_stuck["IMU"]) + \
-        ", detectados por camara: " + str(last_stuck["Cam"])
-    logwriter(start_log, 15, watch_dog=True,
+
+    start_log = "Me apague, minutos trabado camara / IMU " 
+    minutos_start = str(last_stuck["Cam"]) + "/" + str(last_stuck["IMU"])
+    logwriter(start_log, 6, watch_dog=True, minutos= minutos_start, 
                 last_date=last_watch["Fecha"], last_hour=last_watch["Hora"], last_name=last_watch["Name"])
     json_stuck_line = {"IMU": 0, "Cam": 0}
     with open('stuck_count.json', 'w') as outfile:
