@@ -224,10 +224,10 @@ def command(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_f
                     flash_req.value = data["req"]
                     if flash_req.value == True:
                         flash_enable.on()
-                        logwriter("Prendi luces", 12)
+                        logwriter("Prendi luces", id=12)
                     else:
                         flash_enable.off()
-                        logwriter("Apague luces", 13)
+                        logwriter("Apague luces", id=13)
                     # print(cam_req.value)
                     pass
                 elif data["action"] == "temp_req":
@@ -260,13 +260,13 @@ def command(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_f
                         errorwriter(ex, "No se monto el USB")
                         print("No pude montar el usb")
                 elif data["action"] == "reboot":
-                    logwriter("Recibi pedido de reiniciar", 7)
+                    logwriter("Recibi pedido de reiniciar", id=7)
                     time.sleep(1)
                     os.system("sudo reboot now")
                     # print(cam_req.value)
                     pass
                 elif data["action"] == "shutdown":
-                    logwriter("Recibi pedido de apagado", 8)
+                    logwriter("Recibi pedido de apagado", id=8)
                     time.sleep(1)
                     os.system("sudo shutdown now")
 
@@ -475,6 +475,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                     # print("Manhattan norm per pixel:", n_m/img0.size)
                     if not is_stopped.value:
                         if not math.isnan(n_m):
+                            # print((n_m/img0.size))
                             if ((n_m/img0.size) < pic_sensibility.value):
                                 if log_cam_stuck:
                                     print("Estoy trabado!!! Dos fotos iguales")
@@ -483,7 +484,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                                     start_cam_stuck = time.perf_counter()
                                     last_total_elapsed_cam_stuck = total_elapsed_cam_stuck
                                 cam_stuck_flag.value = True
-                                elapsed_cam_stuck = math.round((time.perf_counter() - start_cam_stuck)/60.0, 2)
+                                elapsed_cam_stuck = round((time.perf_counter() - start_cam_stuck)/60.0, 2)
                                 total_elapsed_cam_stuck = last_total_elapsed_cam_stuck + elapsed_cam_stuck
                                 json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck}
                                 with open('stuck_count.json', 'w') as outfile:
@@ -493,7 +494,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                                 
                             else:
                                 if not log_cam_stuck:
-                                    elapsed_cam_stuck = math.round((time.perf_counter() - start_cam_stuck)/60.0, 2)
+                                    elapsed_cam_stuck = round((time.perf_counter() - start_cam_stuck)/60.0, 2)
                                     total_elapsed_cam_stuck = last_total_elapsed_cam_stuck + elapsed_cam_stuck
                                     json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck}
                                     with open('stuck_count.json', 'w') as outfile:
@@ -515,7 +516,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                     with open('counter.json', 'w') as outfile:
                         json.dump(json_string, outfile)
                     img_counter = 0
-                    logwriter("Empece a sacar fotos", 3)
+                    logwriter("Empece a sacar fotos", id=3)
                     log_cam = True
                 if cam_req.value == True:
                     was_taking = True
@@ -534,7 +535,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                 else:
                     was_taking = False
                     if log_cam:
-                        logwriter("Termine de sacar fotos", 4)
+                        logwriter("Termine de sacar fotos", id=4)
                         log_cam = False
                 raw_capture.truncate(0)
                 if imu_req.value == True and imu_ok == True:
@@ -560,7 +561,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                                 counter = 0
                                 imu_stuck_flag.value = False
                                 if log_imu_stuck == False:
-                                    elapsed_imu_stuck = math.round((time.perf_counter() - start_imu_stuck)/60.0, 2)
+                                    elapsed_imu_stuck = round((time.perf_counter() - start_imu_stuck)/60.0, 2)
                                     total_elapsed_imu_stuck = last_total_elapsed_imu_stuck + elapsed_imu_stuck
                                     json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck}
                                     with open('stuck_count.json', 'w') as outfile:
@@ -568,7 +569,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                                     with open('stuck_count_backup.json', 'w') as outfile:
                                         json.dump(json_stuck_line, outfile)
                                     print("IMU destuck")
-                                    logwriter("Me destrabe, IMU, minutos", minutos=elapsed_imu_stuck)
+                                    logwriter("Me destrabe, IMU, minutos", minutos=elapsed_imu_stuck, id=19)
                                     log_imu_stuck = True
                             if counter > pitch_counter.value:
                                 if log_imu_stuck:
@@ -577,7 +578,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                                     log_imu_stuck = False
                                     start_imu_stuck = time.perf_counter()
                                     last_total_elapsed_imu_stuck = total_elapsed_imu_stuck
-                                elapsed_imu_stuck =  math.round((time.perf_counter() - start_imu_stuck)/60.0, 2)
+                                elapsed_imu_stuck =  round((time.perf_counter() - start_imu_stuck)/60.0, 2)
                                 total_elapsed_imu_stuck = last_total_elapsed_imu_stuck + elapsed_imu_stuck
                                 json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck}
                                 with open('stuck_count.json', 'w') as outfile:
@@ -587,7 +588,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                                 imu_stuck_flag.value = True
                         except Exception as ex:
                             errorwriter(ex, "El IMU no pudo tomar lectura")
-                            print("Ups! El IMU no pudo tomar lectura")
+                            print(ex, "Ups! El IMU no pudo tomar lectura")
                             
                 if time.perf_counter() - temp_timer > timer_temp.value:
                     temp_timer = time.perf_counter()
@@ -608,7 +609,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                     finally:
                         if (temp_cpu.value > 80 or temp_clock.value > 80) and not is_hot.value:
                             is_hot.value = True
-                            logwriter("Alta temperatura", 9, temp_cpu.value, temp_clock.value)
+                            logwriter("Alta temperatura", id=9, t_cpu=temp_cpu.value, t_clock=temp_clock.value)
                         sensors.cleanup()
                 if time.perf_counter() - state_timer > timer_log.value:
 
@@ -643,11 +644,11 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                                 print("No pude sacar medicion del DHT")
                                 errorwriter("DHT", "No se pudo tomar medicion de Humedad y Temperatura")
                                 break
-                    logwriter("Estado", 14, temp_cpu.value, temp_clock.value,
-                            temp_out.value, humedad.value, amoniaco.value)
-        except:
+                    logwriter("Estado", id=14, t_cpu=temp_cpu.value, t_clock=temp_clock.value,
+                            t_ambiente=temp_out.value, humedad=humedad.value, amoniaco=amoniaco.value)
+        except Exception as ex:
             # errorwriter("Camara", "Fallo timeout")
-            print("Que pasa perrito")
+            # print(ex)
             pass
 
 
@@ -829,11 +830,11 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             print("Stop auto")
             is_stopped.value = True
             first_auto = True
-            logwriter("Termine de andar autonomo", 4)
+            logwriter("Termine de andar autonomo", id=4)
         elif(auto_req.value == True):
             if first_auto:
                 last_time_rest = time.perf_counter()
-                logwriter("Empece a andar autonomo", 2)
+                logwriter("Empece a andar autonomo", id=2)
                 print("first auto")
                 first_auto = False
                 is_stopped.value = False
@@ -843,7 +844,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                 is_stopped.value = False
                 is_hot.value = False
                 print("Vuelvo a andar")
-                logwriter("Termine descanso", 11)
+                logwriter("Termine descanso", id=11)
                 led_enable.on()
                 if flash_req.value == True:
                     flash_enable.on()
@@ -859,7 +860,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                     last_time_on = time.perf_counter()
                     print("Voy a descansar")
                     flash_enable.off()
-                    logwriter("Empece descanso", 10)
+                    logwriter("Empece descanso", id=10)
                     break
                 if time.perf_counter() - last_touch_timer > last_touch_timeout.value:
                     last_touch_count = 0
@@ -1507,11 +1508,11 @@ def main():
     if date_int >= date_crash_timeout:
         crash_timeout.value = crash_timeout_after
         print("SENSIBILIDAD BAJA")
-        logwriter("Sensibilidad baja", 15)
+        logwriter("Sensibilidad baja", id=15)
     else:
         print("SENSIBILIDAD ALTA")
         crash_timeout.value = crash_timeout_before
-        logwriter("Sensibilidad alta", 15)
+        logwriter("Sensibilidad alta", id=15)
 
 
     json_state = {"flash": flash_req.value, "auto": auto_req.value,
@@ -1668,16 +1669,16 @@ if __name__ == '__main__':
 
     start_log = "Me apague, minutos trabado camara / IMU " 
     minutos_start = str(last_stuck["Cam"]) + "/" + str(last_stuck["IMU"])
-    logwriter(start_log, 6, watch_dog=True, minutos= minutos_start, 
+    logwriter(start_log, id=6, watch_dog=True, minutos= minutos_start, 
                 last_date=last_watch["Fecha"], last_hour=last_watch["Hora"], last_name=last_watch["Name"])
     json_stuck_line = {"IMU": 0, "Cam": 0}
     with open('stuck_count.json', 'w') as outfile:
         json.dump(json_stuck_line, outfile)
-    logwriter("Me prendi con esta configuracion: " + str(config)+'/'+str(admin), 1)
+    logwriter("Me prendi con esta configuracion: " + str(config)+'/'+str(admin), id=1)
     last_on()
     if config["flash"] == True:
         flash_enable.on()
-        logwriter("Prendi luces", 12)
+        logwriter("Prendi luces", id=12)
     # motors_enable.on()
     try:
         main()
