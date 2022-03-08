@@ -647,6 +647,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                             temp_out.value, humedad.value, amoniaco.value)
         except:
             # errorwriter("Camara", "Fallo timeout")
+            print("Que pasa perrito")
             pass
 
 
@@ -875,7 +876,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                         while ((cam_stuck_flag.value == True or imu_stuck_flag == True) and auto_req.value == True):
                             if stuck_seq == 0:
                                 move(-1.0, 0)
-                                print("Going backwards")
+                                # print("Going backwards")
                                 while (backward_count < backwards_counter.value and auto_req.value == True):
                                     time.sleep(1)
                                     backward_count += 1
@@ -884,7 +885,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                 
                             elif stuck_seq == 1:
                                 move(1.0, 0)
-                                print("Going forward")
+                                # print("Going forward")
                                 while (backward_count < backwards_counter.value and auto_req.value == True):
                                     time.sleep(1)
                                     backward_count += 1
@@ -892,7 +893,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                 backward_count = 0
                             elif stuck_seq == 2:
                                 move(0, 1.0)
-                                print("Going left idk")
+                                # print("Going left idk")
                                 while (backward_count < backwards_counter.value and auto_req.value == True):
                                     time.sleep(0.25)
                                     move(1.0, 0)
@@ -907,7 +908,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                 break
                         if stuck_seq != 1:
                             move(-1.0, 0)
-                            print("Going backwards")
+                            # print("Going backwards")
                             while (backward_count < backwards_counter.value and auto_req.value == True):
                                 time.sleep(1)
                                 backward_count += 1
@@ -931,38 +932,38 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                         go_right =  True #random.choice([True, False])
                         if go_right == True:
                             move(0, 1.0)
-                            print("Going right")
+                            # print("Going right")
                         else:
                             move(0, -1.0)
-                            print("Going left")
+                            # print("Going left")
                         while (steer_count < steer_counter.value and auto_req.value == True):
                             time.sleep(0.25)
                             move(1.0, 0)
                             time.sleep(0.45)
                             if go_right == True:
                                 move(0, 1.0)
-                                print("Going right")
+                                # print("Going right")
                             else:
                                 move(0, -1.0)
-                                print("Going left")
+                                # print("Going left")
                             time.sleep(0.25)
                             move(1.0, 0)
                             time.sleep(0.45)
                             if go_right == True:
                                 move(0, 1.0)
-                                print("Going right")
+                                # print("Going right")
                             else:
                                 move(0, -1.0)
-                                print("Going left")
+                                # print("Going left")
                             time.sleep(0.25)
                             move(1.0, 0)
                             time.sleep(0.45)
                             if go_right == True:
                                 move(0, 1.0)
-                                print("Going right")
+                                # print("Going right")
                             else:
                                 move(0, -1.0)
-                                print("Going left")
+                                # print("Going left")
                             steer_count += 1
                         timer = time.perf_counter()
                     move(1.0, 0)
@@ -975,7 +976,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                     if button_left.is_pressed and not button_right.is_pressed:
                         crash_confirmed = False
                         crash_timer = time.perf_counter()
-                        print("Me apretaron de izquierda")
+                        # print("Me apretaron de izquierda")
                         if crash_timeout.value > 0:
                             while (time.perf_counter() - crash_timer) < crash_timeout.value:
                                 time.sleep(0.25)
@@ -987,18 +988,18 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                         else:
                             crash_confirmed = True
                         if crash_confirmed:
-                            print("Choque confirmado de izquierda")
+                            # print("Choque confirmado de izquierda")
                             timer = time.perf_counter()
                             if last_touch == "IZQ":
                                 last_touch_count +=1
                                 last_touch_osc_count = 0
                                 last_touch_timer = time.perf_counter()
-                                print("Izquierda count: {}".format(last_touch_count))
+                                # print("Izquierda count: {}".format(last_touch_count))
                             elif last_touch == "DER":
                                 last_touch_osc_count += 1
                                 last_touch_count = 0
                                 last_touch_osc_timer = time.perf_counter()
-                                print("Osci count: {}".format(last_touch_osc_count))
+                                # print("Osci count: {}".format(last_touch_osc_count))
                             last_touch = "IZQ"
                             if last_touch_count >= last_touch_counter.value:
                                 antiloop("IZQ")
@@ -1008,7 +1009,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                 last_touch_osc_count = 0
                             else:
                                 move(-1.0, 0)
-                                print("Going backwards")
+                                # print("Going backwards")
                                 if second_back == False:
                                     back_change = backwards_counter.value
                                     second_back = True
@@ -1019,7 +1020,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                     time.sleep(1)
                                     backward_count += 1
                                 move(0, 1.0)
-                                print("Going right")
+                                # print("Going right")
                                 while (steer_count < steer_counter.value and auto_req.value == True):
                                     time.sleep(0.25)
                                     move(1.0, 0)
@@ -1034,7 +1035,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                     elif button_right.is_pressed and not button_left.is_pressed:
                         crash_confirmed = False
                         crash_timer = time.perf_counter()
-                        print("Me apretaron de derecha")
+                        # print("Me apretaron de derecha")
                         if crash_timeout.value > 0:
                             while (time.perf_counter() - crash_timer) < crash_timeout.value:
                                 time.sleep(0.25)
@@ -1047,17 +1048,17 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                             crash_confirmed = True
                         if crash_confirmed:
                             timer = time.perf_counter()
-                            print("Choque confirmado de derecha")
+                            # print("Choque confirmado de derecha")
                             if last_touch == "DER":
                                 last_touch_count +=1
                                 last_touch_osc_count = 0
                                 last_touch_timer = time.perf_counter()
-                                print("Derecha count: {}".format(last_touch_count))
+                                # print("Derecha count: {}".format(last_touch_count))
                             elif last_touch == "IZQ":
                                 last_touch_osc_count += 1
                                 last_touch_count = 0
                                 last_touch_osc_timer = time.perf_counter()
-                                print("Oscilation count: {}".format(last_touch_osc_count))
+                                # print("Oscilation count: {}".format(last_touch_osc_count))
                             last_touch = "DER"
                             if last_touch_count >= last_touch_counter.value:
                                 antiloop("DER")
@@ -1073,12 +1074,12 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                     back_change = int(backwards_counter.value * 1.5)
                                     second_back = False
                                 move(-1.0, 0)
-                                print("Going backwards")
+                                # print("Going backwards")
                                 while (backward_count < back_change and auto_req.value == True):
                                     time.sleep(1)
                                     backward_count += 1
                                 move(0, -1.0)
-                                print("Going left")
+                                # print("Going left")
                                 while (steer_count < steer_counter.value and auto_req.value == True):
                                     time.sleep(0.25)
                                     move(1.0, 0)
@@ -1094,7 +1095,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                         crash_timer = time.perf_counter()
 
                         
-                        print("Me apretaron de frente")
+                        # print("Me apretaron de frente")
                         if crash_timeout.value > 0:
                             while (time.perf_counter() - crash_timer) < crash_timeout.value:
                                 time.sleep(0.25)
@@ -1109,7 +1110,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                             if button_left.is_pressed and not button_right.is_pressed:
                                 crash_confirmed = False
                                 crash_timer = time.perf_counter()
-                                print("Me apretaron de izquierda")
+                                # print("Me apretaron de izquierda")
                                 if crash_timeout.value > 0:
                                     while (time.perf_counter() - crash_timer) < crash_timeout.value:
                                         time.sleep(0.25)
@@ -1121,18 +1122,18 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                 else:
                                     crash_confirmed = True
                                 if crash_confirmed:
-                                    print("Choque confirmado de izquierda")
+                                    # print("Choque confirmado de izquierda")
                                     timer = time.perf_counter()
                                     if last_touch == "IZQ":
                                         last_touch_count +=1
                                         last_touch_osc_count = 0
                                         last_touch_timer = time.perf_counter()
-                                        print("Izquierda count: {}".format(last_touch_count))
+                                        # print("Izquierda count: {}".format(last_touch_count))
                                     elif last_touch == "DER":
                                         last_touch_osc_count += 1
                                         last_touch_count = 0
                                         last_touch_osc_timer = time.perf_counter()
-                                        print("Osci count: {}".format(last_touch_osc_count))
+                                        # print("Osci count: {}".format(last_touch_osc_count))
                                     last_touch = "IZQ"
                                     if last_touch_count >= last_touch_counter.value:
                                         antiloop("IZQ")
@@ -1142,7 +1143,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                         last_touch_osc_count = 0
                                     else:
                                         move(-1.0, 0)
-                                        print("Going backwards")
+                                        # print("Going backwards")
                                         if second_back == False:
                                             back_change = backwards_counter.value
                                             second_back = True
@@ -1153,7 +1154,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                             time.sleep(1)
                                             backward_count += 1
                                         move(0, 1.0)
-                                        print("Going right")
+                                        # print("Going right")
                                         while (steer_count < steer_counter.value and auto_req.value == True):
                                             time.sleep(0.25)
                                             move(1.0, 0)
@@ -1169,7 +1170,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                             elif button_right.is_pressed and not button_left.is_pressed:
                                 crash_confirmed = False
                                 crash_timer = time.perf_counter()
-                                print("Me apretaron de derecha")
+                                # print("Me apretaron de derecha")
                                 if crash_timeout.value > 0:
                                     while (time.perf_counter() - crash_timer) < crash_timeout.value:
                                         time.sleep(0.25)
@@ -1182,17 +1183,17 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                     crash_confirmed = True
                                 if crash_confirmed:
                                     timer = time.perf_counter()
-                                    print("Choque confirmado de derecha")
+                                    # print("Choque confirmado de derecha")
                                     if last_touch == "DER":
                                         last_touch_count +=1
                                         last_touch_osc_count = 0
                                         last_touch_timer = time.perf_counter()
-                                        print("Derecha count: {}".format(last_touch_count))
+                                        # print("Derecha count: {}".format(last_touch_count))
                                     elif last_touch == "IZQ":
                                         last_touch_osc_count += 1
                                         last_touch_count = 0
                                         last_touch_osc_timer = time.perf_counter()
-                                        print("Oscilation count: {}".format(last_touch_osc_count))
+                                        # print("Oscilation count: {}".format(last_touch_osc_count))
                                     last_touch = "DER"
                                     if last_touch_count >= last_touch_counter.value:
                                         antiloop("DER")
@@ -1208,12 +1209,12 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                             back_change = int(backwards_counter.value * 1.5)
                                             second_back = False
                                         move(-1.0, 0)
-                                        print("Going backwards")
+                                        # print("Going backwards")
                                         while (backward_count < back_change and auto_req.value == True):
                                             time.sleep(1)
                                             backward_count += 1
                                         move(0, -1.0)
-                                        print("Going left")
+                                        # print("Going left")
                                         while (steer_count < steer_counter.value and auto_req.value == True):
                                             time.sleep(0.25)
                                             move(1.0, 0)
@@ -1226,10 +1227,10 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                             steer_count += 1
                                 crash_confirmed = False
                         if crash_confirmed:
-                            print("Choque frontal")
+                            # print("Choque frontal")
                             timer = time.perf_counter()
                             move(-1.0, 0)
-                            print("Going backwards")
+                            # print("Going backwards")
                             if second_back == False:
                                 back_change = backwards_counter.value
                                 second_back = True
@@ -1248,44 +1249,44 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                             last_touch = "FRO"
                             if go_right == True:
                                 move(0, 1.0)
-                                print("Going right")
+                                # print("Going right")
                             else:
                                 move(0, -1.0)
-                                print("Going left")
+                                # print("Going left")
                             while (steer_count < steer_counter.value and auto_req.value == True):
                                 time.sleep(0.25)
                                 move(1.0, 0)
                                 time.sleep(0.45)
                                 if go_right == True:
                                     move(0, 1.0)
-                                    print("Going right")
+                                    # print("Going right")
                                 else:
                                     move(0, -1.0)
-                                    print("Going left")
+                                    # print("Going left")
                                 time.sleep(0.25)
                                 move(1.0, 0)
                                 time.sleep(0.45)
                                 if go_right == True:
                                     move(0, 1.0)
-                                    print("Going right")
+                                    # print("Going right")
                                 else:
                                     move(0, -1.0)
-                                    print("Going left")
+                                    # print("Going left")
                                 time.sleep(0.25)
                                 move(1.0, 0)
                                 time.sleep(0.45)
                                 if go_right == True:
                                     move(0, 1.0)
-                                    print("Going right")
+                                    # print("Going right")
                                 else:
                                     move(0, -1.0)
-                                    print("Going left")
+                                    # print("Going left")
                                 steer_count += 1
 
                     elif not (button_middle.is_pressed or button_left.is_pressed or button_right.is_pressed):
                         pass
                     elif (button_left.is_pressed and button_right.is_pressed):
-                        print("Toque randomn")
+                        # print("Toque randomn")
                         crash_confirmed = False
                         crash_timer = time.perf_counter()
                         if crash_timeout.value > 0:
@@ -1299,10 +1300,10 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                         else:
                             crash_confirmed = True
                         if crash_confirmed:
-                            print("Choque confirmado randomn")
+                            # print("Choque confirmado randomn")
                             timer = time.perf_counter()
                             move(-1.0, 0)
-                            print("Going backwards")
+                            # print("Going backwards")
                             if second_back == False:
                                 back_change = backwards_counter.value
                                 second_back = True
@@ -1321,44 +1322,44 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                             last_touch = "FRO"
                             if go_right == True:
                                 move(0, 1.0)
-                                print("Going right")
+                                # print("Going right")
                             else:
                                 move(0, -1.0)
-                                print("Going left")
+                                # print("Going left")
                             while (steer_count < steer_counter.value and auto_req.value == True):
                                 time.sleep(0.25)
                                 move(1.0, 0)
                                 time.sleep(0.45)
                                 if go_right == True:
                                     move(0, 1.0)
-                                    print("Going right")
+                                    # print("Going right")
                                 else:
                                     move(0, -1.0)
-                                    print("Going left")
+                                    # print("Going left")
                                 time.sleep(0.25)
                                 move(1.0, 0)
                                 time.sleep(0.45)
                                 if go_right == True:
                                     move(0, 1.0)
-                                    print("Going right")
+                                    # print("Going right")
                                 else:
                                     move(0, -1.0)
-                                    print("Going left")
+                                    # print("Going left")
                                 time.sleep(0.25)
                                 move(1.0, 0)
                                 time.sleep(0.45)
                                 if go_right == True:
                                     move(0, 1.0)
-                                    print("Going right")
+                                    # print("Going right")
                                 else:
                                     move(0, -1.0)
-                                    print("Going left")
+                                    # print("Going left")
                                 steer_count += 1
                 else:
-                    print('No paso nada')
+                    # print('No paso nada')
                     timer = time.perf_counter()
                     move(-1.0, 0)
-                    print("Going backwards")
+                    # print("Going backwards")
                     if second_back == False:
                         back_change = backwards_counter.value
                         second_back = True
@@ -1371,38 +1372,38 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                     go_right = random.choice([True, False])
                     if go_right == True:
                         move(0, -1.0)
-                        print("Going right")
+                        # print("Going right")
                     else:
                         move(0, 1.0)
-                        print("Going left")
+                        # print("Going left")
                     while (steer_count < steer_counter.value and auto_req.value == True):
                         time.sleep(0.25)
                         move(1.0, 0)
                         time.sleep(0.45)
                         if go_right == True:
                             move(0, 1.0)
-                            print("Going right")
+                            # print("Going right")
                         else:
                             move(0, -1.0)
-                            print("Going left")
+                            # print("Going left")
                         time.sleep(0.25)
                         move(1.0, 0)
                         time.sleep(0.45)
                         if go_right == True:
                             move(0, 1.0)
-                            print("Going right")
+                            # print("Going right")
                         else:
                             move(0, -1.0)
-                            print("Going left")
+                            # print("Going left")
                         time.sleep(0.25)
                         move(1.0, 0)
                         time.sleep(0.45)
                         if go_right == True:
                             move(0, 1.0)
-                            print("Going right")
+                            # print("Going right")
                         else:
                             move(0, -1.0)
-                            print("Going left")
+                            # print("Going left")
                         steer_count += 1
         time.sleep(1)
 
