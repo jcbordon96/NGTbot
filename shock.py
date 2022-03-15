@@ -38,7 +38,7 @@ ACCEL_ZOUT_H = 0x3F
 GYRO_XOUT_H = 0x43
 GYRO_YOUT_H = 0x45
 GYRO_ZOUT_H = 0x47
-motors_enable = DigitalOutputDevice("BOARD8", active_high=False)
+# motors_enable = DigitalOutputDevice("BOARD8", active_high=False)
 flash_enable = DigitalOutputDevice("BOARD32", active_high=True)
 led_ground = DigitalOutputDevice("BOARD12", active_high=True)
 led_enable = DigitalOutputDevice("BOARD10", active_high=True)
@@ -52,6 +52,8 @@ def last_on():
     json_last = {"Fecha": log_date, "Hora": log_hour, "Name": date_name}
     with open('last_on.json', 'w') as outfile:
         json.dump(json_last, outfile)
+    with open('last_on_backup.json', 'w') as outfile:
+        json.dump(json_last, outfile)
 
 def errorwriter(error, comentario = ""):
     error_date = str(datetime.now())
@@ -60,7 +62,7 @@ def errorwriter(error, comentario = ""):
     with open("log/error.log",'a', newline='') as logerror:
         logerror.write(errlog)
 
-def logwriter(event, id, t_cpu=0, t_clock=0, t_ambiente=0, humedad=0, amoniaco=0, watch_dog=False, last_date=-1, last_hour=-1, last_name=-1):
+def logwriter(event, id, t_cpu=0, minutos =0, t_clock=0, t_ambiente=0, humedad=0, amoniaco=0, watch_dog=False, last_date=-1, last_hour=-1, last_name=-1):
     nowlogdate = datetime.now()
     if watch_dog:
         logdate = last_date
@@ -75,31 +77,31 @@ def logwriter(event, id, t_cpu=0, t_clock=0, t_ambiente=0, humedad=0, amoniaco=0
 
     if not os.path.exists(stringdatelog):
         print("No existe el logfile diario")
-        header = ["#", "Fecha", "Hora", "Evento", "T. CPU",
+        header = ["#", "Fecha", "Hora", "Evento", "Minutos", "T. CPU",
                   "T. Clock", "T. Ambiente", "Humedad", "NH3", "ID"]
         with open(stringdatelog, 'w') as logfile:
             wr = csv.writer(logfile)
             wr.writerow(header)
     with open(stringdatelog, 'a', newline='') as logfile:
         wr = csv.writer(logfile)
-        wr.writerow(["", logdate, loghour, event, t_cpu,
+        wr.writerow(["", logdate, loghour, event, minutos, t_cpu,
                     t_clock, t_ambiente, humedad, amoniaco, id])
 
     if not os.path.exists(stringdatelogbackup):
         print("No existe el logfile diario de backup")
-        header = ["#", "Fecha", "Hora", "Evento", "T. CPU",
+        header = ["#", "Fecha", "Hora", "Evento","Minutos", "T. CPU",
                   "T. Clock", "T. Ambiente", "Humedad", "NH3", "ID"]
         with open(stringdatelogbackup, 'w') as logfile:
             wr = csv.writer(logfile)
             wr.writerow(header)
     with open(stringdatelogbackup, 'a', newline='') as logfile:
         wr = csv.writer(logfile)
-        wr.writerow(["", logdate, loghour, event, t_cpu,
+        wr.writerow(["", logdate, loghour, event, minutos, t_cpu,
                     t_clock, t_ambiente, humedad, amoniaco, id])
 
     with open('log/log.csv', 'a', newline='') as logfile:
         wr = csv.writer(logfile)
-        wr.writerow(["", logdate, loghour, event, t_cpu,
+        wr.writerow(["", logdate, loghour, event, minutos, t_cpu,
                     t_clock, t_ambiente, humedad, amoniaco, id])
 
 
@@ -128,9 +130,9 @@ USERS = set()
 
 def command(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_flag,  flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, timer_rest, timer_wake, steer_counter, backwards_counter, timer_boring, crash_timeout):
 
-    motor_1_dir = DigitalOutputDevice("BOARD40")
+    # motor_1_dir = DigitalOutputDevice("BOARD31")
     # motor_1_pwm = DigitalOutputDevice("BOARD38")
-    motor_2_dir = DigitalOutputDevice("BOARD37")
+    # motor_2_dir = DigitalOutputDevice("BOARD35")
     # motor_2_pwm = DigitalOutputDevice("BOARD35")
     print("COMMAND INIT")
 
@@ -222,10 +224,10 @@ def command(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_f
                     flash_req.value = data["req"]
                     if flash_req.value == True:
                         flash_enable.on()
-                        logwriter("Prendi luces", 12)
+                        logwriter("Prendi luces", id=12)
                     else:
                         flash_enable.off()
-                        logwriter("Apague luces", 13)
+                        logwriter("Apague luces", id=13)
                     # print(cam_req.value)
                     pass
                 elif data["action"] == "temp_req":
@@ -258,13 +260,13 @@ def command(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_f
                         errorwriter(ex, "No se monto el USB")
                         print("No pude montar el usb")
                 elif data["action"] == "reboot":
-                    logwriter("Recibi pedido de reiniciar", 7)
+                    logwriter("Recibi pedido de reiniciar", id=7)
                     time.sleep(1)
                     os.system("sudo reboot now")
                     # print(cam_req.value)
                     pass
                 elif data["action"] == "shutdown":
-                    logwriter("Recibi pedido de apagado", 8)
+                    logwriter("Recibi pedido de apagado", id=8)
                     time.sleep(1)
                     os.system("sudo shutdown now")
 
@@ -441,8 +443,14 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
     temp_timer = 0
     state_timer = 0
     is_hot.value = False
-    cam_count = 0
-    imu_count = 0
+    start_cam_stuck = 0
+    start_imu_stuck = 0
+    elapsed_cam_stuck = 0
+    elapsed_imu_stuck = 0
+    total_elapsed_cam_stuck = 0
+    total_elapsed_imu_stuck = 0
+    last_total_elapsed_cam_stuck = 0
+    last_total_elapsed_imu_stuck = 0
     is_tails = False
     while True:
         try:
@@ -467,21 +475,34 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                     # print("Manhattan norm per pixel:", n_m/img0.size)
                     if not is_stopped.value:
                         if not math.isnan(n_m):
+                            # print((n_m/img0.size))
                             if ((n_m/img0.size) < pic_sensibility.value):
-                                print("Estoy trabado!!! Dos fotos iguales")
                                 if log_cam_stuck:
-                                    # logwriter("Cam Stuck", 14)
+                                    print("Estoy trabado!!! Dos fotos iguales")
+                                    logwriter("Me trabe, camara", id=16)
                                     log_cam_stuck = False
-                                    cam_count += 1
-                                    json_stuck_line = {
-                                        "IMU": imu_count, "Cam": cam_count}
-                                    with open('stuck_count.json', 'w') as outfile:
-                                        json.dump(json_stuck_line, outfile)
+                                    start_cam_stuck = time.perf_counter()
+                                    last_total_elapsed_cam_stuck = total_elapsed_cam_stuck
                                 cam_stuck_flag.value = True
+                                elapsed_cam_stuck = round((time.perf_counter() - start_cam_stuck)/60.0, 2)
+                                total_elapsed_cam_stuck = last_total_elapsed_cam_stuck + elapsed_cam_stuck
+                                json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck}
+                                with open('stuck_count.json', 'w') as outfile:
+                                    json.dump(json_stuck_line, outfile)
+                                with open('stuck_count_backup.json', 'w') as outfile:
+                                    json.dump(json_stuck_line, outfile)
+                                
                             else:
                                 if not log_cam_stuck:
-                                    print("destuck")
-                                    # logwriter("Cam Destuck", 15)
+                                    elapsed_cam_stuck = round((time.perf_counter() - start_cam_stuck)/60.0, 2)
+                                    total_elapsed_cam_stuck = last_total_elapsed_cam_stuck + elapsed_cam_stuck
+                                    json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck}
+                                    with open('stuck_count.json', 'w') as outfile:
+                                        json.dump(json_stuck_line, outfile)
+                                    with open('stuck_count_backup.json', 'w') as outfile:
+                                        json.dump(json_stuck_line, outfile)
+                                    print(" Cam destuck")
+                                    logwriter("Me destrabe, camara, minutos:", minutos=elapsed_cam_stuck, id=17)
                                     log_cam_stuck = True
                                 cam_stuck_flag.value = False
                     else:
@@ -495,7 +516,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                     with open('counter.json', 'w') as outfile:
                         json.dump(json_string, outfile)
                     img_counter = 0
-                    logwriter("Empece a sacar fotos", 3)
+                    logwriter("Empece a sacar fotos", id=3)
                     log_cam = True
                 if cam_req.value == True:
                     was_taking = True
@@ -514,19 +535,19 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                 else:
                     was_taking = False
                     if log_cam:
-                        logwriter("Termine de sacar fotos", 4)
+                        logwriter("Termine de sacar fotos", id=4)
                         log_cam = False
                 raw_capture.truncate(0)
                 if imu_req.value == True and imu_ok == True:
                     if time.perf_counter()-last_imu > 0.5:
                         try:
                             last_imu = time.perf_counter()
-                            acc_x = read_raw_data(ACCEL_XOUT_H)
+                            # acc_x = read_raw_data(ACCEL_XOUT_H)
                             acc_y = read_raw_data(ACCEL_YOUT_H)
                             acc_z = read_raw_data(ACCEL_ZOUT_H)
 
                             # Full scale range +/- 250 degree/C as per sensitivity scale factor
-                            Ax = acc_x/16384.0
+                            # Ax = acc_x/16384.0
                             Ay = acc_y/16384.0
                             Az = acc_z/16384.0
                             
@@ -540,25 +561,34 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                                 counter = 0
                                 imu_stuck_flag.value = False
                                 if log_imu_stuck == False:
-                                    # logwriter("IMU Destuck", 17)
-                                    pass
-                                log_imu_stuck = True
-                            if counter > pitch_counter.value:
-                                print(
-                                    "Estoy trabado!!! Detecte inclinacion mayor a la safe")
-                                if log_imu_stuck:
-                                    # logwriter("IMU Stuck", 16)
-                                    log_imu_stuck = False
-                                    imu_count += 1
-                                    json_stuck_line = {
-                                        "IMU": imu_count, "Cam": cam_count}
+                                    elapsed_imu_stuck = round((time.perf_counter() - start_imu_stuck)/60.0, 2)
+                                    total_elapsed_imu_stuck = last_total_elapsed_imu_stuck + elapsed_imu_stuck
+                                    json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck}
                                     with open('stuck_count.json', 'w') as outfile:
                                         json.dump(json_stuck_line, outfile)
-
+                                    with open('stuck_count_backup.json', 'w') as outfile:
+                                        json.dump(json_stuck_line, outfile)
+                                    print("IMU destuck")
+                                    logwriter("Me destrabe, IMU, minutos", minutos=elapsed_imu_stuck, id=19)
+                                    log_imu_stuck = True
+                            if counter > pitch_counter.value:
+                                if log_imu_stuck:
+                                    print("Estoy trabado!!! Detecte inclinacion mayor a la safe")
+                                    logwriter("Me trabe, IMU", id=18)
+                                    log_imu_stuck = False
+                                    start_imu_stuck = time.perf_counter()
+                                    last_total_elapsed_imu_stuck = total_elapsed_imu_stuck
+                                elapsed_imu_stuck =  round((time.perf_counter() - start_imu_stuck)/60.0, 2)
+                                total_elapsed_imu_stuck = last_total_elapsed_imu_stuck + elapsed_imu_stuck
+                                json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck}
+                                with open('stuck_count.json', 'w') as outfile:
+                                    json.dump(json_stuck_line, outfile)
+                                with open('stuck_count_backup.json', 'w') as outfile:
+                                        json.dump(json_stuck_line, outfile)
                                 imu_stuck_flag.value = True
                         except Exception as ex:
                             errorwriter(ex, "El IMU no pudo tomar lectura")
-                            print("Ups! El IMU no pudo tomar lectura")
+                            print(ex, "Ups! El IMU no pudo tomar lectura")
                             
                 if time.perf_counter() - temp_timer > timer_temp.value:
                     temp_timer = time.perf_counter()
@@ -568,8 +598,8 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                         for chip in sensors.iter_detected_chips():
                             for feature in chip:
                                 if feature.label == "temp1":
-                                    print("el nombre del chip es:")
-                                    print(chip.adapter_name)
+                                    # print("el nombre del chip es:")
+                                    # print(chip.adapter_name)
                                     if chip.adapter_name == "bcm2835 (i2c@7e804000)" or chip.adapter_name == "i2c-gpio-rtc@0":
                                         temp_clock.value = round(feature.get_value(), 1)
                                         if chip.adapter_name == "i2c-gpio-rtc@0":
@@ -579,7 +609,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                     finally:
                         if (temp_cpu.value > 80 or temp_clock.value > 80) and not is_hot.value:
                             is_hot.value = True
-                            logwriter("Alta temperatura", 9, temp_cpu.value, temp_clock.value)
+                            logwriter("Alta temperatura", id=9, t_cpu=temp_cpu.value, t_clock=temp_clock.value)
                         sensors.cleanup()
                 if time.perf_counter() - state_timer > timer_log.value:
 
@@ -610,23 +640,24 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                             except:
                                 dht_ok = False
                                 dht_fail_counter += 1
-                            if dht_fail_counter > 20:
+                            if dht_fail_counter > 50:
                                 print("No pude sacar medicion del DHT")
                                 errorwriter("DHT", "No se pudo tomar medicion de Humedad y Temperatura")
                                 break
-                    logwriter("Estado", 14, temp_cpu.value, temp_clock.value,
-                            temp_out.value, humedad.value, amoniaco.value)
-        except:
+                    logwriter("Estado", id=14, t_cpu=temp_cpu.value, t_clock=temp_clock.value,
+                            t_ambiente=temp_out.value, humedad=humedad.value, amoniaco=amoniaco.value)
+        except Exception as ex:
             # errorwriter("Camara", "Fallo timeout")
+            # print(ex)
             pass
 
 
 
 def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout, last_touch_timeout, last_touch_counter, last_touch_osc_counter, flash_req ):
     was_auto = False
-    motor_1_dir = DigitalOutputDevice("BOARD40")
+    # motor_1_dir = DigitalOutputDevice("BOARD40")
     # motor_1_pwm = DigitalOutputDevice("BOARD38")
-    motor_2_dir = DigitalOutputDevice("BOARD37")
+    # motor_2_dir = DigitalOutputDevice("BOARD37")
     # motor_2_pwm = DigitalOutputDevice("BOARD35")
     button_left = Button("BOARD15")
     button_middle = Button("BOARD13")
@@ -799,11 +830,11 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             print("Stop auto")
             is_stopped.value = True
             first_auto = True
-            logwriter("Termine de andar autonomo", 4)
+            logwriter("Termine de andar autonomo", id=4)
         elif(auto_req.value == True):
             if first_auto:
                 last_time_rest = time.perf_counter()
-                logwriter("Empece a andar autonomo", 2)
+                logwriter("Empece a andar autonomo", id=2)
                 print("first auto")
                 first_auto = False
                 is_stopped.value = False
@@ -813,7 +844,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                 is_stopped.value = False
                 is_hot.value = False
                 print("Vuelvo a andar")
-                logwriter("Termine descanso", 11)
+                logwriter("Termine descanso", id=11)
                 led_enable.on()
                 if flash_req.value == True:
                     flash_enable.on()
@@ -829,7 +860,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                     last_time_on = time.perf_counter()
                     print("Voy a descansar")
                     flash_enable.off()
-                    logwriter("Empece descanso", 10)
+                    logwriter("Empece descanso", id=10)
                     break
                 if time.perf_counter() - last_touch_timer > last_touch_timeout.value:
                     last_touch_count = 0
@@ -846,7 +877,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                         while ((cam_stuck_flag.value == True or imu_stuck_flag == True) and auto_req.value == True):
                             if stuck_seq == 0:
                                 move(-1.0, 0)
-                                print("Going backwards")
+                                # print("Going backwards")
                                 while (backward_count < backwards_counter.value and auto_req.value == True):
                                     time.sleep(1)
                                     backward_count += 1
@@ -855,7 +886,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                 
                             elif stuck_seq == 1:
                                 move(1.0, 0)
-                                print("Going forward")
+                                # print("Going forward")
                                 while (backward_count < backwards_counter.value and auto_req.value == True):
                                     time.sleep(1)
                                     backward_count += 1
@@ -863,7 +894,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                 backward_count = 0
                             elif stuck_seq == 2:
                                 move(0, 1.0)
-                                print("Going left idk")
+                                # print("Going left idk")
                                 while (backward_count < backwards_counter.value and auto_req.value == True):
                                     time.sleep(0.25)
                                     move(1.0, 0)
@@ -878,7 +909,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                 break
                         if stuck_seq != 1:
                             move(-1.0, 0)
-                            print("Going backwards")
+                            # print("Going backwards")
                             while (backward_count < backwards_counter.value and auto_req.value == True):
                                 time.sleep(1)
                                 backward_count += 1
@@ -902,38 +933,38 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                         go_right =  True #random.choice([True, False])
                         if go_right == True:
                             move(0, 1.0)
-                            print("Going right")
+                            # print("Going right")
                         else:
                             move(0, -1.0)
-                            print("Going left")
+                            # print("Going left")
                         while (steer_count < steer_counter.value and auto_req.value == True):
                             time.sleep(0.25)
                             move(1.0, 0)
                             time.sleep(0.45)
                             if go_right == True:
                                 move(0, 1.0)
-                                print("Going right")
+                                # print("Going right")
                             else:
                                 move(0, -1.0)
-                                print("Going left")
+                                # print("Going left")
                             time.sleep(0.25)
                             move(1.0, 0)
                             time.sleep(0.45)
                             if go_right == True:
                                 move(0, 1.0)
-                                print("Going right")
+                                # print("Going right")
                             else:
                                 move(0, -1.0)
-                                print("Going left")
+                                # print("Going left")
                             time.sleep(0.25)
                             move(1.0, 0)
                             time.sleep(0.45)
                             if go_right == True:
                                 move(0, 1.0)
-                                print("Going right")
+                                # print("Going right")
                             else:
                                 move(0, -1.0)
-                                print("Going left")
+                                # print("Going left")
                             steer_count += 1
                         timer = time.perf_counter()
                     move(1.0, 0)
@@ -946,7 +977,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                     if button_left.is_pressed and not button_right.is_pressed:
                         crash_confirmed = False
                         crash_timer = time.perf_counter()
-                        print("Me apretaron de izquierda")
+                        # print("Me apretaron de izquierda")
                         if crash_timeout.value > 0:
                             while (time.perf_counter() - crash_timer) < crash_timeout.value:
                                 time.sleep(0.25)
@@ -958,18 +989,18 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                         else:
                             crash_confirmed = True
                         if crash_confirmed:
-                            print("Choque confirmado de izquierda")
+                            # print("Choque confirmado de izquierda")
                             timer = time.perf_counter()
                             if last_touch == "IZQ":
                                 last_touch_count +=1
                                 last_touch_osc_count = 0
                                 last_touch_timer = time.perf_counter()
-                                print("Izquierda count: {}".format(last_touch_count))
+                                # print("Izquierda count: {}".format(last_touch_count))
                             elif last_touch == "DER":
                                 last_touch_osc_count += 1
                                 last_touch_count = 0
                                 last_touch_osc_timer = time.perf_counter()
-                                print("Osci count: {}".format(last_touch_osc_count))
+                                # print("Osci count: {}".format(last_touch_osc_count))
                             last_touch = "IZQ"
                             if last_touch_count >= last_touch_counter.value:
                                 antiloop("IZQ")
@@ -979,7 +1010,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                 last_touch_osc_count = 0
                             else:
                                 move(-1.0, 0)
-                                print("Going backwards")
+                                # print("Going backwards")
                                 if second_back == False:
                                     back_change = backwards_counter.value
                                     second_back = True
@@ -990,7 +1021,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                     time.sleep(1)
                                     backward_count += 1
                                 move(0, 1.0)
-                                print("Going right")
+                                # print("Going right")
                                 while (steer_count < steer_counter.value and auto_req.value == True):
                                     time.sleep(0.25)
                                     move(1.0, 0)
@@ -1005,7 +1036,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                     elif button_right.is_pressed and not button_left.is_pressed:
                         crash_confirmed = False
                         crash_timer = time.perf_counter()
-                        print("Me apretaron de derecha")
+                        # print("Me apretaron de derecha")
                         if crash_timeout.value > 0:
                             while (time.perf_counter() - crash_timer) < crash_timeout.value:
                                 time.sleep(0.25)
@@ -1018,17 +1049,17 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                             crash_confirmed = True
                         if crash_confirmed:
                             timer = time.perf_counter()
-                            print("Choque confirmado de derecha")
+                            # print("Choque confirmado de derecha")
                             if last_touch == "DER":
                                 last_touch_count +=1
                                 last_touch_osc_count = 0
                                 last_touch_timer = time.perf_counter()
-                                print("Derecha count: {}".format(last_touch_count))
+                                # print("Derecha count: {}".format(last_touch_count))
                             elif last_touch == "IZQ":
                                 last_touch_osc_count += 1
                                 last_touch_count = 0
                                 last_touch_osc_timer = time.perf_counter()
-                                print("Oscilation count: {}".format(last_touch_osc_count))
+                                # print("Oscilation count: {}".format(last_touch_osc_count))
                             last_touch = "DER"
                             if last_touch_count >= last_touch_counter.value:
                                 antiloop("DER")
@@ -1044,12 +1075,12 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                     back_change = int(backwards_counter.value * 1.5)
                                     second_back = False
                                 move(-1.0, 0)
-                                print("Going backwards")
+                                # print("Going backwards")
                                 while (backward_count < back_change and auto_req.value == True):
                                     time.sleep(1)
                                     backward_count += 1
                                 move(0, -1.0)
-                                print("Going left")
+                                # print("Going left")
                                 while (steer_count < steer_counter.value and auto_req.value == True):
                                     time.sleep(0.25)
                                     move(1.0, 0)
@@ -1065,7 +1096,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                         crash_timer = time.perf_counter()
 
                         
-                        print("Me apretaron de frente")
+                        # print("Me apretaron de frente")
                         if crash_timeout.value > 0:
                             while (time.perf_counter() - crash_timer) < crash_timeout.value:
                                 time.sleep(0.25)
@@ -1080,7 +1111,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                             if button_left.is_pressed and not button_right.is_pressed:
                                 crash_confirmed = False
                                 crash_timer = time.perf_counter()
-                                print("Me apretaron de izquierda")
+                                # print("Me apretaron de izquierda")
                                 if crash_timeout.value > 0:
                                     while (time.perf_counter() - crash_timer) < crash_timeout.value:
                                         time.sleep(0.25)
@@ -1092,18 +1123,18 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                 else:
                                     crash_confirmed = True
                                 if crash_confirmed:
-                                    print("Choque confirmado de izquierda")
+                                    # print("Choque confirmado de izquierda")
                                     timer = time.perf_counter()
                                     if last_touch == "IZQ":
                                         last_touch_count +=1
                                         last_touch_osc_count = 0
                                         last_touch_timer = time.perf_counter()
-                                        print("Izquierda count: {}".format(last_touch_count))
+                                        # print("Izquierda count: {}".format(last_touch_count))
                                     elif last_touch == "DER":
                                         last_touch_osc_count += 1
                                         last_touch_count = 0
                                         last_touch_osc_timer = time.perf_counter()
-                                        print("Osci count: {}".format(last_touch_osc_count))
+                                        # print("Osci count: {}".format(last_touch_osc_count))
                                     last_touch = "IZQ"
                                     if last_touch_count >= last_touch_counter.value:
                                         antiloop("IZQ")
@@ -1113,7 +1144,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                         last_touch_osc_count = 0
                                     else:
                                         move(-1.0, 0)
-                                        print("Going backwards")
+                                        # print("Going backwards")
                                         if second_back == False:
                                             back_change = backwards_counter.value
                                             second_back = True
@@ -1124,7 +1155,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                             time.sleep(1)
                                             backward_count += 1
                                         move(0, 1.0)
-                                        print("Going right")
+                                        # print("Going right")
                                         while (steer_count < steer_counter.value and auto_req.value == True):
                                             time.sleep(0.25)
                                             move(1.0, 0)
@@ -1140,7 +1171,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                             elif button_right.is_pressed and not button_left.is_pressed:
                                 crash_confirmed = False
                                 crash_timer = time.perf_counter()
-                                print("Me apretaron de derecha")
+                                # print("Me apretaron de derecha")
                                 if crash_timeout.value > 0:
                                     while (time.perf_counter() - crash_timer) < crash_timeout.value:
                                         time.sleep(0.25)
@@ -1153,17 +1184,17 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                     crash_confirmed = True
                                 if crash_confirmed:
                                     timer = time.perf_counter()
-                                    print("Choque confirmado de derecha")
+                                    # print("Choque confirmado de derecha")
                                     if last_touch == "DER":
                                         last_touch_count +=1
                                         last_touch_osc_count = 0
                                         last_touch_timer = time.perf_counter()
-                                        print("Derecha count: {}".format(last_touch_count))
+                                        # print("Derecha count: {}".format(last_touch_count))
                                     elif last_touch == "IZQ":
                                         last_touch_osc_count += 1
                                         last_touch_count = 0
                                         last_touch_osc_timer = time.perf_counter()
-                                        print("Oscilation count: {}".format(last_touch_osc_count))
+                                        # print("Oscilation count: {}".format(last_touch_osc_count))
                                     last_touch = "DER"
                                     if last_touch_count >= last_touch_counter.value:
                                         antiloop("DER")
@@ -1179,12 +1210,12 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                             back_change = int(backwards_counter.value * 1.5)
                                             second_back = False
                                         move(-1.0, 0)
-                                        print("Going backwards")
+                                        # print("Going backwards")
                                         while (backward_count < back_change and auto_req.value == True):
                                             time.sleep(1)
                                             backward_count += 1
                                         move(0, -1.0)
-                                        print("Going left")
+                                        # print("Going left")
                                         while (steer_count < steer_counter.value and auto_req.value == True):
                                             time.sleep(0.25)
                                             move(1.0, 0)
@@ -1197,10 +1228,10 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                             steer_count += 1
                                 crash_confirmed = False
                         if crash_confirmed:
-                            print("Choque frontal")
+                            # print("Choque frontal")
                             timer = time.perf_counter()
                             move(-1.0, 0)
-                            print("Going backwards")
+                            # print("Going backwards")
                             if second_back == False:
                                 back_change = backwards_counter.value
                                 second_back = True
@@ -1219,44 +1250,44 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                             last_touch = "FRO"
                             if go_right == True:
                                 move(0, 1.0)
-                                print("Going right")
+                                # print("Going right")
                             else:
                                 move(0, -1.0)
-                                print("Going left")
+                                # print("Going left")
                             while (steer_count < steer_counter.value and auto_req.value == True):
                                 time.sleep(0.25)
                                 move(1.0, 0)
                                 time.sleep(0.45)
                                 if go_right == True:
                                     move(0, 1.0)
-                                    print("Going right")
+                                    # print("Going right")
                                 else:
                                     move(0, -1.0)
-                                    print("Going left")
+                                    # print("Going left")
                                 time.sleep(0.25)
                                 move(1.0, 0)
                                 time.sleep(0.45)
                                 if go_right == True:
                                     move(0, 1.0)
-                                    print("Going right")
+                                    # print("Going right")
                                 else:
                                     move(0, -1.0)
-                                    print("Going left")
+                                    # print("Going left")
                                 time.sleep(0.25)
                                 move(1.0, 0)
                                 time.sleep(0.45)
                                 if go_right == True:
                                     move(0, 1.0)
-                                    print("Going right")
+                                    # print("Going right")
                                 else:
                                     move(0, -1.0)
-                                    print("Going left")
+                                    # print("Going left")
                                 steer_count += 1
 
                     elif not (button_middle.is_pressed or button_left.is_pressed or button_right.is_pressed):
                         pass
                     elif (button_left.is_pressed and button_right.is_pressed):
-                        print("Toque randomn")
+                        # print("Toque randomn")
                         crash_confirmed = False
                         crash_timer = time.perf_counter()
                         if crash_timeout.value > 0:
@@ -1270,10 +1301,10 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                         else:
                             crash_confirmed = True
                         if crash_confirmed:
-                            print("Choque confirmado randomn")
+                            # print("Choque confirmado randomn")
                             timer = time.perf_counter()
                             move(-1.0, 0)
-                            print("Going backwards")
+                            # print("Going backwards")
                             if second_back == False:
                                 back_change = backwards_counter.value
                                 second_back = True
@@ -1292,44 +1323,44 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                             last_touch = "FRO"
                             if go_right == True:
                                 move(0, 1.0)
-                                print("Going right")
+                                # print("Going right")
                             else:
                                 move(0, -1.0)
-                                print("Going left")
+                                # print("Going left")
                             while (steer_count < steer_counter.value and auto_req.value == True):
                                 time.sleep(0.25)
                                 move(1.0, 0)
                                 time.sleep(0.45)
                                 if go_right == True:
                                     move(0, 1.0)
-                                    print("Going right")
+                                    # print("Going right")
                                 else:
                                     move(0, -1.0)
-                                    print("Going left")
+                                    # print("Going left")
                                 time.sleep(0.25)
                                 move(1.0, 0)
                                 time.sleep(0.45)
                                 if go_right == True:
                                     move(0, 1.0)
-                                    print("Going right")
+                                    # print("Going right")
                                 else:
                                     move(0, -1.0)
-                                    print("Going left")
+                                    # print("Going left")
                                 time.sleep(0.25)
                                 move(1.0, 0)
                                 time.sleep(0.45)
                                 if go_right == True:
                                     move(0, 1.0)
-                                    print("Going right")
+                                    # print("Going right")
                                 else:
                                     move(0, -1.0)
-                                    print("Going left")
+                                    # print("Going left")
                                 steer_count += 1
                 else:
-                    print('No paso nada')
+                    # print('No paso nada')
                     timer = time.perf_counter()
                     move(-1.0, 0)
-                    print("Going backwards")
+                    # print("Going backwards")
                     if second_back == False:
                         back_change = backwards_counter.value
                         second_back = True
@@ -1342,38 +1373,38 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                     go_right = random.choice([True, False])
                     if go_right == True:
                         move(0, -1.0)
-                        print("Going right")
+                        # print("Going right")
                     else:
                         move(0, 1.0)
-                        print("Going left")
+                        # print("Going left")
                     while (steer_count < steer_counter.value and auto_req.value == True):
                         time.sleep(0.25)
                         move(1.0, 0)
                         time.sleep(0.45)
                         if go_right == True:
                             move(0, 1.0)
-                            print("Going right")
+                            # print("Going right")
                         else:
                             move(0, -1.0)
-                            print("Going left")
+                            # print("Going left")
                         time.sleep(0.25)
                         move(1.0, 0)
                         time.sleep(0.45)
                         if go_right == True:
                             move(0, 1.0)
-                            print("Going right")
+                            # print("Going right")
                         else:
                             move(0, -1.0)
-                            print("Going left")
+                            # print("Going left")
                         time.sleep(0.25)
                         move(1.0, 0)
                         time.sleep(0.45)
                         if go_right == True:
                             move(0, 1.0)
-                            print("Going right")
+                            # print("Going right")
                         else:
                             move(0, -1.0)
-                            print("Going left")
+                            # print("Going left")
                         steer_count += 1
         time.sleep(1)
 
@@ -1477,11 +1508,11 @@ def main():
     if date_int >= date_crash_timeout:
         crash_timeout.value = crash_timeout_after
         print("SENSIBILIDAD BAJA")
-        logwriter("Sensibilidad baja", 15)
+        logwriter("Sensibilidad baja", id=15)
     else:
         print("SENSIBILIDAD ALTA")
         crash_timeout.value = crash_timeout_before
-        logwriter("Sensibilidad alta", 15)
+        logwriter("Sensibilidad alta", id=15)
 
 
     json_state = {"flash": flash_req.value, "auto": auto_req.value,
@@ -1512,6 +1543,8 @@ def main():
 if __name__ == '__main__':
     motor_1_pwm = DigitalOutputDevice("BOARD38")
     motor_2_pwm = DigitalOutputDevice("BOARD35")
+    motor_1_dir = DigitalOutputDevice("BOARD40")
+    motor_2_dir = DigitalOutputDevice("BOARD37")
     start_time = time.perf_counter()
     led_ground.off()
     motor_1_pwm.off()
@@ -1548,7 +1581,7 @@ if __name__ == '__main__':
     flash_enable.off()
     if not os.path.exists("log/log.csv"):
         print("No existe el logfile")
-        header = ["#", "Fecha", "Hora", "Evento", "T. CPU",
+        header = ["#", "Fecha", "Hora", "Evento","Minutos", "T. CPU",
                   "T. Clock", "T. Ambiente", "Humedad", "NH3", "ID"]
         with open('log/log.csv', 'w') as logfile:
             wr = csv.writer(logfile)
@@ -1588,6 +1621,15 @@ if __name__ == '__main__':
     flash_enable.off()
     time.sleep(0.5)
     led_enable.on()
+    #  with open('/var/www/html/config.json') as json_file:
+    #         config = json.load(json_file)
+    #     with open('/var/www/html/backup_config.json', 'w') as outfile:
+    #         json.dump(config, outfile)
+    # except:
+    #     with open('/var/www/html/backup_config.json') as json_file:
+    #         config = json.load(json_file)
+    #     with open('/var/www/html/config.json', 'w') as outfile:
+    #         json.dump(config, outfile)
     if not os.path.exists("log/error.log"):
         with open('log/error.log', 'w') as errlog:
             errlog.write("START ERROR LOG")
@@ -1598,36 +1640,48 @@ if __name__ == '__main__':
     try:
         with open('stuck_count.json') as json_stuck:
             last_stuck = json.load(json_stuck)
+        with open('stuck_count_backup.json', 'w') as outfile:
+            json.dump(last_stuck, outfile)
     except:
-        json_stuck_line = {"IMU": -1, "Cam": -1}
-        with open('stuck_count.json', 'w') as outfile:
-            json.dump(json_stuck_line, outfile)
+        try:
+            with open('stuck_count_backup.json') as json_stuck:
+                last_stuck = json.load(json_stuck)
+            with open('stuck_count.json', 'w') as outfile:
+                json.dump(last_stuck, outfile)
+        except:
+            json_stuck_line = {"IMU": -1, "Cam": -1}
+            with open('stuck_count.json', 'w') as outfile:
+                json.dump(json_stuck_line, outfile)
+            with open('stuck_count.json') as json_stuck:
+                last_stuck = json.load(json_stuck)
     try:
         with open('last_on.json') as json_on:
             last_watch = json.load(json_on)
     except:
-        last_on()
-        with open('last_on.json') as json_on:
-            last_watch = json.load(json_on)
+        try:
+            with open('last_on_backup.json') as json_on:
+                last_watch = json.load(json_on)
+            with open('last_on.json', 'w') as outfile:
+                json.dump(last_watch, outfile)
+        except:
+            last_on()
+            with open('last_on.json') as json_on:
+                last_watch = json.load(json_on)
     
-    with open('last_on.json') as json_on:
-        last_watch = json.load(json_on)
-    with open('stuck_count.json') as json_stuck:
-        last_stuck = json.load(json_stuck)
-    start_log = "Me apague, atascos detectados por imu: " + \
-        str(last_stuck["IMU"]) + \
-        ", detectados por camara: " + str(last_stuck["Cam"])
-    logwriter(start_log, 15, watch_dog=True,
+
+    start_log = "Me apague, minutos trabado camara / IMU " 
+    minutos_start = str(last_stuck["Cam"]) + "/" + str(last_stuck["IMU"])
+    logwriter(start_log, id=6, watch_dog=True, minutos= minutos_start, 
                 last_date=last_watch["Fecha"], last_hour=last_watch["Hora"], last_name=last_watch["Name"])
     json_stuck_line = {"IMU": 0, "Cam": 0}
     with open('stuck_count.json', 'w') as outfile:
         json.dump(json_stuck_line, outfile)
-    logwriter("Me prendi con esta configuracion: " + str(config)+'/'+str(admin), 1)
+    logwriter("Me prendi con esta configuracion: " + str(config)+'/'+str(admin), id=1)
     last_on()
     if config["flash"] == True:
         flash_enable.on()
-        logwriter("Prendi luces", 12)
-    motors_enable.on()
+        logwriter("Prendi luces", id=12)
+    # motors_enable.on()
     try:
         main()
     except KeyboardInterrupt:
