@@ -432,6 +432,8 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
     camera.resolution = (640, 480)
     camera.framerate = 32
     raw_capture = PiRGBArray(camera, size=(640, 480))
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    out = cv2.VideoWriter('resources/{}.avi'.format(int(time.time())),fourcc,24.0, (640,480))
 
     last_pic = 0
     last_imu = 0
@@ -456,7 +458,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
         try:
             for frame in camera.capture_continuous(raw_capture, format="bgr", use_video_port=True):
                 f = frame.array
-
+                out.write(f)
                 cv2.waitKey(1)
                 # cv2.imshow('frame', f)
                 f = cv2.resize(f, (640, 480))
