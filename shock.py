@@ -736,8 +736,9 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             number_check_rate = int(t / check_rate)
             rest = t - number_check_rate * check_rate
             counter_check_rate = 0
-            while counter_check_rate <=number_check_rate and auto_req.value == True:
+            while counter_check_rate <= number_check_rate and auto_req.value == True:
                 time.sleep(check_rate)
+                counter_check_rate += 1
             if counter_check_rate == number_check_rate and auto_req.value == True:
                     time.sleep(rest)
             motor_1_pwm.off()
