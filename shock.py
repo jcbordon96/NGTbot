@@ -689,7 +689,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
     
 
     def move(x, z, t = 0):
-        print("Llegamos aca", t)
+        print("Llegamos aca",x,z, t)
         check_rate = 0.5
         if(z == 0):
             pwm1 = x
