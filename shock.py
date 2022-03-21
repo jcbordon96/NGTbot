@@ -683,7 +683,6 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             def __init__(self, velArray):
                 self.stuck = velArray[0]
                 self.normal = velArray[1]
-    print(vel_array)
     vel = Velocity(vel_array[0], vel_array[1], vel_array[2], vel_array[3])
     time_turn_forward = time_array[0]
     time_turn_turn = time_array[1]
@@ -759,7 +758,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             steer_count = 0
         if type == "IZQ":
             while (steer_count < steer_counter.value and auto_req.value == True and not (button_left.is_pressed or button_right.is_pressed or button_middle.is_pressed)):                      
-                move(vel.forward.nromal, 0, time_turn_forward)
+                move(vel.forward.normal, 0, time_turn_forward)
                 move(0, vel.left.normal, time_turn_turn)
                 steer_count += 1
             steer_count = 0
@@ -915,7 +914,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                     elif button_right.is_pressed and not button_left.is_pressed:
                         crash_confirmed = False
                         crash_timer = time.perf_counter()
-                        # print("Me apretaron de derecha")
+                        print("Me apretaron de derecha")
                         if crash_timeout.value > 0:
                             while (time.perf_counter() - crash_timer) < crash_timeout.value:
                                 time.sleep(0.25)
@@ -928,7 +927,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                             crash_confirmed = True
                         if crash_confirmed:
                             timer = time.perf_counter()
-                            # print("Choque confirmado de derecha")
+                            print("Choque confirmado de derecha")
                             if last_touch == "DER":
                                 last_touch_count +=1
                                 last_touch_osc_count = 0
