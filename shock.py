@@ -757,9 +757,11 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                 steer_count += 1
             steer_count = 0
         if type == "IZQ":
+            print("Move_Seq_izq")
             while (steer_count < steer_counter.value and auto_req.value == True and not (button_left.is_pressed or button_right.is_pressed or button_middle.is_pressed)):                      
                 move(vel.forward.normal, 0, time_turn_forward)
                 move(0, vel.left.normal, time_turn_turn)
+                print("Move_Seq_izq_in")
                 steer_count += 1
             steer_count = 0
 
