@@ -683,7 +683,8 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
         def _init_(self, velArray):
             self.stuck = velArray[0]
             self.normal = velArray[1]
-    vel = Velocity(vel_array)
+    # vel = Velocity(vel_array)
+    vel = Velocity([1,1], [1,1], [1,1], [1,1])
     time_turn_forward = time_array[0]
     time_turn_turn = time_array[1]
     
