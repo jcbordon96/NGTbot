@@ -674,7 +674,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
     second_back = False
     back_change = 0
     class Velocity:
-        def __init__(self, forward, left, right, backward):
+        def __init__(self, forward, backward, left, right):
             self.forward = self.VelocityData(forward)
             self.left = self.VelocityData(left)
             self.right = self.VelocityData(right)
