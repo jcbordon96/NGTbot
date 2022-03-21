@@ -679,7 +679,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             self.left = self.VelocityData(left)
             self.right = self.VelocityData(right)
             self.backward = self.VelocityData(backward)
-    class VelocityData:
+        class VelocityData:
             def __init__(self, velArray):
                 self.stuck = velArray[0]
                 self.normal = velArray[1]
