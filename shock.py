@@ -746,6 +746,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             motor_1_pwm.value = abs(0)
             motor_2_pwm.value = abs(0)
     def move_sequence(type):
+        steer_count = 0
         if type == "TURN_STUCK":
             while (steer_count < steer_counter.value and auto_req.value == True):
                 move(vel.forward.stuck, 0, time_turn_forward)
