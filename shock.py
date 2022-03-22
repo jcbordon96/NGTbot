@@ -327,7 +327,7 @@ def command(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_f
     asyncio.get_event_loop().run_forever()
 
 
-def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility):
+def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window):
     
     counter = 0
     GAIN = 1
@@ -448,7 +448,15 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
     total_elapsed_imu_stuck = 0
     last_total_elapsed_cam_stuck = 0
     last_total_elapsed_imu_stuck = 0
+    confirm_elapsed_cam_stuck = 0
+    confirm_total_elapsed_cam_stuck = 0
+    confirm_last_total_elapsed_cam_stuck = 0
+    confirm_log_cam_stuck = True
+    confirm_start_cam_stuck = 0
     is_tails = False
+    reference_stuck = 0
+    stuck_count = 0
+
     while True:
         try:
             for frame in camera.capture_continuous(raw_capture, format="bgr", use_video_port=True):
@@ -465,6 +473,32 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                     image_to_compare0 = f
                     first = False
                     compare_timer = time.perf_counter()
+                if time.perf_counter() - reference_stuck > stuck_window.value:
+                    if stuck_count >= stucks_to_confirm.value:
+                        if confirm_log_cam_stuck:
+                            logwriter("Me trabe, camara CONFIRMADO", id=20)
+                            confirm_log_cam_stuck = False
+                            confirm_start_cam_stuck = time.perf_counter() 
+                            confirm_last_total_elapsed_cam_stuck = confirm_total_elapsed_cam_stuck
+                        confirm_elapsed_cam_stuck = (time.perf_counter() - confirm_start_cam_stuck)/60.0
+                        confirm_total_elapsed_cam_stuck = confirm_last_total_elapsed_cam_stuck + confirm_elapsed_cam_stuck
+                        json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck, "CamConf": confirm_total_elapsed_cam_stuck}
+                        with open('stuck_count.json', 'w') as outfile:
+                            json.dump(json_stuck_line, outfile)
+                        with open('stuck_count_backup.json', 'w') as outfile:
+                            json.dump(json_stuck_line, outfile)
+                    elif not confirm_log_cam_stuck and stuck_count < stucks_to_confirm.value:
+                        confirm_elapsed_cam_stuck = (time.perf_counter() - confirm_start_cam_stuck)/60.0
+                        confirm_total_elapsed_cam_stuck = confirm_last_total_elapsed_cam_stuck + confirm_elapsed_cam_stuck
+                        json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck, "CamConf": confirm_total_elapsed_cam_stuck}
+                        with open('stuck_count.json', 'w') as outfile:
+                            json.dump(json_stuck_line, outfile)
+                        with open('stuck_count_backup.json', 'w') as outfile:
+                            json.dump(json_stuck_line, outfile)
+                        confirm_log_cam_stuck = True
+                        logwriter("Me destrabe, camara CONFIRMADO, minutos:", minutos=round(confirm_elapsed_cam_stuck,2), id=21)
+                    reference_stuck = time.perf_counter()
+                    stuck_count = 0
                 if time.perf_counter() - compare_timer > timer_stuck_pic.value:
                     img0 = to_grayscale(image_to_compare0.astype(float))
                     img1 = to_grayscale(f.astype(float))
@@ -474,6 +508,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                         if not math.isnan(n_m):
                             # print((n_m/img0.size))
                             if ((n_m/img0.size) < pic_sensibility.value):
+                                stuck_count += 1
                                 if log_cam_stuck:
                                     print("Estoy trabado!!! Dos fotos iguales")
                                     logwriter("Me trabe, camara", id=16)
@@ -481,9 +516,9 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                                     start_cam_stuck = time.perf_counter()
                                     last_total_elapsed_cam_stuck = total_elapsed_cam_stuck
                                 cam_stuck_flag.value = True
-                                elapsed_cam_stuck = round((time.perf_counter() - start_cam_stuck)/60.0, 2)
+                                elapsed_cam_stuck = (time.perf_counter() - start_cam_stuck)/60.0
                                 total_elapsed_cam_stuck = last_total_elapsed_cam_stuck + elapsed_cam_stuck
-                                json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck}
+                                json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck, "CamConf": confirm_total_elapsed_cam_stuck}
                                 with open('stuck_count.json', 'w') as outfile:
                                     json.dump(json_stuck_line, outfile)
                                 with open('stuck_count_backup.json', 'w') as outfile:
@@ -491,15 +526,15 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                                 
                             else:
                                 if not log_cam_stuck:
-                                    elapsed_cam_stuck = round((time.perf_counter() - start_cam_stuck)/60.0, 2)
+                                    elapsed_cam_stuck = (time.perf_counter() - start_cam_stuck)/60.0
                                     total_elapsed_cam_stuck = last_total_elapsed_cam_stuck + elapsed_cam_stuck
-                                    json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck}
+                                    json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck, "CamConf": confirm_total_elapsed_cam_stuck}
                                     with open('stuck_count.json', 'w') as outfile:
                                         json.dump(json_stuck_line, outfile)
                                     with open('stuck_count_backup.json', 'w') as outfile:
                                         json.dump(json_stuck_line, outfile)
                                     print(" Cam destuck")
-                                    logwriter("Me destrabe, camara, minutos:", minutos=elapsed_cam_stuck, id=17)
+                                    logwriter("Me destrabe, camara, minutos:", minutos=round(elapsed_cam_stuck,2), id=17)
                                     log_cam_stuck = True
                                 cam_stuck_flag.value = False
                     else:
@@ -641,7 +676,11 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                                 print("No pude sacar medicion del DHT")
                                 errorwriter("DHT", "No se pudo tomar medicion de Humedad y Temperatura")
                                 break
-                    logwriter("Estado", id=14, t_cpu=temp_cpu.value, t_clock=temp_clock.value,
+                    if not is_stopped.value:
+                        logwriter("Estado", id=14, t_cpu=temp_cpu.value, t_clock=temp_clock.value,
+                            t_ambiente=temp_out.value, humedad=humedad.value, amoniaco=amoniaco.value)
+                    else:
+                        logwriter("Estado, descansando", id=14, t_cpu=temp_cpu.value, t_clock=temp_clock.value,
                             t_ambiente=temp_out.value, humedad=humedad.value, amoniaco=amoniaco.value)
         except Exception as ex:
             # errorwriter("Camara", "Fallo timeout")
@@ -1222,6 +1261,8 @@ def main():
     last_touch_counter = multiprocessing.Value('i', 0)
     last_touch_osc_counter = multiprocessing.Value('i', 0)
     pic_sensibility = multiprocessing.Value('i', 0)
+    stucks_to_confirm = multiprocessing.Value('i', 0)
+    stuck_window = multiprocessing.Value('d', 0)
 
     manager = multiprocessing.Manager()
     lst = manager.list()
@@ -1248,6 +1289,8 @@ def main():
     last_touch_counter.value = admin["last_touch_counter"]
     last_touch_osc_counter.value = admin["last_touch_osc_counter"]
     pic_sensibility.value = admin["pic_sensibility"]
+    stucks_to_confirm.value = admin['stucks_to_confirm']
+    stuck_window.value = admin['stuck_window']
     vel_array = [[admin["vel_forward_stuck"], admin["vel_forward_normal"]], [admin["vel_backward_stuck"], admin["vel_backward_normal"]], [admin["vel_left_stuck"], admin["vel_left_normal"]], [admin["vel_right_stuck"], admin["vel_right_normal"]] ]
     time_array = [admin["time_turn_forward"], admin["time_turn_turn"]]
     today = datetime.now()
@@ -1275,7 +1318,7 @@ def main():
     auto_handler = multiprocessing.Process(
         target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout, last_touch_timeout,last_touch_counter, last_touch_osc_counter, flash_req, vel_array, time_array, ))
     pitch_handler = multiprocessing.Process(
-        target=pitch, args=(lst, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility,))
+        target=pitch, args=(lst, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window,))
     # Add 'em to our list
     PROCESSES.append(camera_handler)
     PROCESSES.append(command_handler)
@@ -1379,7 +1422,7 @@ if __name__ == '__main__':
         with open('log/error.log', 'w') as errlog:
             errlog.write("START ERROR LOG")
     if not os.path.exists("stuck_count.json"):
-        json_stuck_line = {"IMU": 0, "Cam": 0}
+        json_stuck_line = {"IMU": 0, "Cam": 0, "CamConf": 0}
         with open('stuck_count.json', 'w') as outfile:
             json.dump(json_stuck_line, outfile)
     try:
@@ -1418,7 +1461,9 @@ if __name__ == '__main__':
     minutos_start = str(last_stuck["Cam"]) + "/" + str(last_stuck["IMU"])
     logwriter(start_log, id=6, watch_dog=True, minutos= minutos_start, 
                 last_date=last_watch["Fecha"], last_hour=last_watch["Hora"], last_name=last_watch["Name"])
-    json_stuck_line = {"IMU": 0, "Cam": 0}
+    logwriter("Me apague, minutos trabado camara confirmados", id=22, watch_dog=True, minutos= str(last_stuck["CamConf"]), 
+                last_date=last_watch["Fecha"], last_hour=last_watch["Hora"], last_name=last_watch["Name"])
+    json_stuck_line = {"IMU": 0, "Cam": 0, "CamConf": 0}
     with open('stuck_count.json', 'w') as outfile:
         json.dump(json_stuck_line, outfile)
     logwriter("Me prendi con esta configuracion: " + str(config)+'/'+str(admin), id=1)
