@@ -539,6 +539,17 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                                     log_cam_stuck = True
                                 cam_stuck_flag.value = False
                     else:
+                        if not log_cam_stuck:
+                            elapsed_cam_stuck = (time.perf_counter() - start_cam_stuck)/60.0
+                            total_elapsed_cam_stuck = last_total_elapsed_cam_stuck + elapsed_cam_stuck
+                            json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck, "CamConf": confirm_total_elapsed_cam_stuck}
+                            with open('stuck_count.json', 'w') as outfile:
+                                json.dump(json_stuck_line, outfile)
+                            with open('stuck_count_backup.json', 'w') as outfile:
+                                json.dump(json_stuck_line, outfile)
+                            print(" Cam destuck")
+                            logwriter("Me destrabe, camara, minutos:", minutos=round(elapsed_cam_stuck,2), id=17)
+                            log_cam_stuck = True
                         cam_stuck_flag.value = False
 
                     image_to_compare0 = f
