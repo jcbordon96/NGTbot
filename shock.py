@@ -477,6 +477,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                     if stuck_count >= stucks_to_confirm.value:
                         if confirm_log_cam_stuck:
                             logwriter("Me trabe, camara CONFIRMADO", id=20)
+                            print("Me trabe confirmado")
                             confirm_log_cam_stuck = False
                             confirm_start_cam_stuck = time.perf_counter() 
                             confirm_last_total_elapsed_cam_stuck = confirm_total_elapsed_cam_stuck
