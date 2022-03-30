@@ -337,7 +337,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
     dht_init = False
     dht_fail_counter = 0
     try:
-        adc = Adafruit_ADS1x15.ADS1015(address=0x48, busnum=4)
+        adc = Adafruit_ADS1x15.ADS1115(address=0x48, busnum=4)
         print("El ADC inicio")
         adc_ok = True
     except Exception as ex:
@@ -456,6 +456,27 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
     is_tails = False
     reference_stuck = 0
     stuck_count = 0
+    temp_cpu = 0
+    temp_cpu = 0 
+    temp_out = 0
+    humedad = 0
+    amoniaco = 0
+    sum_temp_cpu = 0
+    sum_temp_cpu = 0 
+    sum_temp_out = 0
+    sum_humedad = 0
+    sum_amoniaco = 0
+    prom_temp_cpu = 0
+    prom_temp_cpu = 0 
+    prom_temp_out = 0
+    prom_humedad = 0
+    prom_amoniaco = 0
+    count_temp_cpu = 0
+    count_temp_cpu = 0 
+    count_temp_out = 0
+    count_humedad = 0
+    count_amoniaco = 0
+    
 
     while True:
         try:
@@ -633,6 +654,23 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                         except Exception as ex:
                             errorwriter(ex, "El IMU no pudo tomar lectura")
                             print(ex, "Ups! El IMU no pudo tomar lectura")
+                try:
+                    for chip in sensors.iter_detected_chips():
+                        for feature in chip:
+                            if feature.label == "temp1":
+                                # print("el nombre del chip es:")
+                                # print(chip.adapter_name)
+                                if chip.adapter_name == "bcm2835 (i2c@7e804000)" or chip.adapter_name == "i2c-gpio-rtc@0":
+                                    temp_clock.value = round(feature.get_value(), 1)
+                                    if chip.adapter_name == "i2c-gpio-rtc@0":
+                                        is_tails = True
+                                if chip.adapter_name == "Virtual device":
+                                    temp_cpu.value = round(feature.get_value(), 1)
+                finally:
+                    if (temp_cpu.value > 80 or temp_clock.value > 80) and not is_hot.value:
+                        is_hot.value = True
+                        logwriter("Alta temperatura", id=9, t_cpu=temp_cpu.value, t_clock=temp_clock.value)
+                    sensors.cleanup()
                             
                 if time.perf_counter() - temp_timer > timer_temp.value:
                     temp_timer = time.perf_counter()
@@ -739,19 +777,23 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
     time_turn_turn = time_array[1]
     
 
-    def move(x, z, t = 0):
+    def move(x = 0, z = 0, t = 0):
         # print("Llegamos aca",x,z, t)
         check_rate = 0.5
+        if abs(x) > 1:
+            x = x/abs(x)
+        if abs(z) > 1:
+            z = z/abs(z)
         if(z == 0):
-            pwm1 = x
+            pwm1 = x 
             pwm2 = pwm1
         elif (x == 0):
-            pwm1 = z
+            pwm1 = z 
             pwm2 = -pwm1
         else:
             if (x > 0):
                 if (z > 0):
-                    pwm1 = x
+                    pwm1 = x 
                     pwm2 = x - abs(0.5*z)
                 else:
                     pwm2 = x
@@ -766,18 +808,18 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
         # print("PWM1 {}".format(pwm1))
         # print("PWM2 {}".format(pwm2))
         if (pwm1 > 0):
-            motor_1_pwm.on()
+            motor_1_pwm.value = abs(pwm1)
             motor_1_dir.off()
         elif(pwm1 < 0):
-            motor_1_pwm.on()
+            motor_1_pwm.value = abs(pwm1)
             motor_1_dir.on()
         else:
             motor_1_pwm.off()
         if (pwm2 < 0):
-            motor_2_pwm.on()
+            motor_2_pwm.value = abs(pwm2)
             motor_2_dir.off()
         elif(pwm2 > 0):
-            motor_2_pwm.on()
+            motor_2_pwm.value = abs(pwm2)
             motor_2_dir.on()
         else:
             motor_2_pwm.off()
@@ -1343,8 +1385,10 @@ def main():
 
 
 if __name__ == '__main__':
-    motor_1_pwm = DigitalOutputDevice("BOARD29")
-    motor_2_pwm = DigitalOutputDevice("BOARD33")
+    motor_1_pwm = PWMOutputDevice("BOARD29")
+    motor_2_pwm = PWMOutputDevice("BOARD33")
+    motor_1_pwm.frequency = 10000
+    motor_2_pwm.frequency = 10000
     start_time = time.perf_counter()
     # led_ground.off()
     motor_1_pwm.off()
