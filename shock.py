@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from distutils.log import error
 from picamera.array import PiRGBArray
 from picamera import PiCamera
 import asyncio
@@ -15,6 +16,7 @@ import time
 import random
 from gpiozero import DigitalOutputDevice, PWMOutputDevice, Button
 import smbus
+import smbus2
 import math
 from datetime import datetime
 import sensors
@@ -25,6 +27,10 @@ from numpy import sum, average
 import Adafruit_ADS1x15
 import board
 import adafruit_dht
+from mlx90614 import MLX90614
+import psutil
+from bmp280 import BMP280
+import bme280
 
 
 PWR_MGMT_1 = 0x6B
@@ -62,7 +68,7 @@ def errorwriter(error, comentario = ""):
     with open("log/error.log",'a', newline='') as logerror:
         logerror.write(errlog)
 
-def logwriter(event, id, t_cpu=0, minutos =0, t_clock=0, t_ambiente=0, humedad=0, amoniaco=0, watch_dog=False, last_date=-1, last_hour=-1, last_name=-1):
+def logwriter(event, id,  minutos =0, t_cpu=0, t_clock=0, t_dht=0, t_bme=0, t_bmp=0, t_laser_surf = 0, t_laser_amb = 0, h_dht=0, h_bme=0, p_bme=0, p_bmp=0, watch_dog=False, last_date=-1, last_hour=-1, last_name=-1):
     nowlogdate = datetime.now()
     if watch_dog:
         logdate = last_date
@@ -77,33 +83,33 @@ def logwriter(event, id, t_cpu=0, minutos =0, t_clock=0, t_ambiente=0, humedad=0
 
     if not os.path.exists(stringdatelog):
         print("No existe el logfile diario")
-        header = ["#", "Fecha", "Hora", "Evento", "Minutos", "T. CPU",
-                  "T. Clock", "T. Ambiente", "Humedad", "NH3", "ID"]
+        header = ["#", "Fecha", "Hora", "Evento", "Minutos", "CPU", "RAM" ,"T. CPU",
+                  "T. Clock", "T. DHT", "T. BME", "T. BMP", 'T. Ambiente Laser', "T. Laser", "H. DHT", "H. BME", "P. BME", "P. BMP", "ID"]
         with open(stringdatelog, 'w') as logfile:
             wr = csv.writer(logfile)
             wr.writerow(header)
     with open(stringdatelog, 'a', newline='') as logfile:
         wr = csv.writer(logfile)
-        wr.writerow(["", logdate, loghour, event, minutos, t_cpu,
-                    t_clock, t_ambiente, humedad, amoniaco, id])
+        psutil.cpu_percent(percpu = True)
+        wr.writerow(["", logdate, loghour, event, minutos,str(psutil.cpu_percent(percpu = True)), str(psutil.virtual_memory().percent), t_cpu,
+                    t_clock, t_dht, t_bme, t_bmp, t_laser_amb, t_laser_surf, h_dht, h_bme, p_bme, p_bmp, id])
 
     if not os.path.exists(stringdatelogbackup):
         print("No existe el logfile diario de backup")
-        header = ["#", "Fecha", "Hora", "Evento","Minutos", "T. CPU",
-                  "T. Clock", "T. Ambiente", "Humedad", "NH3", "ID"]
+        header = ["#", "Fecha", "Hora", "Evento", "Minutos", "CPU", "RAM" ,"T. CPU",
+                  "T. Clock", "T. DHT", "T. BME", "T. BMP", 'T. Ambiente Laser', "T. Laser", "H. DHT", "H. BME", "P. BME", "P. BMP", "ID"]
         with open(stringdatelogbackup, 'w') as logfile:
             wr = csv.writer(logfile)
             wr.writerow(header)
     with open(stringdatelogbackup, 'a', newline='') as logfile:
         wr = csv.writer(logfile)
-        wr.writerow(["", logdate, loghour, event, minutos, t_cpu,
-                    t_clock, t_ambiente, humedad, amoniaco, id])
+        wr.writerow(["", logdate, loghour, event, minutos,str(psutil.cpu_percent(percpu = True)), str(psutil.virtual_memory().percent), t_cpu,
+                    t_clock, t_dht, t_bme, t_bmp, t_laser_amb, t_laser_surf, h_dht, h_bme, p_bme, p_bmp, id])
 
     with open('log/log.csv', 'a', newline='') as logfile:
         wr = csv.writer(logfile)
-        wr.writerow(["", logdate, loghour, event, minutos, t_cpu,
-                    t_clock, t_ambiente, humedad, amoniaco, id])
-
+        wr.writerow(["", logdate, loghour, event, minutos,str(psutil.cpu_percent(percpu = True)), str(psutil.virtual_memory().percent), t_cpu,
+                    t_clock, t_dht, t_bme, t_bmp, t_laser_amb, t_laser_surf, h_dht, h_bme, p_bme, p_bmp, id])
 
 class bcolors:
     HEADER = '\033[95m'
@@ -283,56 +289,12 @@ def command(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_f
         finally:
             await unregister(websocket)
 
-    # def move(x, z):
-    #     if(z == 0):
-    #         pwm1 = x
-    #         pwm2 = pwm1
-    #     elif (x == 0):
-    #         pwm1 = z
-    #         pwm2 = -pwm1
-    #     else:
-    #         if (x > 0):
-    #             if (z > 0):
-    #                 pwm1 = x
-    #                 pwm2 = x - abs(0.5*z)
-    #             else:
-    #                 pwm2 = x
-    #                 pwm1 = x - abs(0.5*z)
-    #         else:
-    #             if (z > 0):
-    #                 pwm1 = x
-    #                 pwm2 = x + abs(0.5*z)
-    #             else:
-    #                 pwm2 = x
-    #                 pwm1 = x + abs(0.5*z)
-    #     # print("PWM1 {}".format(pwm1))
-    #     # print("PWM2 {}".format(pwm2))
-    #     if (pwm1 > 0):
-    #         motor_1_pwm.on()
-    #         motor_1_dir.off()
-    #     elif(pwm1 < 0):
-    #         motor_1_pwm.on()
-    #         motor_1_dir.on()
-    #     else:
-    #         motor_1_pwm.off()
-    #     if (pwm2 < 0):
-    #         motor_2_pwm.on()
-    #         motor_2_dir.off()
-    #     elif(pwm2 > 0):
-    #         motor_2_pwm.on()
-    #         motor_2_dir.on()
-    #     else:
-    #         motor_1_pwm.off()
-    #     motor_1_pwm.value = abs(pwm1)
-    #     motor_2_pwm.value = abs(pwm2)
-    #     print(motor_1_pwm.value,  motor_2_pwm.value)
-
     start_server2 = websockets.serve(counter, "192.168.4.1", 9001)
     asyncio.get_event_loop().run_until_complete(start_server2)
     asyncio.get_event_loop().run_forever()
 
 
-def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest):
+def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest, flash_req):
     
     counter = 0
     GAIN = 1
@@ -342,14 +304,44 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
     dht_init = False
     dht_fail_counter = 0
     moving_img = False
+    take_measure_laser = True
+    temp_laser_amb = 0 
+    temp_laser_surface = 0
+    retry_laser_amb = True
+    retry_laser_surface = True
+    # try:
+    #     adc = Adafruit_ADS1x15.ADS1115(address=0x48, busnum=4)
+    #     print("El ADC inicio")
+    #     adc_ok = True
+    # except Exception as ex:
+    #     errorwriter(ex, "Error al iniciar el ADC") 
+    #     print("Error al iniciar el ADC")
+    #     pass
     try:
-        adc = Adafruit_ADS1x15.ADS1115(address=0x48, busnum=4)
-        print("El ADC inicio")
-        adc_ok = True
+        laserbus = smbus.SMBus(4)
+        laser = MLX90614(laserbus, address=0x5A)
+        print("Laser inicio bien")
+        laser_ok = True
     except Exception as ex:
-        errorwriter(ex, "Error al iniciar el ADC") 
-        print("Error al iniciar el ADC")
-        pass
+        errorwriter(ex, "Error al iniciar medidor laser")
+        print("Error al incioar el medidor laser")
+        laser_ok = False
+    try:
+        bmp280 = BMP280(i2c_dev=laserbus, i2c_addr = 0x77)
+        bmp280.setup(mode="forced")
+        bmp_ok = True
+    except Exception as ex:
+        errorwriter(ex, "Error al iniciar el BMP")
+        print(ex, "Error al iniciar el BMP")
+        bmp_ok = False
+    try:
+        calibration_params = bme280.load_calibration_params(laserbus,0x76)
+        bme = bme280.sample(laserbus, 0x76, calibration_params)
+        bme_ok = True
+    except Exception as ex:
+        errorwriter(ex, "Error al iniciar el BME")
+        print(ex, "Error al iniciar el BME")
+        bme_ok = False
     try:
         dhtDevice = adafruit_dht.DHT22(board.D26, use_pulseio=False)
         dht_init = True
@@ -470,33 +462,12 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
     is_tails = False
     reference_stuck = 0
     stuck_count = 0
-    # temp_cpu = 0
-    # temp_cpu = 0 
-    # temp_out = 0
-    # humedad = 0
-    # amoniaco = 0
-    # sum_temp_cpu = 0
-    # sum_temp_cpu = 0 
-    # sum_temp_out = 0
-    # sum_humedad = 0
-    # sum_amoniaco = 0
-    # prom_temp_cpu = 0
-    # prom_temp_cpu = 0 
-    # prom_temp_out = 0
-    # prom_humedad = 0
-    # prom_amoniaco = 0
-    # count_temp_cpu = 0
-    # count_temp_cpu = 0 
-    # count_temp_out = 0
-    # count_humedad = 0
-    # count_amoniaco = 0
-    
+    list_img_to_filter = []
 
     while True:
         try:
             for frame in camera.capture_continuous(raw_capture, format="bgr", use_video_port=True):
                 f = frame.array
-
                 cv2.waitKey(1)
                 # cv2.imshow('frame', f)
                 f = cv2.resize(f, (640, 480))
@@ -537,6 +508,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                         logwriter("Me destrabe, camara CONFIRMADO, minutos:", minutos=round(confirm_elapsed_cam_stuck,2), id=21)
                     reference_stuck = time.perf_counter()
                     stuck_count = 0
+                
                 if time.perf_counter() - compare_timer > timer_stuck_pic.value:
                     img0 = to_grayscale(image_to_compare0.astype(float))
                     img1 = to_grayscale(f.astype(float))
@@ -593,6 +565,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
 
                     image_to_compare0 = f
                     compare_timer = time.perf_counter()
+
                 if (cam_req.value == True and was_taking == False):
                     img_index_num.value = img_index_num.value + 1
                     json_string = {"num": int(img_index_num.value)}
@@ -601,20 +574,30 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                     img_counter = 0
                     logwriter("Empece a sacar fotos", id=3)
                     log_cam = True
+                
                 if cam_req.value == True:
                     was_taking = True
-
+                    if time.perf_counter() - last_pic > (camera_rate.value - 1):
+                        flash_enable.on()
                     if time.perf_counter() - last_pic > camera_rate.value:
+                        now = datetime.now()
+                        img_folder = now.strftime("%Y%m%d")
+                        print(img_folder)
+                        if not os.path.exists("resources/{}".format(img_folder)):
+                            os.mkdir("resources/{}".format(img_folder))
                         if not is_stopped.value and not is_rest.value and not moving_img:
                             now = datetime.now()
                             d1 = now.strftime("%Y%m%d_%H%M%S")
                             img_type = "M"
-                            img_name = "resources/{}_{}_{}_{}.png".format(d1,img_type,
+                            img_name = "resources/{}/{}_{}_{}_{}.png".format(img_folder,d1,img_type,
                                                                         img_index_num.value, img_counter)
                             print(img_name)
+                            list_img_to_filter.append(img_name)
                             moving_img = True
                             camera.capture(img_name)
-                        taking_pics.value = True                                          
+                            
+                        taking_pics.value = True      
+                                                        
                         if is_stopped.value == True:
                             moving_img = False
                             now = datetime.now()
@@ -625,10 +608,13 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                                 img_type = "S"
                             else:
                                 img_type = "P"
-                            img_name = "resources/{}_{}_{}_{}.png".format(d1,img_type,
+                            img_name = "resources/{}/{}_{}_{}_{}.png".format(img_folder,d1,img_type,
                                                                     img_index_num.value, img_counter)
                             print(img_name)
+                            list_img_to_filter.append(img_name)
                             camera.capture(img_name)
+                            if is_rest.value or not flash_req.value:
+                                flash_enable.off()
                             last_pic = time.perf_counter()
                             img_counter += 1
                             taking_pics.value = False
@@ -639,6 +625,30 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                         logwriter("Termine de sacar fotos", id=4)
                         log_cam = False
                 raw_capture.truncate(0)
+                
+                
+                if is_rest.value and len(list_img_to_filter) > 0:
+                    try:
+                        string_array = list_img_to_filter[0].split("/")
+                        img = cv2.imread(list_img_to_filter[0])
+                        gris = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                        reduccion = cv2.resize(gris, (300, 300), interpolation = cv2.INTER_CUBIC)
+                        filtrado = cv2.medianBlur(reduccion, 3)
+                        umbral = cv2.Laplacian(filtrado, ddepth = cv2.CV_16S).var()
+                        if not os.path.exists("resources/{}/ok".format(string_array[1])):
+                            os.mkdir("resources/{}/ok".format(string_array[1]))
+                        if not os.path.exists("resources/{}/not_ok".format(string_array[1])):
+                            os.mkdir("resources/{}/not_ok".format(string_array[1]))
+                        if umbral >= 90:
+                            save_dir = string_array[0]+ "/" + string_array[1] + "/ok/" + string_array[2] 
+                        else:
+                            save_dir = string_array[0] + "/" + string_array[1] + "/not_ok/" + string_array[2] 
+                        
+                        cv2.imwrite(save_dir, img)
+                        list_img_to_filter.pop(0)
+
+                    except:
+                        list_img_to_filter.pop(0)
                 if imu_req.value == True and imu_ok == True:
                     if time.perf_counter()-last_imu > 0.5:
                         try:
@@ -664,7 +674,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                                 if log_imu_stuck == False:
                                     elapsed_imu_stuck = round((time.perf_counter() - start_imu_stuck)/60.0, 2)
                                     total_elapsed_imu_stuck = last_total_elapsed_imu_stuck + elapsed_imu_stuck
-                                    json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck}
+                                    json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck, "CamConf": confirm_total_elapsed_cam_stuck}
                                     with open('stuck_count.json', 'w') as outfile:
                                         json.dump(json_stuck_line, outfile)
                                     with open('stuck_count_backup.json', 'w') as outfile:
@@ -681,7 +691,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                                     last_total_elapsed_imu_stuck = total_elapsed_imu_stuck
                                 elapsed_imu_stuck =  round((time.perf_counter() - start_imu_stuck)/60.0, 2)
                                 total_elapsed_imu_stuck = last_total_elapsed_imu_stuck + elapsed_imu_stuck
-                                json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck}
+                                json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck, "CamConf": confirm_total_elapsed_cam_stuck}
                                 with open('stuck_count.json', 'w') as outfile:
                                     json.dump(json_stuck_line, outfile)
                                 with open('stuck_count_backup.json', 'w') as outfile:
@@ -690,8 +700,6 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                         except Exception as ex:
                             errorwriter(ex, "El IMU no pudo tomar lectura")
                             print(ex, "Ups! El IMU no pudo tomar lectura")
-
-
                 if time.perf_counter() - temp_timer > timer_temp.value:
                     temp_timer = time.perf_counter()
                     last_on()
@@ -713,24 +721,59 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                             is_hot.value = True
                             logwriter("Alta temperatura", id=9, t_cpu=temp_cpu.value, t_clock=temp_clock.value)
                         sensors.cleanup()
+                if take_measure_laser and laser_ok:
+                    try:
+                        if retry_laser_surface:
+                            temp_laser_surface_not = laser.get_obj_temp()
+                        if retry_laser_amb:
+                            temp_laser_amb_not = laser.get_amb_temp()
+                        if temp_laser_surface_not < 80:
+                            retry_laser_surface = False
+                        if temp_laser_amb_not < 80:
+                            retry_laser_amb = False
+                        if not retry_laser_amb and not retry_laser_surface:
+                            temp_laser_amb = temp_laser_amb_not
+                            temp_laser_surface = temp_laser_surface_not
+                            amoniaco.value = temp_laser_surface
+                            print("Temperatura Surface: ", temp_laser_surface, "Temperatura Ambiente: ", temp_laser_amb)
+                            retry_laser_amb = True
+                            retry_laser_surface = True
+                            take_measure_laser = False
+                    except Exception as ex:
+                        errorwriter(ex, "No se pudo tomar mediciones laser")
+                        print("Algo salio mal con el medidor laser")
+                        print(ex)
                 if time.perf_counter() - state_timer > timer_log.value:
                     state_timer = time.perf_counter()
-                    if adc_ok:
-                        try:
-                            value_adc = adc.read_adc(0, gain=GAIN)
-                            volt = (value_adc/32768)*4.096
-                            RS = ((3.3/volt)-1)*47
-                            if is_tails:
-                                ro = 326.52
-                            else:
-                                ro = 64
-                            ratio = RS/ro
-                            amoniaco.value = round(pow((math.log(ratio, 10)-0.323)/(-0.243), 10),2)
-                        except Exception as ex:
-                            print(ex)
-                            errorwriter(ex, "No se pudo tomar medicion de amoniaco")
-                            print("Algo salio mal con el sensor de amoniaco")
-                            pass
+                    take_measure_laser = True
+
+                    # if adc_ok:
+                    #     try:
+                    #         value_adc = adc.read_adc(0, gain=GAIN)
+                    #         volt = (value_adc/32768)*4.096
+                    #         RS = ((3.3/volt)-1)*47
+                    #         if is_tails:
+                    #             ro = 326.52
+                    #         else:
+                    #             ro = 64
+                    #         ratio = RS/ro
+                    #         amoniaco.value = round(pow((math.log(ratio, 10)-0.323)/(-0.243), 10),2)
+                    #     except Exception as ex:
+                    #         print(ex)
+                    #         errorwriter(ex, "No se pudo tomar medicion de amoniaco")
+                    #         print("Algo salio mal con el sensor de amoniaco")
+                    #         pass
+                    
+                    if bmp_ok:
+                        t_bmp = bmp280.get_temperature()
+                        p_bmp = bmp280.get_pressure()
+                        print("bmp", t_bmp,p_bmp)
+                    if bme_ok:
+                        bme = bme280.sample(laserbus, 0x76, calibration_params)
+                        t_bme = bme.temperature
+                        p_bme = bme.pressure
+                        h_bme = bme.humidity
+                        print("bmp", t_bme,p_bme, h_bme)
                     if dht_init:
                         dht_fail_counter = 0
                         dht_ok = False
@@ -746,12 +789,12 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                                 print("No pude sacar medicion del DHT")
                                 errorwriter("DHT", "No se pudo tomar medicion de Humedad y Temperatura")
                                 break
-                    if not is_stopped.value:
-                        logwriter("Estado", id=14, t_cpu=temp_cpu.value, t_clock=temp_clock.value,
-                            t_ambiente=temp_out.value, humedad=humedad.value, amoniaco=amoniaco.value)
+                    if not is_rest.value:
+                        logwriter("Estado", id=14, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=t_bme, t_bmp=t_bmp,
+                            t_dht=temp_out.value, t_laser_surf= temp_laser_surface, t_laser_amb=temp_laser_amb, h_dht=humedad.value, h_bme=h_bme, p_bme=p_bme, p_bmp=p_bmp)
                     else:
-                        logwriter("Estado, descansando", id=14, t_cpu=temp_cpu.value, t_clock=temp_clock.value,
-                            t_ambiente=temp_out.value, humedad=humedad.value, amoniaco=amoniaco.value)
+                        logwriter("Estado, descansando", id=14, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=t_bme, t_bmp=t_bmp,
+                            t_dht=temp_out.value, t_laser_surf= temp_laser_surface, t_laser_amb=temp_laser_amb, h_dht=humedad.value, h_bme=h_bme, p_bme=p_bme, p_bmp=p_bmp)
         except Exception as ex:
             # errorwriter("Camara", "Fallo timeout")
             # print(ex)
@@ -1406,7 +1449,7 @@ def main():
     auto_handler = multiprocessing.Process(
         target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout, last_touch_timeout,last_touch_counter, last_touch_osc_counter, flash_req, vel_array, time_array, x_com, z_com, is_rest,))
     pitch_handler = multiprocessing.Process(
-        target=pitch, args=(lst, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest,))
+        target=pitch, args=(lst, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest,flash_req,))
     # Add 'em to our list
     PROCESSES.append(camera_handler)
     PROCESSES.append(command_handler)
@@ -1452,11 +1495,11 @@ if __name__ == '__main__':
             pass
     except:
         pass
-    # while time.perf_counter()-start_time < 20:
-    #     led_enable.on()
-    #     time.sleep(0.5)
-    #     led_enable.off()
-    #     time.sleep(0.5)
+    while time.perf_counter()-start_time < 20:
+        led_enable.on()
+        time.sleep(0.5)
+        led_enable.off()
+        time.sleep(0.5)
     print(bcolors.OKGREEN + "Avi-Sense 2.0 APELIE ROBOTICS - 2022" + bcolors.ENDC)
     flash_enable.off()
     if not os.path.exists("log/log.csv"):
