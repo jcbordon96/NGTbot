@@ -580,9 +580,10 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                     if time.perf_counter() - last_pic > (camera_rate.value - 1):
                         flash_enable.on()
                     if time.perf_counter() - last_pic > camera_rate.value:
+                       
                         now = datetime.now()
                         img_folder = now.strftime("%Y%m%d")
-                        print(img_folder)
+                        # print(img_folder)
                         if not os.path.exists("resources/{}".format(img_folder)):
                             os.mkdir("resources/{}".format(img_folder))
                         if not is_stopped.value and not is_rest.value and not moving_img:
@@ -591,7 +592,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                             img_type = "M"
                             img_name = "resources/{}/{}_{}_{}_{}.png".format(img_folder,d1,img_type,
                                                                         img_index_num.value, img_counter)
-                            print(img_name)
+                            # print(img_name)
                             list_img_to_filter.append(img_name)
                             moving_img = True
                             camera.capture(img_name)
@@ -599,6 +600,8 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                         taking_pics.value = True      
                                                         
                         if is_stopped.value == True:
+                            last_pic = time.perf_counter()
+                            print("Voy a sacar foto detenida")
                             moving_img = False
                             now = datetime.now()
                             d1 = now.strftime("%Y%m%d_%H%M%S")
@@ -610,12 +613,11 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                                 img_type = "P"
                             img_name = "resources/{}/{}_{}_{}_{}.png".format(img_folder,d1,img_type,
                                                                     img_index_num.value, img_counter)
-                            print(img_name)
+                            # print(img_name)
                             list_img_to_filter.append(img_name)
                             camera.capture(img_name)
                             if is_rest.value or not flash_req.value:
                                 flash_enable.off()
-                            last_pic = time.perf_counter()
                             img_counter += 1
                             taking_pics.value = False
                             print("Just take a pic")
@@ -935,10 +937,10 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
         print("Antiloop")
         print(mode)
         if mode == "IZQ":
-            move(vel.backward.normal, 0, backwards_counter)
+            move(vel.backward.normal, 0, backwards_counter.value)
             move_sequence('IZQ')
         elif mode == "OSC":
-            move(vel.backward.normal, 0, backwards_counter)
+            move(vel.backward.normal, 0, backwards_counter.value)
             if last_touch == "IZQ":
                 go_right = False
             elif last_touch == "DER":
@@ -950,7 +952,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             else:
                 move_sequence('IZQ')
         elif mode == "DER":
-            move(vel.backward.normal, 0, backwards_counter)
+            move(vel.backward.normal, 0, backwards_counter.value)
             move_sequence('DER')
         last_touch_count = 0
         last_touch_osc_count = 0   
@@ -1038,6 +1040,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                         move(0, 0)
                         time.sleep(1)
                         is_stopped.value = True
+                        print("Stop esperando foto")
                     is_stopped.value = False
                     if button_left.is_pressed and not button_right.is_pressed:
                         crash_confirmed = False
