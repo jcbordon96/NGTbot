@@ -50,6 +50,7 @@ flash_enable = DigitalOutputDevice("BOARD12", active_high=True)
 led_enable = DigitalOutputDevice("BOARD16", active_high=True)
 
 
+
 def last_on():
     now_logdate = datetime.now()
     log_date = now_logdate.strftime("%Y-%m-%d")
@@ -68,7 +69,7 @@ def errorwriter(error, comentario = ""):
     with open("log/error.log",'a', newline='') as logerror:
         logerror.write(errlog)
 
-def logwriter(event, id,  minutos =0, t_cpu=0, t_clock=0, t_dht=0, t_bme=0, t_bmp=0, t_laser_surf = 0, t_laser_amb = 0, h_dht=0, h_bme=0, p_bme=0, p_bmp=0, watch_dog=False, last_date=-1, last_hour=-1, last_name=-1):
+def logwriter(event, id,  minutos =0, t_cpu=0, t_clock=0, t_dht=0, t_bme=0, t_bmp=0, t_laser_surf = 0, t_laser_amb = 0, h_dht=0, h_bme=0, p_bme=0, p_bmp=0, thi = 0, score_temp_amb_rt = 0, score_temp_bed_rt = 0, score_hum_rt = 0, score_thi_rt = 0, score_general_rt = 0, score_temp_amb_prom = 0, score_temp_bed_prom = 0, score_hum_prom = 0, score_thi_prom = 0, score_general_prom = 0, t_total= 0, t_active = 0, t_rest = 0, t_stuck = 0, watch_dog=False, last_date=-1, last_hour=-1, last_name=-1):
     nowlogdate = datetime.now()
     if watch_dog:
         logdate = last_date
@@ -80,36 +81,37 @@ def logwriter(event, id,  minutos =0, t_cpu=0, t_clock=0, t_dht=0, t_bme=0, t_bm
         datename = nowlogdate.strftime("%Y%m%d")
     stringdatelog = "log/diario/"+datename+".csv"
     stringdatelogbackup = "log/backup/"+datename+".csv"
+    
 
     if not os.path.exists(stringdatelog):
         print("No existe el logfile diario")
         header = ["#", "Fecha", "Hora", "Evento", "Minutos", "CPU", "RAM" ,"T. CPU",
-                  "T. Clock", "T. DHT", "T. BME", "T. BMP", 'T. Ambiente Laser', "T. Laser", "H. DHT", "H. BME", "P. BME", "P. BMP", "ID"]
+                  "T. Clock", "T. DHT", "T. BME", "T. BMP", 'T. Ambiente Laser', "T. Laser", "H. DHT", "H. BME", "P. BME", "P. BMP", "THI", "Score Temp. Amb. RT", "Score Temp. Cama RT", "Score Hum. RT", "Score THI RT", "Score General RT", "Score Temp. Amb. PROM", "Score Temp. Cama PROM", "Score Hum. PROM", "Score THI PROM", "Score General PROM", "Tiempo Total", "Tiempo Activo", "Tiempo Descansando", "Tiempo Trabado", "ID"]
         with open(stringdatelog, 'w') as logfile:
             wr = csv.writer(logfile)
             wr.writerow(header)
     with open(stringdatelog, 'a', newline='') as logfile:
         wr = csv.writer(logfile)
         psutil.cpu_percent(percpu = True)
-        wr.writerow(["", logdate, loghour, event, minutos,str(psutil.cpu_percent(percpu = True)), str(psutil.virtual_memory().percent), t_cpu,
-                    t_clock, t_dht, t_bme, t_bmp, t_laser_amb, t_laser_surf, h_dht, h_bme, p_bme, p_bmp, id])
+        wr.writerow(["", logdate, loghour, event, minutos,str(os.getloadavg()[0]), str(psutil.virtual_memory().percent), t_cpu,
+                    t_clock, t_dht, t_bme, t_bmp, t_laser_amb, t_laser_surf, h_dht, h_bme, p_bme, p_bmp, thi, score_temp_amb_rt, score_temp_bed_rt, score_hum_rt, score_thi_rt, score_general_rt, score_temp_amb_prom, score_temp_bed_prom, score_hum_prom, score_thi_prom, score_general_prom, t_total, t_active, t_rest, t_stuck, id])
 
     if not os.path.exists(stringdatelogbackup):
         print("No existe el logfile diario de backup")
         header = ["#", "Fecha", "Hora", "Evento", "Minutos", "CPU", "RAM" ,"T. CPU",
-                  "T. Clock", "T. DHT", "T. BME", "T. BMP", 'T. Ambiente Laser', "T. Laser", "H. DHT", "H. BME", "P. BME", "P. BMP", "ID"]
+                  "T. Clock", "T. DHT", "T. BME", "T. BMP", 'T. Ambiente Laser', "T. Laser", "H. DHT", "H. BME", "P. BME", "P. BMP", "THI", "Score Temp. Amb. RT", "Score Temp. Cama RT", "Score Hum. RT", "Score THI RT", "Score General RT", "Score Temp. Amb. PROM", "Score Temp. Cama PROM", "Score Hum. PROM", "Score THI PROM", "Score General PROM", "Tiempo Total", "Tiempo Activo", "Tiempo Descansando", "Tiempo Trabado", "ID"]
         with open(stringdatelogbackup, 'w') as logfile:
             wr = csv.writer(logfile)
             wr.writerow(header)
     with open(stringdatelogbackup, 'a', newline='') as logfile:
         wr = csv.writer(logfile)
-        wr.writerow(["", logdate, loghour, event, minutos,str(psutil.cpu_percent(percpu = True)), str(psutil.virtual_memory().percent), t_cpu,
-                    t_clock, t_dht, t_bme, t_bmp, t_laser_amb, t_laser_surf, h_dht, h_bme, p_bme, p_bmp, id])
+        wr.writerow(["", logdate, loghour, event, minutos,str(os.getloadavg()[0]), str(psutil.virtual_memory().percent), t_cpu,
+                    t_clock, t_dht, t_bme, t_bmp, t_laser_amb, t_laser_surf, h_dht, h_bme, p_bme, p_bmp, thi, score_temp_amb_rt, score_temp_bed_rt, score_hum_rt, score_thi_rt, score_general_rt, score_temp_amb_prom, score_temp_bed_prom, score_hum_prom, score_thi_prom, score_general_prom, t_total, t_active, t_rest, t_stuck, id])
 
     with open('log/log.csv', 'a', newline='') as logfile:
         wr = csv.writer(logfile)
-        wr.writerow(["", logdate, loghour, event, minutos,str(psutil.cpu_percent(percpu = True)), str(psutil.virtual_memory().percent), t_cpu,
-                    t_clock, t_dht, t_bme, t_bmp, t_laser_amb, t_laser_surf, h_dht, h_bme, p_bme, p_bmp, id])
+        wr.writerow(["", logdate, loghour, event, minutos,str(os.getloadavg()[0]), str(psutil.virtual_memory().percent), t_cpu,
+                    t_clock, t_dht, t_bme, t_bmp, t_laser_amb, t_laser_surf, h_dht, h_bme, p_bme, p_bmp, thi, score_temp_amb_rt, score_temp_bed_rt, score_hum_rt, score_thi_rt, score_general_rt, score_temp_amb_prom, score_temp_bed_prom, score_hum_prom, score_thi_prom, score_general_prom, t_total, t_active, t_rest, t_stuck, id])
 
 class bcolors:
     HEADER = '\033[95m'
@@ -350,6 +352,10 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
         print("Error al iniciar el DHT")
         pass
 
+    def thi_calc(temperatura, humedad):
+        thi = temperatura+0.348*((humedad/100)*6.105*math.exp((17.27*temperatura)/(237.7+temperatura)))
+        return thi
+
     def compare_images(img1, img2):
         # normalize to compensate for exposure difference
         try:
@@ -463,6 +469,47 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
     reference_stuck = 0
     stuck_count = 0
     list_img_to_filter = []
+    # Cargo configuracion
+    t_amb_max = float(day_score_config['T. Ambiente Max'])
+    t_amb_min = float(day_score_config['T. Ambiente Min'])
+    t_amb_delta= float(day_score_config['Amplitud Termica Amb.'])
+    t_amb_optimum = float(day_score_config['Promedio Optimo Amb.'])
+    h_max = float(day_score_config['Humedad Max'])
+    h_min = float(day_score_config['Humedad Min'])
+    h_delta= float(day_score_config['Amplitud Humedad'])
+    h_optimum = float(day_score_config['Promedio Optimo Humedad'])
+    thi_optimum = float(day_score_config['THI Optimo'])
+    if day_score_config['T. Cama Max'] != '':
+        t_bed_max = float(day_score_config['T. Cama Max'])
+        t_bed_min = float(day_score_config['T. Cama Min'])
+        t_bed_delta = float(day_score_config['Amplitud Termica Cama'])
+        t_bed_optimum = float(day_score_config['Promedio Optimo Cama'])
+        bed_check = True
+    else:
+        bed_check = False
+    score_temp_amb_rt = 0
+    score_temp_bed_rt = 0
+    score_hum_rt = 0
+    score_thi_rt = 0
+    score_general_rt = 0
+    score_temp_amb_prom = 0
+    score_temp_bed_prom = 0
+    score_hum_prom = 0
+    score_thi_prom = 0
+    score_general_prom = 0
+    t_amb_list = []
+    t_bed_list = []
+    h_list = []
+    thi_list = []
+    t_init = time.perf_counter()
+    t_total = 0
+    t_active = 0
+    t_rest = 0
+    t_stuck = 0
+    last_t_stuck = 0
+    last_t_active = 0
+    last_t_rest = 0
+
 
     while True:
         try:
@@ -580,7 +627,6 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                     if time.perf_counter() - last_pic > (camera_rate.value - 1):
                         flash_enable.on()
                     if time.perf_counter() - last_pic > camera_rate.value:
-                       
                         now = datetime.now()
                         img_folder = now.strftime("%Y%m%d")
                         # print(img_folder)
@@ -598,7 +644,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                             camera.capture(img_name)
                             
                         taking_pics.value = True      
-                                                        
+
                         if is_stopped.value == True:
                             last_pic = time.perf_counter()
                             print("Voy a sacar foto detenida")
@@ -627,8 +673,8 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                         logwriter("Termine de sacar fotos", id=4)
                         log_cam = False
                 raw_capture.truncate(0)
-                
-                
+
+
                 if is_rest.value and len(list_img_to_filter) > 0:
                     try:
                         string_array = list_img_to_filter[0].split("/")
@@ -726,9 +772,9 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                 if take_measure_laser and laser_ok:
                     try:
                         if retry_laser_surface:
-                            temp_laser_surface_not = laser.get_obj_temp()
+                            temp_laser_surface_not = round(laser.get_obj_temp(),2)
                         if retry_laser_amb:
-                            temp_laser_amb_not = laser.get_amb_temp()
+                            temp_laser_amb_not = round(laser.get_amb_temp(),2)
                         if temp_laser_surface_not < 80:
                             retry_laser_surface = False
                         if temp_laser_amb_not < 80:
@@ -767,14 +813,14 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                     #         pass
                     
                     if bmp_ok:
-                        t_bmp = bmp280.get_temperature()
-                        p_bmp = bmp280.get_pressure()
+                        t_bmp = round(bmp280.get_temperature(),2)
+                        p_bmp = round(bmp280.get_pressure(),2)
                         print("bmp", t_bmp,p_bmp)
                     if bme_ok:
                         bme = bme280.sample(laserbus, 0x76, calibration_params)
-                        t_bme = bme.temperature
-                        p_bme = bme.pressure
-                        h_bme = bme.humidity
+                        t_bme = round(bme.temperature,2)
+                        p_bme = round(bme.pressure,2)
+                        h_bme = round(bme.humidity,2)
                         print("bmp", t_bme,p_bme, h_bme)
                     if dht_init:
                         dht_fail_counter = 0
@@ -791,12 +837,86 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                                 print("No pude sacar medicion del DHT")
                                 errorwriter("DHT", "No se pudo tomar medicion de Humedad y Temperatura")
                                 break
+                    
+                    if t_bme != 0 and h_bme != 0:
+                        thi = thi_calc(temperatura=t_bme, humedad=h_bme)
+                        t_amb_list.append(t_bme)
+                        h_list.append(h_bme)
+                        thi_list.append(thi)
+                        if abs(t_bme-t_amb_optimum) < t_amb_delta/2:
+                            score_temp_amb_rt = 10
+                        else:
+                            score_temp_amb_rt = max(10+t_amb_delta/2 - abs(t_bme - t_amb_optimum), 0)
+                        if abs(h_bme-h_optimum) < h_delta/2:
+                            score_hum_rt = 10
+                        else:
+                            score_hum_rt = max(10+h_delta/2 - abs(h_bme - h_optimum), 0)
+                        score_thi_rt = max(10 - abs(thi-thi_optimum),0)
+                        t_amb_prom = sum(t_amb_list)/ len(t_amb_list)
+                        h_prom = sum(h_list)/ len(h_list)
+                        thi_prom = sum(thi_list)/ len(thi_list)
+                        if abs(t_amb_prom-t_amb_optimum) < t_amb_delta/2:
+                            score_temp_amb_prom = 10
+                        else:
+                            score_temp_amb_prom = max(10+t_amb_delta/2 - abs(t_amb_prom - t_amb_optimum), 0)
+                        if abs(h_prom-h_optimum) < h_delta/2:
+                            score_hum_prom = 10
+                        else:
+                            score_hum_prom = max(10+h_delta/2 - abs(h_prom - h_optimum), 0)
+                        score_thi_prom = max(10 - abs(thi_prom-thi_optimum),0)
+                    if bed_check:
+                        if temp_laser_surface != 0:
+                            t_bed_list.append(temp_laser_surface)
+                            if abs(temp_laser_surface-t_bed_optimum) < t_bed_delta/2:
+                                score_temp_bed_rt = 10
+                            else:
+                                score_temp_bed_rt = max(10+t_bed_delta/2 - abs(temp_laser_surface - t_bed_optimum), 0)
+                            temp_bed_prom = sum(t_bed_list)/ len(t_bed_list)
+                            if abs(temp_bed_prom-t_bed_optimum) < t_bed_delta/2:
+                                score_temp_bed_prom = 10
+                            else:
+                                score_temp_bed_prom = max(10+t_bed_delta/2 - abs(temp_bed_prom - t_bed_optimum), 0)
+                        score_general_rt = score_temp_bed_rt * 0.5 + score_temp_amb_rt * 0.2 + score_hum_rt * 0.2 + score_thi_rt * 0.1
+                        score_general_prom = score_temp_bed_prom * 0.5 + score_temp_amb_prom * 0.2 + score_hum_prom * 0.2 + score_thi_prom * 0.1
+                    else:
+                        score_general_rt = score_temp_amb_rt * 0.4 + score_hum_rt * 0.4 + score_thi_rt * 0.2
+                        score_general_prom = score_temp_amb_prom * 0.4 + score_hum_prom * 0.4 + score_thi_prom * 0.2
+
+                    if is_stuck_confirm:
+                        if last_t_stuck != 0:
+                            t_stuck_sec += time.perf_counter()-last_t_stuck
+                            t_stuck = t_stuck_sec/3600
+                        last_t_stuck = time.perf_counter()
+                    else:
+                        if last_t_stuck != 0:
+                            t_stuck_sec += time.perf_counter()-last_t_stuck
+                            t_stuck = t_stuck_sec/3600
+                        last_t_stuck = 0
+                    if is_rest.value:
+                        if last_t_rest != 0:
+                            t_rest_sec += time.perf_counter()-last_t_rest
+                            t_rest = t_rest_sec/3600
+                        last_t_rest = time.perf_counter()
+                        if last_t_active != 0:
+                            t_active_sec += time.perf_counter()-last_t_active
+                            t_active = t_active_sec/3600
+                        last_t_active = 0
+                    else:
+                        if last_t_rest != 0:
+                            t_rest_sec += time.perf_counter()-last_t_rest
+                            t_rest = t_rest_sec/3600
+                        last_t_rest = 0
+                        if last_t_active != 0:
+                            t_active_sec += time.perf_counter()-last_t_active
+                            t_active = t_active_sec/3600
+                        last_t_active = time.perf_counter()
+                    t_total = (time.perf_counter() - t_init)/3600
                     if not is_rest.value:
                         logwriter("Estado", id=14, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=t_bme, t_bmp=t_bmp,
-                            t_dht=temp_out.value, t_laser_surf= temp_laser_surface, t_laser_amb=temp_laser_amb, h_dht=humedad.value, h_bme=h_bme, p_bme=p_bme, p_bmp=p_bmp)
+                            t_dht=temp_out.value, t_laser_surf= temp_laser_surface, t_laser_amb=temp_laser_amb, h_dht=humedad.value, h_bme=h_bme, p_bme=p_bme, p_bmp=p_bmp, thi=thi, score_temp_amb_rt=score_temp_amb_rt, score_temp_bed_rt = score_temp_bed_rt, score_hum_rt = score_hum_rt, score_thi_rt = score_thi_rt, score_general_rt = score_general_rt, score_temp_amb_prom=score_temp_amb_prom, score_temp_bed_prom = score_temp_bed_prom, score_hum_prom = score_hum_prom, score_thi_prom = score_thi_prom, score_general_prom = score_general_prom, t_total = t_total, t_active = t_active, t_rest = t_rest, t_stuck = t_stuck)
                     else:
-                        logwriter("Estado, descansando", id=14, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=t_bme, t_bmp=t_bmp,
-                            t_dht=temp_out.value, t_laser_surf= temp_laser_surface, t_laser_amb=temp_laser_amb, h_dht=humedad.value, h_bme=h_bme, p_bme=p_bme, p_bmp=p_bmp)
+                        logwriter("Estado, descansando", id=15, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=t_bme, t_bmp=t_bmp,
+                            t_dht=temp_out.value, t_laser_surf= temp_laser_surface, t_laser_amb=temp_laser_amb, h_dht=humedad.value, h_bme=h_bme, p_bme=p_bme, p_bmp=p_bmp, thi=thi, score_temp_amb_rt=score_temp_amb_rt, score_temp_bed_rt = score_temp_bed_rt, score_hum_rt = score_hum_rt, score_thi_rt = score_thi_rt, score_general_rt = score_general_rt, score_temp_amb_prom=score_temp_amb_prom, score_temp_bed_prom = score_temp_bed_prom, score_hum_prom = score_hum_prom, score_thi_prom = score_thi_prom, score_general_prom = score_general_prom, t_total = t_total, t_active = t_active, t_rest = t_rest, t_stuck = t_stuck)
         except Exception as ex:
             # errorwriter("Camara", "Fallo timeout")
             # print(ex)
@@ -1432,11 +1552,11 @@ def main():
     if date_int >= date_crash_timeout:
         crash_timeout.value = crash_timeout_after
         print("SENSIBILIDAD BAJA")
-        logwriter("Sensibilidad baja", id=15)
+        logwriter("Sensibilidad baja", id=23)
     else:
         print("SENSIBILIDAD ALTA")
         crash_timeout.value = crash_timeout_before
-        logwriter("Sensibilidad alta", id=15)
+        logwriter("Sensibilidad alta", id=23)
 
 
     json_state = {"flash": flash_req.value, "auto": auto_req.value,
@@ -1512,6 +1632,28 @@ if __name__ == '__main__':
         with open('log/log.csv', 'w') as logfile:
             wr = csv.writer(logfile)
             wr.writerow(header)
+    try:
+        
+        with open ('config_scoring.csv', 'rt') as f:
+            rows = csv.reader(f)
+        
+            headers = next(rows)
+            record = dict(zip())
+            score_config = []
+            for i,row in enumerate(rows):
+                record = dict(zip(headers,row))
+                score_config.append(record)
+                if int(record['Dia']) != i:
+                    print("Archivo corrupto")
+                    raise Exception
+        zero_date = '20220415'
+        current_day = (datetime.now() - datetime.strptime(zero_date, "%Y%m%d")).days
+        if current_day > 60 or current_day < 0:
+            print("Fecha invalida")
+            raise Exception
+        day_score_config = score_config[current_day]
+    except:
+        print("Fallo la carga de configuracion scoring")
     try:
         with open('/var/www/html/config.json') as json_file:
             config = json.load(json_file)
