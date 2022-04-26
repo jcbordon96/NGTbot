@@ -509,6 +509,9 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
     last_t_stuck = 0
     last_t_active = 0
     last_t_rest = 0
+    t_stuck_sec = 0
+    t_active_sec = 0
+    t_rest_sec = 0
 
 
     while True:
@@ -569,7 +572,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                             if ((n_m/img0.size) < pic_sensibility.value):
                                 stuck_count += 1
                                 if log_cam_stuck:
-                                    print("Estoy trabado!!! Dos fotos iguales")
+                                    # print("Estoy trabado!!! Dos fotos iguales")
                                     logwriter("Me trabe, camara", id=16)
                                     log_cam_stuck = False
                                     start_cam_stuck = time.perf_counter()
@@ -592,7 +595,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                                         json.dump(json_stuck_line, outfile)
                                     with open('stuck_count_backup.json', 'w') as outfile:
                                         json.dump(json_stuck_line, outfile)
-                                    print(" Cam destuck")
+                                    # print(" Cam destuck")
                                     logwriter("Me destrabe, camara, minutos:", minutos=round(elapsed_cam_stuck,2), id=17)
                                     log_cam_stuck = True
                                 cam_stuck_flag.value = False
@@ -837,8 +840,9 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                                 print("No pude sacar medicion del DHT")
                                 errorwriter("DHT", "No se pudo tomar medicion de Humedad y Temperatura")
                                 break
-                    
+                    print("1")
                     if t_bme != 0 and h_bme != 0:
+                        print("2")
                         thi = thi_calc(temperatura=t_bme, humedad=h_bme)
                         t_amb_list.append(t_bme)
                         h_list.append(h_bme)
@@ -881,7 +885,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                     else:
                         score_general_rt = score_temp_amb_rt * 0.4 + score_hum_rt * 0.4 + score_thi_rt * 0.2
                         score_general_prom = score_temp_amb_prom * 0.4 + score_hum_prom * 0.4 + score_thi_prom * 0.2
-
+                    print("3")
                     if is_stuck_confirm:
                         if last_t_stuck != 0:
                             t_stuck_sec += time.perf_counter()-last_t_stuck
@@ -911,13 +915,17 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                             t_active = t_active_sec/3600
                         last_t_active = time.perf_counter()
                     t_total = (time.perf_counter() - t_init)/3600
+                    print("4")
                     if not is_rest.value:
+                        print("Estado")
                         logwriter("Estado", id=14, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=t_bme, t_bmp=t_bmp,
                             t_dht=temp_out.value, t_laser_surf= temp_laser_surface, t_laser_amb=temp_laser_amb, h_dht=humedad.value, h_bme=h_bme, p_bme=p_bme, p_bmp=p_bmp, thi=thi, score_temp_amb_rt=score_temp_amb_rt, score_temp_bed_rt = score_temp_bed_rt, score_hum_rt = score_hum_rt, score_thi_rt = score_thi_rt, score_general_rt = score_general_rt, score_temp_amb_prom=score_temp_amb_prom, score_temp_bed_prom = score_temp_bed_prom, score_hum_prom = score_hum_prom, score_thi_prom = score_thi_prom, score_general_prom = score_general_prom, t_total = t_total, t_active = t_active, t_rest = t_rest, t_stuck = t_stuck)
                     else:
+                        print("Estado descansando")
                         logwriter("Estado, descansando", id=15, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=t_bme, t_bmp=t_bmp,
                             t_dht=temp_out.value, t_laser_surf= temp_laser_surface, t_laser_amb=temp_laser_amb, h_dht=humedad.value, h_bme=h_bme, p_bme=p_bme, p_bmp=p_bmp, thi=thi, score_temp_amb_rt=score_temp_amb_rt, score_temp_bed_rt = score_temp_bed_rt, score_hum_rt = score_hum_rt, score_thi_rt = score_thi_rt, score_general_rt = score_general_rt, score_temp_amb_prom=score_temp_amb_prom, score_temp_bed_prom = score_temp_bed_prom, score_hum_prom = score_hum_prom, score_thi_prom = score_thi_prom, score_general_prom = score_general_prom, t_total = t_total, t_active = t_active, t_rest = t_rest, t_stuck = t_stuck)
         except Exception as ex:
+            print(ex)
             # errorwriter("Camara", "Fallo timeout")
             # print(ex)
             pass
