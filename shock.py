@@ -570,6 +570,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                         # if falsed == True:
                             # print((n_m/img0.size))
                             if ((n_m/img0.size) < pic_sensibility.value):
+                            # if False:
                                 stuck_count += 1
                                 if log_cam_stuck:
                                     # print("Estoy trabado!!! Dos fotos iguales")
@@ -990,18 +991,18 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
         else:
             if (x > 0):
                 if (z > 0):
-                    pwm1 = x 
-                    pwm2 = x - abs(0.5*z)
+                    pwm1 = x  
+                    pwm2 = x - z
                 else:
                     pwm2 = x
-                    pwm1 = x - abs(0.5*z)
+                    pwm1 = x + z
             else:
                 if (z > 0):
-                    pwm1 = x
-                    pwm2 = x + abs(0.5*z)
-                else:
+                    pwm1 = x + z
                     pwm2 = x
-                    pwm1 = x + abs(0.5*z)
+                else:
+                    pwm2 = x - z
+                    pwm1 = x
         # print("PWM1 {}".format(pwm1))
         # print("PWM2 {}".format(pwm2))
         if (pwm1 > 0):
@@ -1020,8 +1021,8 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             motor_2_dir.on()
         else:
             motor_2_pwm.off()
-        # print(abs(pwm1),abs(pwm2))
         if motor_1_pwm.value != abs(pwm1):
+            print(pwm1,pwm2)
             motor_1_pwm.value = abs(pwm1)
         if motor_2_pwm.value != abs(pwm2):
             motor_2_pwm.value = abs(pwm2)
@@ -1044,20 +1045,20 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
         steer_count = 0
         if type == "TURN_STUCK":
             while (steer_count < steer_counter.value and auto_req.value == True):
-                move(vel.forward.stuck, 0, time_turn_forward)
-                move(0, vel.left.stuck, time_turn_turn)
+                # move(vel.forward.stuck, 0, time_turn_forward)
+                move(vel.forward.stuck, vel.left.stuck, time_turn_turn)
                 steer_count += 1
             steer_count = 0
         if type == "DER":
             while (steer_count < steer_counter.value and auto_req.value == True and not (button_left.is_pressed or button_right.is_pressed or button_middle.is_pressed)):                      
-                move(vel.forward.normal, 0, time_turn_forward)
-                move(0, vel.right.normal, time_turn_turn)
+                # move(vel.forward.normal, 0, time_turn_forward)
+                move(vel.forward.normal, vel.right.normal, time_turn_turn)
                 steer_count += 1
             steer_count = 0
         if type == "IZQ":
             while (steer_count < steer_counter.value and auto_req.value == True and not (button_left.is_pressed or button_right.is_pressed or button_middle.is_pressed)):                      
-                move(vel.forward.normal, 0, time_turn_forward)
-                move(0, vel.left.normal, time_turn_turn)
+                # move(vel.forward.normal, 0, time_turn_forward)
+                move(vel.forward.normal, vel.left.normal, time_turn_turn)
                 steer_count += 1
             steer_count = 0
 
