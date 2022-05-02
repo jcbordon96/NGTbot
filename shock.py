@@ -842,6 +842,34 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                                 errorwriter("DHT", "No se pudo tomar medicion de Humedad y Temperatura")
                                 break
                     print("1")
+                    if current_date != datetime.now().strftime("%Y%m%d"):
+                        try:
+                            current_date = datetime.now().strftime("%Y%m%d")
+                            current_day = (datetime.now() - datetime.strptime(zero_date, "%Y%m%d")).days
+                            if current_day > 60 or current_day < 0:
+                                print("Fecha invalida")
+                                raise Exception
+                            day_score_config = score_config[current_day]
+                            t_amb_max = float(day_score_config['T. Ambiente Max'])
+                            t_amb_min = float(day_score_config['T. Ambiente Min'])
+                            t_amb_delta= float(day_score_config['Amplitud Termica Amb.'])
+                            t_amb_optimum = float(day_score_config['Promedio Optimo Amb.'])
+                            h_max = float(day_score_config['Humedad Max'])
+                            h_min = float(day_score_config['Humedad Min'])
+                            h_delta= float(day_score_config['Amplitud Humedad'])
+                            h_optimum = float(day_score_config['Promedio Optimo Humedad'])
+                            thi_optimum = float(day_score_config['THI Optimo'])
+                            if day_score_config['T. Cama Max'] != '':
+                                t_bed_max = float(day_score_config['T. Cama Max'])
+                                t_bed_min = float(day_score_config['T. Cama Min'])
+                                t_bed_delta = float(day_score_config['Amplitud Termica Cama'])
+                                t_bed_optimum = float(day_score_config['Promedio Optimo Cama'])
+                                bed_check = True
+                            else:
+                                bed_check = False
+                            logwriter(id=0, event=str(day_score_config))
+                        except:
+                            print("Fallo la carga de configuracion scoring")
                     if t_bme != 0 and h_bme != 0:
                         print("2")
                         thi = thi_calc(temperatura=t_bme, humedad=h_bme)
@@ -920,11 +948,11 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                     if not is_rest.value:
                         print("Estado")
                         logwriter("Estado", id=14, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=t_bme, t_bmp=t_bmp,
-                            t_dht=temp_out.value, t_laser_surf= temp_laser_surface, t_laser_amb=temp_laser_amb, h_dht=humedad.value, h_bme=h_bme, p_bme=p_bme, p_bmp=p_bmp, thi=thi, score_temp_amb_rt=score_temp_amb_rt, score_temp_bed_rt = score_temp_bed_rt, score_hum_rt = score_hum_rt, score_thi_rt = score_thi_rt, score_general_rt = score_general_rt, score_temp_amb_prom=score_temp_amb_prom, score_temp_bed_prom = score_temp_bed_prom, score_hum_prom = score_hum_prom, score_thi_prom = score_thi_prom, score_general_prom = score_general_prom, t_total = t_total, t_active = t_active, t_rest = t_rest, t_stuck = t_stuck)
+                            t_dht=temp_out.value, t_laser_surf= temp_laser_surface, t_laser_amb=temp_laser_amb, h_dht=humedad.value, h_bme=h_bme, p_bme=p_bme, p_bmp=p_bmp, thi=thi, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = t_total, t_active = t_active, t_rest = t_rest, t_stuck = t_stuck)
                     else:
                         print("Estado descansando")
                         logwriter("Estado, descansando", id=15, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=t_bme, t_bmp=t_bmp,
-                            t_dht=temp_out.value, t_laser_surf= temp_laser_surface, t_laser_amb=temp_laser_amb, h_dht=humedad.value, h_bme=h_bme, p_bme=p_bme, p_bmp=p_bmp, thi=thi, score_temp_amb_rt=score_temp_amb_rt, score_temp_bed_rt = score_temp_bed_rt, score_hum_rt = score_hum_rt, score_thi_rt = score_thi_rt, score_general_rt = score_general_rt, score_temp_amb_prom=score_temp_amb_prom, score_temp_bed_prom = score_temp_bed_prom, score_hum_prom = score_hum_prom, score_thi_prom = score_thi_prom, score_general_prom = score_general_prom, t_total = t_total, t_active = t_active, t_rest = t_rest, t_stuck = t_stuck)
+                            t_dht=temp_out.value, t_laser_surf= temp_laser_surface, t_laser_amb=temp_laser_amb, h_dht=humedad.value, h_bme=h_bme, p_bme=p_bme, p_bmp=p_bmp, thi=thi, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = t_total, t_active = t_active, t_rest = t_rest, t_stuck = t_stuck)
         except Exception as ex:
             print(ex)
             # errorwriter("Camara", "Fallo timeout")
@@ -1655,12 +1683,13 @@ if __name__ == '__main__':
                 if int(record['Dia']) != i:
                     print("Archivo corrupto")
                     raise Exception
-        zero_date = '20220415'
+        zero_date = '20220428'
         current_day = (datetime.now() - datetime.strptime(zero_date, "%Y%m%d")).days
         if current_day > 60 or current_day < 0:
             print("Fecha invalida")
             raise Exception
         day_score_config = score_config[current_day]
+        logwriter(id=0, event=str(day_score_config))
     except:
         print("Fallo la carga de configuracion scoring")
     try:
@@ -1683,6 +1712,7 @@ if __name__ == '__main__':
             admin = json.load(admin_file)
         with open('/var/www/html/admin.json', 'w') as outfile:
             json.dump(admin, outfile)
+    current_date = datetime.now().strftime("%Y%m%d")
     print(config)
     print(admin)
     flash_enable.on()
