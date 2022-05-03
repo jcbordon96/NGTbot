@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-from distutils.log import error
 from picamera.array import PiRGBArray
 from picamera import PiCamera
 import asyncio
@@ -23,7 +22,7 @@ import sensors
 import os
 import csv
 from scipy.linalg import norm
-from numpy import sum, average
+from numpy import sum, average, mean
 import Adafruit_ADS1x15
 import board
 import adafruit_dht
@@ -296,7 +295,7 @@ def command(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_f
     asyncio.get_event_loop().run_forever()
 
 
-def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest, flash_req):
+def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config):
     
     counter = 0
     GAIN = 1
@@ -306,11 +305,36 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
     dht_init = False
     dht_fail_counter = 0
     moving_img = False
-    take_measure_laser = True
-    temp_laser_amb = 0 
-    temp_laser_surface = 0
-    retry_laser_amb = True
-    retry_laser_surface = True
+    take_measure_mlx = True
+    t_mlx_amb = 0 
+    t_mlx_surface = 0
+    retry_mlx_amb = True
+    retry_mlx_surface = True
+    last_measure = 0
+    measure_rate = 1 #Hz
+    t_bme_list = []
+    h_bme_list = []
+    p_bme_list = []
+    t_bmp_list = []
+    p_bmp_list = []
+    t_dht_list = []
+    h_dht_list = []
+    t_mlx_amb_list = []
+    t_mlx_surface_list = []
+    t_bme_mean = 0
+    h_bme_mean = 0
+    p_bme_mean = 0
+    t_bmp_mean = 0
+    p_bmp_mean = 0
+    t_dht_mean = 0
+    h_dht_mean = 0
+    t_mlx_amb_mean = 0
+    t_mlx_surface_mean = 0
+    def mean_check(value_list):
+        if len(value_list) > 0:
+            return mean(value_list)
+        else:
+            return 0
     # try:
     #     adc = Adafruit_ADS1x15.ADS1115(address=0x48, busnum=4)
     #     print("El ADC inicio")
@@ -320,16 +344,16 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
     #     print("Error al iniciar el ADC")
     #     pass
     try:
-        laserbus = smbus.SMBus(4)
-        laser = MLX90614(laserbus, address=0x5A)
+        mlxbus = smbus.SMBus(4)
+        mlx = MLX90614(mlxbus, address=0x5A)
         print("Laser inicio bien")
-        laser_ok = True
+        mlx_ok = True
     except Exception as ex:
         errorwriter(ex, "Error al iniciar medidor laser")
         print("Error al incioar el medidor laser")
-        laser_ok = False
+        mlx_ok = False
     try:
-        bmp280 = BMP280(i2c_dev=laserbus, i2c_addr = 0x77)
+        bmp280 = BMP280(i2c_dev=mlxbus, i2c_addr = 0x77)
         bmp280.setup(mode="forced")
         bmp_ok = True
     except Exception as ex:
@@ -337,8 +361,8 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
         print(ex, "Error al iniciar el BMP")
         bmp_ok = False
     try:
-        calibration_params = bme280.load_calibration_params(laserbus,0x76)
-        bme = bme280.sample(laserbus, 0x76, calibration_params)
+        calibration_params = bme280.load_calibration_params(mlxbus,0x76)
+        bme = bme280.sample(mlxbus, 0x76, calibration_params)
         bme_ok = True
     except Exception as ex:
         errorwriter(ex, "Error al iniciar el BME")
@@ -367,11 +391,6 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
         except:
             return math.nan
 
-        # print(img1)
-        # calculate the difference and its norms
-        diff = img1 - img2  # elementwise for scipy arrays
-        m_norm = sum(abs(diff))  # Manhattan norm
-        return (m_norm)
 
     def to_grayscale(arr):
         "If arr is a color image (3D array), convert it to grayscale (2D array)."
@@ -450,7 +469,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
     log_cam_stuck = True
     log_cam = False
     temp_timer = 0
-    state_timer = 0
+    state_timer = time.perf_counter()
     is_hot.value = False
     start_cam_stuck = 0
     start_imu_stuck = 0
@@ -677,6 +696,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                         logwriter("Termine de sacar fotos", id=4)
                         log_cam = False
                 raw_capture.truncate(0)
+# Esta va a ser la rutina de envio de data cuando esta descansado
 
 
                 if is_rest.value and len(list_img_to_filter) > 0:
@@ -773,74 +793,77 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                             is_hot.value = True
                             logwriter("Alta temperatura", id=9, t_cpu=temp_cpu.value, t_clock=temp_clock.value)
                         sensors.cleanup()
-                if take_measure_laser and laser_ok:
-                    try:
-                        if retry_laser_surface:
-                            temp_laser_surface_not = round(laser.get_obj_temp(),2)
-                        if retry_laser_amb:
-                            temp_laser_amb_not = round(laser.get_amb_temp(),2)
-                        if temp_laser_surface_not < 80:
-                            retry_laser_surface = False
-                        if temp_laser_amb_not < 80:
-                            retry_laser_amb = False
-                        if not retry_laser_amb and not retry_laser_surface:
-                            temp_laser_amb = temp_laser_amb_not
-                            temp_laser_surface = temp_laser_surface_not
-                            amoniaco.value = temp_laser_surface
-                            print("Temperatura Surface: ", temp_laser_surface, "Temperatura Ambiente: ", temp_laser_amb)
-                            retry_laser_amb = True
-                            retry_laser_surface = True
-                            take_measure_laser = False
-                    except Exception as ex:
-                        errorwriter(ex, "No se pudo tomar mediciones laser")
-                        print("Algo salio mal con el medidor laser")
-                        print(ex)
-                if time.perf_counter() - state_timer > timer_log.value:
-                    state_timer = time.perf_counter()
-                    take_measure_laser = True
-
-                    # if adc_ok:
-                    #     try:
-                    #         value_adc = adc.read_adc(0, gain=GAIN)
-                    #         volt = (value_adc/32768)*4.096
-                    #         RS = ((3.3/volt)-1)*47
-                    #         if is_tails:
-                    #             ro = 326.52
-                    #         else:
-                    #             ro = 64
-                    #         ratio = RS/ro
-                    #         amoniaco.value = round(pow((math.log(ratio, 10)-0.323)/(-0.243), 10),2)
-                    #     except Exception as ex:
-                    #         print(ex)
-                    #         errorwriter(ex, "No se pudo tomar medicion de amoniaco")
-                    #         print("Algo salio mal con el sensor de amoniaco")
-                    #         pass
-                    
+                if time.perf_counter()-last_measure > measure_rate:
+                    last_measure = time.perf_counter()
+                    if mlx_ok:
+                        try:
+                            t_mlx_surface = round(mlx.get_obj_temp(),2)
+                            t_mlx_amb = round(mlx.get_amb_temp(),2)
+                            if t_mlx_surface < 80:
+                                t_mlx_surface_list.append(t_mlx_surface)
+                            if t_mlx_amb < 80:
+                                t_mlx_amb_list.append(t_mlx_amb)
+                        except Exception as ex:
+                            errorwriter(ex, "No se pudo tomar mediciones laser")
+                            print("Algo salio mal con el medidor laser")
+                            print(ex)
                     if bmp_ok:
                         t_bmp = round(bmp280.get_temperature(),2)
                         p_bmp = round(bmp280.get_pressure(),2)
-                        print("bmp", t_bmp,p_bmp)
+                        t_bmp_list.append(t_bmp)
+                        p_bmp_list.append(p_bmp)
                     if bme_ok:
-                        bme = bme280.sample(laserbus, 0x76, calibration_params)
+                        bme = bme280.sample(mlxbus, 0x76, calibration_params)
                         t_bme = round(bme.temperature,2)
                         p_bme = round(bme.pressure,2)
                         h_bme = round(bme.humidity,2)
-                        print("bmp", t_bme,p_bme, h_bme)
+                        t_bme_list.append(t_bme)
+                        p_bme_list.append(p_bme)
+                        h_bme_list.append(h_bme)
                     if dht_init:
                         dht_fail_counter = 0
                         dht_ok = False
                         while not dht_ok:
                             dht_ok = True
                             try:
-                                temp_out.value = dhtDevice.temperature
-                                humedad.value = dhtDevice.humidity
+                                t_dht = dhtDevice.temperature
+                                h_dht = dhtDevice.humidity
                             except:
                                 dht_ok = False
                                 dht_fail_counter += 1
-                            if dht_fail_counter > 250:
+                            if dht_fail_counter > 10:
                                 print("No pude sacar medicion del DHT")
                                 errorwriter("DHT", "No se pudo tomar medicion de Humedad y Temperatura")
                                 break
+                        if dht_ok:
+                            t_dht_list.append()
+                            h_dht_list.append()
+                if time.perf_counter() - state_timer > timer_log.value:
+                    state_timer = time.perf_counter()
+
+                    t_bme_mean = mean_check(t_bme_list)
+                    h_bme_mean = mean_check(h_bme_list)
+                    p_bme_mean = mean_check(p_bme_list)
+                    t_bmp_mean = mean_check(t_bmp_list)
+                    p_bmp_mean = mean_check(p_bmp_list)
+                    t_dht_mean = mean_check(t_dht_list)
+                    h_dht_mean = mean_check(h_dht_list)
+                    t_mlx_amb_mean = mean_check(t_mlx_amb_list)
+                    t_mlx_surface_mean = mean_check(t_mlx_surface_list)
+                    t_bme_list = []
+                    h_bme_list = []
+                    p_bme_list = []
+                    t_bmp_list = []
+                    p_bmp_list = []
+                    t_dht_list = []
+                    h_dht_list = []
+                    t_mlx_amb_list = []
+                    t_mlx_surface_list = []
+
+                    temp_out.value = t_bme_mean
+                    humedad.value = h_bme_mean
+                    amoniaco.value = t_mlx_surface_mean
+                    
                     print("1")
                     if current_date != datetime.now().strftime("%Y%m%d"):
                         try:
@@ -870,24 +893,24 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                             logwriter(id=0, event=str(day_score_config))
                         except:
                             print("Fallo la carga de configuracion scoring")
-                    if t_bme != 0 and h_bme != 0:
+                    if t_bme_mean != 0 and h_bme_mean != 0:
                         print("2")
-                        thi = thi_calc(temperatura=t_bme, humedad=h_bme)
-                        t_amb_list.append(t_bme)
-                        h_list.append(h_bme)
+                        thi = thi_calc(temperatura=t_bme_mean, humedad=h_bme_mean)
+                        t_amb_list.append(t_bme_mean)
+                        h_list.append(h_bme_mean)
                         thi_list.append(thi)
-                        if abs(t_bme-t_amb_optimum) < t_amb_delta/2:
+                        if abs(t_bme_mean-t_amb_optimum) < t_amb_delta/2:
                             score_temp_amb_rt = 10
                         else:
-                            score_temp_amb_rt = max(10+t_amb_delta/2 - abs(t_bme - t_amb_optimum), 0)
-                        if abs(h_bme-h_optimum) < h_delta/2:
+                            score_temp_amb_rt = max(10+t_amb_delta/2 - abs(t_bme_mean - t_amb_optimum), 0)
+                        if abs(h_bme_mean-h_optimum) < h_delta/2:
                             score_hum_rt = 10
                         else:
-                            score_hum_rt = max(10+h_delta/2 - abs(h_bme - h_optimum), 0)
+                            score_hum_rt = max(10+h_delta/2 - abs(h_bme_mean - h_optimum), 0)
                         score_thi_rt = max(10 - abs(thi-thi_optimum),0)
-                        t_amb_prom = sum(t_amb_list)/ len(t_amb_list)
-                        h_prom = sum(h_list)/ len(h_list)
-                        thi_prom = sum(thi_list)/ len(thi_list)
+                        t_amb_prom = mean_check(t_amb_list)
+                        h_prom = mean_check(h_list)
+                        thi_prom = mean_check(thi_list)
                         if abs(t_amb_prom-t_amb_optimum) < t_amb_delta/2:
                             score_temp_amb_prom = 10
                         else:
@@ -898,13 +921,13 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                             score_hum_prom = max(10+h_delta/2 - abs(h_prom - h_optimum), 0)
                         score_thi_prom = max(10 - abs(thi_prom-thi_optimum),0)
                     if bed_check:
-                        if temp_laser_surface != 0:
-                            t_bed_list.append(temp_laser_surface)
-                            if abs(temp_laser_surface-t_bed_optimum) < t_bed_delta/2:
+                        if t_mlx_surface_mean != 0:
+                            t_bed_list.append(t_mlx_surface_mean)
+                            if abs(t_mlx_surface_mean-t_bed_optimum) < t_bed_delta/2:
                                 score_temp_bed_rt = 10
                             else:
-                                score_temp_bed_rt = max(10+t_bed_delta/2 - abs(temp_laser_surface - t_bed_optimum), 0)
-                            temp_bed_prom = sum(t_bed_list)/ len(t_bed_list)
+                                score_temp_bed_rt = max(10+t_bed_delta/2 - abs(t_mlx_surface_mean - t_bed_optimum), 0)
+                            temp_bed_prom = mean_check(t_bed_list)
                             if abs(temp_bed_prom-t_bed_optimum) < t_bed_delta/2:
                                 score_temp_bed_prom = 10
                             else:
@@ -947,12 +970,12 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                     print("4")
                     if not is_rest.value:
                         print("Estado")
-                        logwriter("Estado", id=14, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=t_bme, t_bmp=t_bmp,
-                            t_dht=temp_out.value, t_laser_surf= temp_laser_surface, t_laser_amb=temp_laser_amb, h_dht=humedad.value, h_bme=h_bme, p_bme=p_bme, p_bmp=p_bmp, thi=thi, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = t_total, t_active = t_active, t_rest = t_rest, t_stuck = t_stuck)
+                        logwriter("Estado", id=14, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=t_bme_mean, t_bmp=t_bmp_mean,
+                            t_dht=t_dht_mean, t_laser_surf= t_mlx_surface_mean, t_laser_amb=t_mlx_amb_mean, h_dht=h_dht_mean, h_bme=h_bme_mean, p_bme=p_bme_mean, p_bmp=p_bmp_mean, thi=thi, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = t_total, t_active = t_active, t_rest = t_rest, t_stuck = t_stuck)
                     else:
                         print("Estado descansando")
-                        logwriter("Estado, descansando", id=15, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=t_bme, t_bmp=t_bmp,
-                            t_dht=temp_out.value, t_laser_surf= temp_laser_surface, t_laser_amb=temp_laser_amb, h_dht=humedad.value, h_bme=h_bme, p_bme=p_bme, p_bmp=p_bmp, thi=thi, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = t_total, t_active = t_active, t_rest = t_rest, t_stuck = t_stuck)
+                        logwriter("Estado, descansando", id=15, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=t_bme_mean, t_bmp=t_bmp_mean,
+                            t_dht=t_dht_mean, t_laser_surf= t_mlx_surface_mean, t_laser_amb=t_mlx_amb_mean, h_dht=h_dht_mean, h_bme=h_bme_mean, p_bme=p_bme_mean, p_bmp=p_bmp_mean, thi=thi, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = t_total, t_active = t_active, t_rest = t_rest, t_stuck = t_stuck)
         except Exception as ex:
             print(ex)
             # errorwriter("Camara", "Fallo timeout")
@@ -1609,7 +1632,7 @@ def main():
     auto_handler = multiprocessing.Process(
         target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout, last_touch_timeout,last_touch_counter, last_touch_osc_counter, flash_req, vel_array, time_array, x_com, z_com, is_rest,))
     pitch_handler = multiprocessing.Process(
-        target=pitch, args=(lst, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest,flash_req,))
+        target=pitch, args=(lst, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config,))
     # Add 'em to our list
     PROCESSES.append(camera_handler)
     PROCESSES.append(command_handler)
@@ -1669,29 +1692,7 @@ if __name__ == '__main__':
         with open('log/log.csv', 'w') as logfile:
             wr = csv.writer(logfile)
             wr.writerow(header)
-    try:
-        
-        with open ('config_scoring.csv', 'rt') as f:
-            rows = csv.reader(f)
-        
-            headers = next(rows)
-            record = dict(zip())
-            score_config = []
-            for i,row in enumerate(rows):
-                record = dict(zip(headers,row))
-                score_config.append(record)
-                if int(record['Dia']) != i:
-                    print("Archivo corrupto")
-                    raise Exception
-        zero_date = '20220428'
-        current_day = (datetime.now() - datetime.strptime(zero_date, "%Y%m%d")).days
-        if current_day > 60 or current_day < 0:
-            print("Fecha invalida")
-            raise Exception
-        day_score_config = score_config[current_day]
-        logwriter(id=0, event=str(day_score_config))
-    except:
-        print("Fallo la carga de configuracion scoring")
+    
     try:
         with open('/var/www/html/config.json') as json_file:
             config = json.load(json_file)
@@ -1712,7 +1713,7 @@ if __name__ == '__main__':
             admin = json.load(admin_file)
         with open('/var/www/html/admin.json', 'w') as outfile:
             json.dump(admin, outfile)
-    current_date = datetime.now().strftime("%Y%m%d")
+
     print(config)
     print(admin)
     flash_enable.on()
@@ -1782,6 +1783,30 @@ if __name__ == '__main__':
                 last_date=last_watch["Fecha"], last_hour=last_watch["Hora"], last_name=last_watch["Name"])
     logwriter("Me apague, minutos trabado camara confirmados", id=22, watch_dog=True, minutos= str(last_stuck["CamConf"]), 
                 last_date=last_watch["Fecha"], last_hour=last_watch["Hora"], last_name=last_watch["Name"])
+    try:
+        with open ('config_scoring.csv', 'rt') as f:
+            rows = csv.reader(f)
+        
+            headers = next(rows)
+            record = dict(zip())
+            score_config = []
+            for i,row in enumerate(rows):
+                record = dict(zip(headers,row))
+                score_config.append(record)
+                if int(record['Dia']) != i:
+                    print("Archivo corrupto")
+                    raise Exception
+        zero_date = '20220428'
+        current_day = (datetime.now() - datetime.strptime(zero_date, "%Y%m%d")).days
+        if current_day > 60 or current_day < 0:
+            print("Fecha invalida")
+            raise Exception
+        day_score_config = score_config[current_day]
+        logwriter(id=0, event=str(day_score_config))
+    except:
+        print("Fallo la carga de configuracion scoring")
+    current_date = datetime.now().strftime("%Y%m%d")
+
     json_stuck_line = {"IMU": 0, "Cam": 0, "CamConf": 0}
     with open('stuck_count.json', 'w') as outfile:
         json.dump(json_stuck_line, outfile)

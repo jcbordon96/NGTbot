@@ -49,3 +49,20 @@ while True:
     print("El voltaje: {}, rs: {}, ro: {}, ppm: {}".format(volt,RS, RO,ppm))
     
     time.sleep(0.5)
+    # if adc_ok:
+    #     try:
+    #         value_adc = adc.read_adc(0, gain=GAIN)
+    #         volt = (value_adc/32768)*4.096
+    #         RS = ((3.3/volt)-1)*47
+    #         if is_tails:
+    #             ro = 326.52
+    #         else:
+    #             ro = 64
+    #         ratio = RS/ro
+    #         amoniaco.value = round(pow((math.log(ratio, 10)-0.323)/(-0.243), 10),2)
+    #     except Exception as ex:
+    #         print(ex)
+    #         errorwriter(ex, "No se pudo tomar medicion de amoniaco")
+    #         print("Algo salio mal con el sensor de amoniaco")
+    #         pass
+# COMPROBAR QUE ESTE BIEN EL POW!!!!!
