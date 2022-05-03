@@ -579,11 +579,12 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                     stuck_count = 0
                 
                 if time.perf_counter() - compare_timer > timer_stuck_pic.value:
-                    img0 = to_grayscale(image_to_compare0.astype(float))
-                    img1 = to_grayscale(f.astype(float))
-                    n_m = compare_images(img0, img1)
+                    
                     # print("Manhattan norm per pixel:", n_m/img0.size)
                     if not is_stopped.value:
+                        img0 = to_grayscale(image_to_compare0.astype(float))
+                        img1 = to_grayscale(f.astype(float))
+                        n_m = compare_images(img0, img1)
                         if not math.isnan(n_m):
                         # falsed = False
                         # if falsed == True:
