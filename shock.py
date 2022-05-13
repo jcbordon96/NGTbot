@@ -10,7 +10,6 @@ import math
 import multiprocessing
 import cv2
 import sys
-from datetime import date, datetime as dt
 import time
 import random
 from gpiozero import DigitalOutputDevice, PWMOutputDevice, Button
@@ -30,7 +29,10 @@ from mlx90614 import MLX90614
 import psutil
 from bmp280 import BMP280
 import bme280
-
+import requests
+import subprocess
+from zipfile import ZipFile
+import VL53L0X
 
 PWR_MGMT_1 = 0x6B
 SMPLRT_DIV = 0x19
@@ -295,21 +297,16 @@ def command(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_f
     asyncio.get_event_loop().run_forever()
 
 
-def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config):
+def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day):
     
     counter = 0
-    GAIN = 1
-    adc_ok = False
     dht_ok = False
     imu_ok = False
     dht_init = False
     dht_fail_counter = 0
     moving_img = False
-    take_measure_mlx = True
     t_mlx_amb = 0 
     t_mlx_surface = 0
-    retry_mlx_amb = True
-    retry_mlx_surface = True
     last_measure = 0
     measure_rate = 1 #Hz
     t_bme_list = []
@@ -330,19 +327,57 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
     h_dht_mean = 0
     t_mlx_amb_mean = 0
     t_mlx_surface_mean = 0
+    measurements_list = []
+    robot_id = "001"
+    campaign_id = "01"
+    day_info = {"day": {"breeding_day": breeding_day, "config": day_score_config, "total_time": 0, "active_time": 0, "rest_time": 0, "stuck_time": 0, "date": current_date, "campaign_id": campaign_id}}
+    day_info_list = []
+    url = ""
+    data_was_sended = False
+    img_to_compress = []
+    zip_to_send = []
+    # Levanto mediciones que han quedado sin enviar antes de apagarse
+    for file in os.listdir("send_queue/logs"):
+        if file.find("_backup") == -1:
+            try:
+                with open('send_queue/logs/{}'.format(file)) as send_file:
+                    day_info_list.append(json.load(send_file))
+            except:
+                try:
+                    backup_string = 'send_queue/logs/'+file.split(".")[0]+"_backup.json"
+                    with open(backup_string) as send_file:
+                        day_info_list.append(json.load(send_file))
+                except:
+                    pass
+    # Levanto lista de fotos que todavia no han sido enviadas
+    try:
+        with open('send_queue/imgs/img_to_compress.json') as send_file:
+            img_to_compress += json.load(send_file)
+    except:
+        try:
+
+            with open('send_queue/imgs/img_to_compress_backup.json') as send_file:
+                img_to_compress += json.load(send_file)
+        except:
+            pass
+    try:
+        with open('send_queue/imgs/zip_to_send.json') as send_file:
+            zip_to_send += json.load(send_file)
+    except:
+        try:
+
+            with open('send_queue/imgs/zip_to_send_backup.json') as send_file:
+                zip_to_send += json.load(send_file)
+        except:
+            pass
+
+    day_info_list.append("")
     def mean_check(value_list):
         if len(value_list) > 0:
             return mean(value_list)
         else:
             return 0
-    # try:
-    #     adc = Adafruit_ADS1x15.ADS1115(address=0x48, busnum=4)
-    #     print("El ADC inicio")
-    #     adc_ok = True
-    # except Exception as ex:
-    #     errorwriter(ex, "Error al iniciar el ADC") 
-    #     print("Error al iniciar el ADC")
-    #     pass
+
     try:
         mlxbus = smbus.SMBus(4)
         mlx = MLX90614(mlxbus, address=0x5A)
@@ -350,7 +385,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
         mlx_ok = True
     except Exception as ex:
         errorwriter(ex, "Error al iniciar medidor laser")
-        print("Error al incioar el medidor laser")
+        print("Error al inciar el medidor laser")
         mlx_ok = False
     try:
         bmp280 = BMP280(i2c_dev=mlxbus, i2c_addr = 0x77)
@@ -487,7 +522,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
     is_tails = False
     reference_stuck = 0
     stuck_count = 0
-    list_img_to_filter = []
+    img_to_filter = []
     # Cargo configuracion
     t_amb_max = float(day_score_config['T. Ambiente Max'])
     t_amb_min = float(day_score_config['T. Ambiente Min'])
@@ -663,9 +698,15 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                             img_name = "resources/{}/{}_{}_{}_{}.png".format(img_folder,d1,img_type,
                                                                         img_index_num.value, img_counter)
                             # print(img_name)
-                            list_img_to_filter.append(img_name)
+                            img_to_filter.append(img_name)
                             moving_img = True
                             camera.capture(img_name)
+                            img_to_compress.append(img_name)
+                            with open('send_queue/imgs/list/{}.json'.format(current_date), 'w') as outfile:
+                                json.dump( img_to_compress, outfile)
+                            with open('send_queue/imgs/list/{}_backup.json'.format(current_date), 'w') as outfile:
+                                json.dump( img_to_compress, outfile)
+
                             
                         taking_pics.value = True      
 
@@ -684,8 +725,12 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                             img_name = "resources/{}/{}_{}_{}_{}.png".format(img_folder,d1,img_type,
                                                                     img_index_num.value, img_counter)
                             # print(img_name)
-                            list_img_to_filter.append(img_name)
+                            img_to_filter.append(img_name)
                             camera.capture(img_name)
+                            with open('send_queue/imgs/list/{}.json'.format(current_date), 'w') as outfile:
+                                json.dump( img_to_compress, outfile)
+                            with open('send_queue/imgs/list/{}_backup.json'.format(current_date), 'w') as outfile:
+                                json.dump( img_to_compress, outfile)
                             if is_rest.value or not flash_req.value:
                                 flash_enable.off()
                             img_counter += 1
@@ -698,12 +743,61 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                         log_cam = False
                 raw_capture.truncate(0)
 # Esta va a ser la rutina de envio de data cuando esta descansado
-
-
-                if is_rest.value and len(list_img_to_filter) > 0:
+                
+                    
+                if is_rest.value and not data_was_sended:
+                    # RUTINA DE CHEQUE0 SI QUEDO ALGO DE UNA SESION ANTERIOR ( Puede que lo haga cuando prende)
                     try:
-                        string_array = list_img_to_filter[0].split("/")
-                        img = cv2.imread(list_img_to_filter[0])
+                        subprocess.call("./enablewifi", timeout=40)
+                    except Exception as e:
+                        print(e, "No me pude conectar para mandar data")
+                        errorwriter(e, "No me pude conectar para mandar data")
+                    
+                    if len(day_info_list)>0:
+                        day_info_to_send = day_info_list[0]
+                        head = {u'content-type': u'application/json'}
+                        r = requests.post(url=url, data=json.dumps(day_info_to_send), headers=head)
+                        if r == 200:
+                            day_info_list.pop()
+                    else:
+                        # Borrar todo el contenido de la carpeta send queue
+                        for file in os.listdir("send_queue/logs"):
+                            os.remove(os.path.join("send_queue/logs",file))
+                        data_was_sended = True
+                        subprocess.call("./enablehotspot", timeout=40)
+                        # Ya no hay mas elementos para enviar, voy a esperar a que vuelva a entrar a descanso para entrar
+                    if len(img_to_compress) > 0:
+                        zip_name = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        with ZipFile("send_queue/imgs/zipfiles/{}.zip".format(zip_name),'w') as zip:
+                            for file in img_to_compress:
+                                zip.write(file)
+                        zip_to_send.append("send_queue/imgs/zipfiles/{}.zip".format(zip_name))
+                        with open('send_queue/imgs/zip_to_send.json', 'w') as outfile:
+                            json.dump( zip_to_send, outfile)
+                        with open('send_queue/imgs/zip_to_send_backup.json', 'w') as outfile:
+                            json.dump( zip_to_send, outfile)
+                        img_to_compress = []
+                    if len(zip_to_send)>0:
+                        for zipfile in zip_to_send:
+                            fileobj = open(zipfile, 'rb')
+                            head = {u'content-type': u'multipart/form-data'}
+                            r = requests.post(url=url, data={"robot_identifier": robot_id, "campaign_id": campaign_id, "date":current_date}, files ={'archive':(zipfile, fileobj)})
+                            zip_to_send.pop(0)
+                            with open('send_queue/imgs/zip_to_send.json', 'w') as outfile:
+                                json.dump( zip_to_send, outfile)
+                            with open('send_queue/imgs/zip_to_send_backup.json', 'w') as outfile:
+                                json.dump( zip_to_send, outfile)
+
+
+
+                else:
+                    data_was_sended = False
+                    subprocess.call("./enablehotspot", timeout=40)
+
+                if is_rest.value and len(img_to_filter) > 0:
+                    try:
+                        string_array = img_to_filter[0].split("/")
+                        img = cv2.imread(img_to_filter[0])
                         gris = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
                         reduccion = cv2.resize(gris, (300, 300), interpolation = cv2.INTER_CUBIC)
                         filtrado = cv2.medianBlur(reduccion, 3)
@@ -718,10 +812,10 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                             save_dir = string_array[0] + "/" + string_array[1] + "/not_ok/" + string_array[2] 
                         
                         cv2.imwrite(save_dir, img)
-                        list_img_to_filter.pop(0)
+                        img_to_filter.pop(0)
 
                     except:
-                        list_img_to_filter.pop(0)
+                        img_to_filter.pop(0)
                 if imu_req.value == True and imu_ok == True:
                     if time.perf_counter()-last_imu > 0.5:
                         try:
@@ -796,6 +890,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                         sensors.cleanup()
                 if time.perf_counter()-last_measure > measure_rate:
                     last_measure = time.perf_counter()
+                    
                     if mlx_ok:
                         try:
                             t_mlx_surface = round(mlx.get_obj_temp(),2)
@@ -837,10 +932,41 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                                 errorwriter("DHT", "No se pudo tomar medicion de Humedad y Temperatura")
                                 break
                         if dht_ok:
-                            t_dht_list.append()
-                            h_dht_list.append()
+                            t_dht_list.append(t_dht)
+                            h_dht_list.append(h_dht)
                 if time.perf_counter() - state_timer > timer_log.value:
                     state_timer = time.perf_counter()
+
+                    if current_date != datetime.now().strftime("%Y%m%d"):
+                        day_info_list.append("")
+                        try:
+                            measurements_list = []
+                            current_date = datetime.now().strftime("%Y%m%d")
+                            breeding_day = (datetime.now() - datetime.strptime(zero_date, "%Y%m%d")).days
+                            if breeding_day > 60 or breeding_day < 0:
+                                print("Fecha invalida")
+                                raise Exception
+                            day_score_config = score_config[breeding_day]
+                            t_amb_max = float(day_score_config['T. Ambiente Max'])
+                            t_amb_min = float(day_score_config['T. Ambiente Min'])
+                            t_amb_delta= float(day_score_config['Amplitud Termica Amb.'])
+                            t_amb_optimum = float(day_score_config['Promedio Optimo Amb.'])
+                            h_max = float(day_score_config['Humedad Max'])
+                            h_min = float(day_score_config['Humedad Min'])
+                            h_delta= float(day_score_config['Amplitud Humedad'])
+                            h_optimum = float(day_score_config['Promedio Optimo Humedad'])
+                            thi_optimum = float(day_score_config['THI Optimo'])
+                            if day_score_config['T. Cama Max'] != '':
+                                t_bed_max = float(day_score_config['T. Cama Max'])
+                                t_bed_min = float(day_score_config['T. Cama Min'])
+                                t_bed_delta = float(day_score_config['Amplitud Termica Cama'])
+                                t_bed_optimum = float(day_score_config['Promedio Optimo Cama'])
+                                bed_check = True
+                            else:
+                                bed_check = False
+                            logwriter(id=0, event=str(day_score_config))
+                        except:
+                            print("Fallo la carga de configuracion scoring")
 
                     t_bme_mean = mean_check(t_bme_list)
                     h_bme_mean = mean_check(h_bme_list)
@@ -866,34 +992,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                     amoniaco.value = t_mlx_surface_mean
                     
                     print("1")
-                    if current_date != datetime.now().strftime("%Y%m%d"):
-                        try:
-                            current_date = datetime.now().strftime("%Y%m%d")
-                            current_day = (datetime.now() - datetime.strptime(zero_date, "%Y%m%d")).days
-                            if current_day > 60 or current_day < 0:
-                                print("Fecha invalida")
-                                raise Exception
-                            day_score_config = score_config[current_day]
-                            t_amb_max = float(day_score_config['T. Ambiente Max'])
-                            t_amb_min = float(day_score_config['T. Ambiente Min'])
-                            t_amb_delta= float(day_score_config['Amplitud Termica Amb.'])
-                            t_amb_optimum = float(day_score_config['Promedio Optimo Amb.'])
-                            h_max = float(day_score_config['Humedad Max'])
-                            h_min = float(day_score_config['Humedad Min'])
-                            h_delta= float(day_score_config['Amplitud Humedad'])
-                            h_optimum = float(day_score_config['Promedio Optimo Humedad'])
-                            thi_optimum = float(day_score_config['THI Optimo'])
-                            if day_score_config['T. Cama Max'] != '':
-                                t_bed_max = float(day_score_config['T. Cama Max'])
-                                t_bed_min = float(day_score_config['T. Cama Min'])
-                                t_bed_delta = float(day_score_config['Amplitud Termica Cama'])
-                                t_bed_optimum = float(day_score_config['Promedio Optimo Cama'])
-                                bed_check = True
-                            else:
-                                bed_check = False
-                            logwriter(id=0, event=str(day_score_config))
-                        except:
-                            print("Fallo la carga de configuracion scoring")
+                    
                     if t_bme_mean != 0 and h_bme_mean != 0:
                         print("2")
                         thi = thi_calc(temperatura=t_bme_mean, humedad=h_bme_mean)
@@ -969,6 +1068,14 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                         last_t_active = time.perf_counter()
                     t_total = (time.perf_counter() - t_init)/3600
                     print("4")
+                    measurement = {"temp_environment": t_bme_mean, "temp_surface": t_mlx_surface_mean, "humidity": h_bme_mean, "comfort": thi, "score_temp_environment": round(score_temp_amb_rt,2), "score_temp_surface": round(score_temp_bed_rt,2), "score_humidity": round(score_hum_rt,2), "score_comfort": round(score_thi_rt,2), "time":datetime.now().strftime("%H:%M:%S"), "robot_identifier": robot_id, "score_overall": round(score_general_rt,2)}
+                    measurements_list.append(measurement)
+                    day_info ={"day": {"breeding_day": breeding_day, "config": day_score_config, "total_time": t_total, "active_time": t_active, "rest_time": t_rest, "stuck_time": t_stuck, "date":current_date, "campaign_id": campaign_id, "measurements": measurements_list}}
+                    day_info_list[-1] = day_info
+                    with open('send_queue/logs/{}.json'.format(current_date), 'w') as outfile:
+                            json.dump(day_info, outfile)
+                    with open('send_queue/logs/{}_backup.json'.format(current_date), 'w') as outfile:
+                            json.dump(day_info, outfile)
                     if not is_rest.value:
                         print("Estado")
                         logwriter("Estado", id=14, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=t_bme_mean, t_bmp=t_bmp_mean,
@@ -1084,9 +1191,14 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             number_check_rate = int(t / check_rate)
             rest = t - number_check_rate * check_rate
             counter_check_rate = 0
-            while counter_check_rate <= number_check_rate and auto_req.value == True and not taking_pics.value:
-                time.sleep(check_rate)
-                counter_check_rate += 1
+            if x > 0:
+                while (counter_check_rate <= number_check_rate and auto_req.value == True and not taking_pics.value and not (button_left.is_pressed or button_right.is_pressed or button_middle.is_pressed)):
+                    time.sleep(check_rate)
+                    counter_check_rate += 1
+            else:
+                while (counter_check_rate <= number_check_rate and auto_req.value == True and not taking_pics.value and not (button_left.is_pressed or button_right.is_pressed or button_middle.is_pressed)):
+                    time.sleep(check_rate)
+                    counter_check_rate += 1
             if counter_check_rate == number_check_rate and auto_req.value == True:
                     time.sleep(rest)
             motor_1_pwm.off()
@@ -1633,7 +1745,7 @@ def main():
     auto_handler = multiprocessing.Process(
         target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout, last_touch_timeout,last_touch_counter, last_touch_osc_counter, flash_req, vel_array, time_array, x_com, z_com, is_rest,))
     pitch_handler = multiprocessing.Process(
-        target=pitch, args=(lst, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config,))
+        target=pitch, args=(lst, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day,))
     # Add 'em to our list
     PROCESSES.append(camera_handler)
     PROCESSES.append(command_handler)
@@ -1693,7 +1805,7 @@ if __name__ == '__main__':
         with open('log/log.csv', 'w') as logfile:
             wr = csv.writer(logfile)
             wr.writerow(header)
-    
+    # Hacer funcion para poder levantar archivos de configuracion y backupearlos, si esta mal el archivo levantar el backup y sobreescribir el corrupto
     try:
         with open('/var/www/html/config.json') as json_file:
             config = json.load(json_file)
@@ -1730,15 +1842,12 @@ if __name__ == '__main__':
     flash_enable.off()
     time.sleep(0.5)
     led_enable.on()
-    #  with open('/var/www/html/config.json') as json_file:
-    #         config = json.load(json_file)
-    #     with open('/var/www/html/backup_config.json', 'w') as outfile:
-    #         json.dump(config, outfile)
-    # except:
-    #     with open('/var/www/html/backup_config.json') as json_file:
-    #         config = json.load(json_file)
-    #     with open('/var/www/html/config.json', 'w') as outfile:
-    #         json.dump(config, outfile)
+    try:
+        subprocess.call("./enablehotspot", timeout=40)
+    except Exception as e:
+        print(e, "No se pudo iniciar hotspot")
+        errorwriter(e,"No inicio el hotspot")
+
     if not os.path.exists("log/error.log"):
         with open('log/error.log', 'w') as errlog:
             errlog.write("START ERROR LOG")
@@ -1798,11 +1907,11 @@ if __name__ == '__main__':
                     print("Archivo corrupto")
                     raise Exception
         zero_date = '20220428'
-        current_day = (datetime.now() - datetime.strptime(zero_date, "%Y%m%d")).days
-        if current_day > 60 or current_day < 0:
+        breeding_day = (datetime.now() - datetime.strptime(zero_date, "%Y%m%d")).days
+        if breeding_day > 60 or breeding_day < 0:
             print("Fecha invalida")
             raise Exception
-        day_score_config = score_config[current_day]
+        day_score_config = score_config[breeding_day]
         logwriter(id=0, event=str(day_score_config))
     except:
         print("Fallo la carga de configuracion scoring")
