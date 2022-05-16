@@ -45,9 +45,8 @@ ACCEL_ZOUT_H = 0x3F
 GYRO_XOUT_H = 0x43
 GYRO_YOUT_H = 0x45
 GYRO_ZOUT_H = 0x47
-# motors_enable = DigitalOutputDevice("BOARD8", active_high=False)
+
 flash_enable = DigitalOutputDevice("BOARD12", active_high=True)
-# led_ground = DigitalOutputDevice("BOARD12", active_high=True)
 led_enable = DigitalOutputDevice("BOARD16", active_high=True)
 
 
@@ -66,7 +65,7 @@ def last_on():
 def errorwriter(error, comentario = ""):
     error_date = str(datetime.now())
     err = str(error)
-    errlog = error_date + " Error: "+ err + " Comentario: "+ comentario
+    errlog = error_date + " Error: "+ err + " Comentario: "+ comentario + '\n'
     with open("log/error.log",'a', newline='') as logerror:
         logerror.write(errlog)
 
@@ -126,24 +125,14 @@ class bcolors:
     UNDERLINE = '\033[4m'
 
 
-
-
 PROCESSES = []
 STATE = {"value": 0}
-
 USERS = set()
 
 
 def command(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_flag,  flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, timer_rest, timer_wake, steer_counter, backwards_counter, timer_boring, crash_timeout, x_com, z_com):
 
-    # motor_1_dir = DigitalOutputDevice("BOARD31")
-    # # motor_1_pwm = DigitalOutputDevice("BOARD38")
-    # motor_2_dir = DigitalOutputDevice("BOARD29")
-    # motor_2_pwm = DigitalOutputDevice("BOARD35")
-    # motor_1_pwm = PWMOutputDevice("BOARD35")
-    # motor_2_pwm = PWMOutputDevice("BOARD33")
-    # motor_1_pwm.frequency = 20000
-    # motor_2_pwm.frequency = 20000
+
     print("COMMAND INIT")
 
     def state_event():
@@ -296,200 +285,8 @@ def command(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_f
     asyncio.get_event_loop().run_until_complete(start_server2)
     asyncio.get_event_loop().run_forever()
 
-
 def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day):
-    
-    counter = 0
-    dht_ok = False
-    imu_ok = False
-    dht_init = False
-    dht_fail_counter = 0
-    moving_img = False
-    t_mlx_amb = 0 
-    t_mlx_surface = 0
-    last_measure = 0
-    measure_rate = 1 #Hz
-    t_bme_list = []
-    h_bme_list = []
-    p_bme_list = []
-    t_bmp_list = []
-    p_bmp_list = []
-    t_dht_list = []
-    h_dht_list = []
-    t_mlx_amb_list = []
-    t_mlx_surface_list = []
-    t_bme_mean = 0
-    h_bme_mean = 0
-    p_bme_mean = 0
-    t_bmp_mean = 0
-    p_bmp_mean = 0
-    t_dht_mean = 0
-    h_dht_mean = 0
-    t_mlx_amb_mean = 0
-    t_mlx_surface_mean = 0
-    measurements_list = []
-    robot_id = "001"
-    campaign_id = "01"
-    day_info = {"day": {"breeding_day": breeding_day, "config": day_score_config, "total_time": 0, "active_time": 0, "rest_time": 0, "stuck_time": 0, "date": current_date, "campaign_id": campaign_id}}
-    day_info_list = []
-    url = ""
-    data_was_sended = False
-    img_to_compress = []
-    zip_to_send = []
-    # Levanto mediciones que han quedado sin enviar antes de apagarse
-    for file in os.listdir("send_queue/logs"):
-        if file.find("_backup") == -1:
-            try:
-                with open('send_queue/logs/{}'.format(file)) as send_file:
-                    day_info_list.append(json.load(send_file))
-            except:
-                try:
-                    backup_string = 'send_queue/logs/'+file.split(".")[0]+"_backup.json"
-                    with open(backup_string) as send_file:
-                        day_info_list.append(json.load(send_file))
-                except:
-                    pass
-    # Levanto lista de fotos que todavia no han sido enviadas
-    try:
-        with open('send_queue/imgs/img_to_compress.json') as send_file:
-            img_to_compress += json.load(send_file)
-    except:
-        try:
-
-            with open('send_queue/imgs/img_to_compress_backup.json') as send_file:
-                img_to_compress += json.load(send_file)
-        except:
-            pass
-    try:
-        with open('send_queue/imgs/zip_to_send.json') as send_file:
-            zip_to_send += json.load(send_file)
-    except:
-        try:
-
-            with open('send_queue/imgs/zip_to_send_backup.json') as send_file:
-                zip_to_send += json.load(send_file)
-        except:
-            pass
-
-    day_info_list.append("")
-    def mean_check(value_list):
-        if len(value_list) > 0:
-            return mean(value_list)
-        else:
-            return 0
-
-    try:
-        mlxbus = smbus.SMBus(4)
-        mlx = MLX90614(mlxbus, address=0x5A)
-        print("Laser inicio bien")
-        mlx_ok = True
-    except Exception as ex:
-        errorwriter(ex, "Error al iniciar medidor laser")
-        print("Error al inciar el medidor laser")
-        mlx_ok = False
-    try:
-        bmp280 = BMP280(i2c_dev=mlxbus, i2c_addr = 0x77)
-        bmp280.setup(mode="forced")
-        bmp_ok = True
-    except Exception as ex:
-        errorwriter(ex, "Error al iniciar el BMP")
-        print(ex, "Error al iniciar el BMP")
-        bmp_ok = False
-    try:
-        calibration_params = bme280.load_calibration_params(mlxbus,0x76)
-        bme = bme280.sample(mlxbus, 0x76, calibration_params)
-        bme_ok = True
-    except Exception as ex:
-        errorwriter(ex, "Error al iniciar el BME")
-        print(ex, "Error al iniciar el BME")
-        bme_ok = False
-    try:
-        dhtDevice = adafruit_dht.DHT22(board.D26, use_pulseio=False)
-        dht_init = True
-    except Exception as ex:
-        errorwriter(ex, "Error al iniciar el DHT")
-        print("Error al iniciar el DHT")
-        pass
-
-    def thi_calc(temperatura, humedad):
-        thi = temperatura+0.348*((humedad/100)*6.105*math.exp((17.27*temperatura)/(237.7+temperatura)))
-        return thi
-
-    def compare_images(img1, img2):
-        # normalize to compensate for exposure difference
-        try:
-            img1 = normalize(img1)
-            img2 = normalize(img2)
-            diff = img1 - img2  # elementwise for scipy arrays
-            m_norm = sum(abs(diff))  # Manhattan norm
-            return (m_norm)
-        except:
-            return math.nan
-
-
-    def to_grayscale(arr):
-        "If arr is a color image (3D array), convert it to grayscale (2D array)."
-        if len(arr.shape) == 3:
-            # average over the last axis (color channels)
-            return average(arr, -1)
-        else:
-            return arr
-
-    def normalize(arr):
-        rng = arr.max()-arr.min()
-        amin = arr.min()
-        return (arr-amin)*255/rng
-
-
-    def MPU_Init():
-        # write to sample rate register
-        bus.write_byte_data(Device_Address, SMPLRT_DIV, 7)
-
-        # Write to power management register
-        bus.write_byte_data(Device_Address, PWR_MGMT_1, 1)
-
-        # Write to Configuration register
-        bus.write_byte_data(Device_Address, CONFIG, 0)
-
-        # Write to Gyro configuration register
-        bus.write_byte_data(Device_Address, GYRO_CONFIG, 24)
-
-        # Write to interrupt enable register
-        bus.write_byte_data(Device_Address, INT_ENABLE, 1)
-
-    def read_raw_data(addr):
-        # Accelero and Gyro value are 16-bit
-        high = bus.read_byte_data(Device_Address, addr)
-        low = bus.read_byte_data(Device_Address, addr+1)
-
-        # concatenate higher and lower value
-        value = ((high << 8) | low)
-
-        # to get signed value from mpu6050
-        if(value > 32768):
-            value = value - 65536
-        return value
-    try:
-        bus = smbus.SMBus(5) 	# or bus = smbus.SMBus(0) for older version boards
-        Device_Address = 0x68   # MPU6050 device address
-        MPU_Init()
-        print("IMU INIT")
-        imu_ok = True
-    except Exception as ex:
-        errorwriter(ex, "Error al iniciar el IMU")
-        print("El IMU no pudo iniciar")
-
-    try:
-        with open('counter.json') as json_file:
-            img_index = json.load(json_file)
-    except:
-        json_string = {"num": 0}
-        with open('counter.json', 'w') as outfile:
-            json.dump(json_string, outfile)
-        with open('counter.json') as json_file:
-            img_index = json.load(json_file)
-
-    img_index_num.value = img_index["num"]
+    #region Iniciar Variables
     print("CAMERA INIT")
     camera = PiCamera()
     camera.resolution = (640, 480)
@@ -499,7 +296,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
     last_pic = 0
     last_imu = 0
     was_taking = False
-    first = True
+    first_img = True
     log_imu_stuck = True
     log_cam_stuck = True
     log_cam = False
@@ -523,7 +320,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
     reference_stuck = 0
     stuck_count = 0
     img_to_filter = []
-    # Cargo configuracion
+    # Cargo configuracion de scoring
     t_amb_max = float(day_score_config['T. Ambiente Max'])
     t_amb_min = float(day_score_config['T. Ambiente Min'])
     t_amb_delta= float(day_score_config['Amplitud Termica Amb.'])
@@ -566,6 +363,201 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
     t_stuck_sec = 0
     t_active_sec = 0
     t_rest_sec = 0
+    counter = 0
+    dht_ok = False
+    imu_ok = False
+    dht_init = False
+    dht_fail_counter = 0
+    moving_img = False
+    t_mlx_amb = 0 
+    t_mlx_surface = 0
+    last_measure = 0
+    measure_rate = 1 #Hz
+    t_bme_list = []
+    h_bme_list = []
+    p_bme_list = []
+    t_bmp_list = []
+    p_bmp_list = []
+    t_dht_list = []
+    h_dht_list = []
+    t_mlx_amb_list = []
+    t_mlx_surface_list = []
+    t_bme_mean = 0
+    h_bme_mean = 0
+    p_bme_mean = 0
+    t_bmp_mean = 0
+    p_bmp_mean = 0
+    t_dht_mean = 0
+    h_dht_mean = 0
+    t_mlx_amb_mean = 0
+    t_mlx_surface_mean = 0
+    measurements_list = []
+    robot_id = "001"
+    campaign_id = "01"
+    day_info = {"day": {"breeding_day": breeding_day, "config": day_score_config, "total_time": 0, "active_time": 0, "rest_time": 0, "stuck_time": 0, "date": current_date, "campaign_id": campaign_id}}
+    day_info_list = []
+    url = ""
+    data_was_sended = False
+    img_to_compress = []
+    zip_to_send = []
+    imu_debug = True
+    #endregion
+    #region Levanto mediciones que han quedado sin enviar antes de apagarse
+    if os.path.exists("send_queue/logs"):
+        for file in os.listdir("send_queue/logs"):
+            if file.find("_backup") == -1:
+                try:
+                    with open('send_queue/logs/{}'.format(file)) as send_file:
+                        day_info_list.append(json.load(send_file))
+                except:
+                    try:
+                        backup_string = 'send_queue/logs/'+file.split(".")[0]+"_backup.json"
+                        with open(backup_string) as send_file:
+                            day_info_list.append(json.load(send_file))
+                    except:
+                        pass
+    day_info_list.append("")
+    #endregion
+    #region Levanto lista de fotos que todavia no han sido enviadas
+    try:
+        with open('send_queue/imgs/img_to_compress.json') as send_file:
+            img_to_compress += json.load(send_file)
+    except:
+        try:
+
+            with open('send_queue/imgs/img_to_compress_backup.json') as send_file:
+                img_to_compress += json.load(send_file)
+        except:
+            pass
+    try:
+        with open('send_queue/imgs/zip_to_send.json') as send_file:
+            zip_to_send += json.load(send_file)
+    except:
+        try:
+
+            with open('send_queue/imgs/zip_to_send_backup.json') as send_file:
+                zip_to_send += json.load(send_file)
+        except:
+            pass
+    #endregion
+    #region Funciones
+    def mean_check(value_list):
+        if len(value_list) > 0:
+            return mean(value_list)
+        else:
+            return 0
+
+    def thi_calc(temperatura, humedad):
+        thi = temperatura+0.348*((humedad/100)*6.105*math.exp((17.27*temperatura)/(237.7+temperatura)))
+        return thi
+
+    def compare_images(img1, img2):
+        # normalize to compensate for exposure difference
+        try:
+            img1 = normalize(img1)
+            img2 = normalize(img2)
+            diff = img1 - img2  # elementwise for scipy arrays
+            m_norm = sum(abs(diff))  # Manhattan norm
+            return (m_norm)
+        except:
+            return math.nan
+
+
+    def to_grayscale(arr):
+        if len(arr.shape) == 3:
+            # average over the last axis (color channels)
+            return average(arr, -1)
+        else:
+            return arr
+
+    def normalize(arr):
+        rng = arr.max()-arr.min()
+        amin = arr.min()
+        return (arr-amin)*255/rng
+
+    def MPU_Init():
+        bus.write_byte_data(Device_Address, SMPLRT_DIV, 7)# write to sample rate register
+        bus.write_byte_data(Device_Address, PWR_MGMT_1, 1) # Write to power management register
+        bus.write_byte_data(Device_Address, CONFIG, 0)# Write to Configuration register
+        bus.write_byte_data(Device_Address, GYRO_CONFIG, 24)# Write to Gyro configuration register
+        bus.write_byte_data(Device_Address, INT_ENABLE, 1)# Write to interrupt enable register
+
+    def read_raw_data(addr):
+        # Accelero and Gyro value are 16-bit
+        high = bus.read_byte_data(Device_Address, addr)
+        low = bus.read_byte_data(Device_Address, addr+1)
+        # concatenate higher and lower value
+        value = ((high << 8) | low)
+        # to get signed value from mpu6050
+        if(value > 32768):
+            value = value - 65536
+        return value
+    #endregion
+    #region Inicio de sensores
+    try:
+        tof = VL53L0X.VL53L0X(i2c_bus=4,i2c_address=0x29)
+        tof.open()
+        tof.start_ranging(VL53L0X.Vl53l0xAccuracyMode.HIGH_SPEED)
+        tof_ok = True
+        print("Tof inicio bien")
+    except:
+        errorwriter(ex, "Error al iniciar medidor tof")
+        print("Error al inciar el medidor tof")
+        tof_ok = False
+    try:
+        mlxbus = smbus.SMBus(4)
+        mlx = MLX90614(mlxbus, address=0x5A)
+        print("Laser inicio bien")
+        mlx_ok = True
+    except Exception as ex:
+        errorwriter(ex, "Error al iniciar medidor laser")
+        print("Error al inciar el medidor laser")
+        mlx_ok = False
+    try:
+        bmp280 = BMP280(i2c_dev=mlxbus, i2c_addr = 0x77)
+        bmp280.setup(mode="forced")
+        bmp_ok = True
+    except Exception as ex:
+        errorwriter(ex, "Error al iniciar el BMP")
+        print(ex, "Error al iniciar el BMP")
+        bmp_ok = False
+    try:
+        calibration_params = bme280.load_calibration_params(mlxbus,0x76)
+        bme = bme280.sample(mlxbus, 0x76, calibration_params)
+        bme_ok = True
+    except Exception as ex:
+        errorwriter(ex, "Error al iniciar el BME")
+        print(ex, "Error al iniciar el BME")
+        bme_ok = False
+    try:
+        dhtDevice = adafruit_dht.DHT22(board.D26, use_pulseio=False)
+        dht_init = True
+    except Exception as ex:
+        errorwriter(ex, "Error al iniciar el DHT")
+        print("Error al iniciar el DHT")
+        pass
+    try:
+        bus = smbus.SMBus(5) 	# or bus = smbus.SMBus(0) for older version boards
+        Device_Address = 0x68   # MPU6050 device address
+        MPU_Init()
+        print("IMU INIT")
+        imu_ok = True
+    except Exception as ex:
+        errorwriter(ex, "Error al iniciar el IMU")
+        print("El IMU no pudo iniciar")
+    #endregion
+
+    try:
+        with open('counter.json') as json_file:
+            img_index = json.load(json_file)
+        img_index_num.value = img_index["num"]
+    except:
+        json_string = {"num": 0}
+        with open('counter.json', 'w') as outfile:
+            json.dump(json_string, outfile)
+        with open('counter.json') as json_file:
+            img_index = json.load(json_file)
+        img_index_num.value = img_index["num"]
 
 
     while True:
@@ -573,16 +565,14 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
             for frame in camera.capture_continuous(raw_capture, format="bgr", use_video_port=True):
                 f = frame.array
                 cv2.waitKey(1)
-                # cv2.imshow('frame', f)
                 f = cv2.resize(f, (640, 480))
                 encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 65]
-                # The function imencode compresses the image and stores it in the memory buffer that is resized to fit
-
-                man[0] = cv2.imencode('.jpg', f, encode_param)[1]
-                if first:
+                man[0] = cv2.imencode('.jpg', f, encode_param)[1]# The function imencode compresses the image and stores it in the memory buffer that is resized to fit
+                if first_img:
                     image_to_compare0 = f
-                    first = False
+                    first_img = False
                     compare_timer = time.perf_counter()
+                # Comparo cuantas veces se detecto trabado en la ultima ventana
                 if time.perf_counter() - reference_stuck > stuck_window.value:
                     if stuck_count >= stucks_to_confirm.value:
                         if confirm_log_cam_stuck:
@@ -612,23 +602,19 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                         logwriter("Me destrabe, camara CONFIRMADO, minutos:", minutos=round(confirm_elapsed_cam_stuck,2), id=21)
                     reference_stuck = time.perf_counter()
                     stuck_count = 0
-                
+                # Comparo imagenes
                 if time.perf_counter() - compare_timer > timer_stuck_pic.value:
-                    
-                    # print("Manhattan norm per pixel:", n_m/img0.size)
+                    # Si no esta frenado vamos a comparar las imagenes para ver si esta trabado
+                    #region Comparacion de imagenes
                     if not is_stopped.value:
                         img0 = to_grayscale(image_to_compare0.astype(float))
                         img1 = to_grayscale(f.astype(float))
                         n_m = compare_images(img0, img1)
                         if not math.isnan(n_m):
-                        # falsed = False
-                        # if falsed == True:
-                            # print((n_m/img0.size))
                             if ((n_m/img0.size) < pic_sensibility.value):
                             # if False:
                                 stuck_count += 1
                                 if log_cam_stuck:
-                                    # print("Estoy trabado!!! Dos fotos iguales")
                                     logwriter("Me trabe, camara", id=16)
                                     log_cam_stuck = False
                                     start_cam_stuck = time.perf_counter()
@@ -655,6 +641,8 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                                     logwriter("Me destrabe, camara, minutos:", minutos=round(elapsed_cam_stuck,2), id=17)
                                     log_cam_stuck = True
                                 cam_stuck_flag.value = False
+                        image_to_compare0 = f
+                        compare_timer = time.perf_counter()
                     else:
                         if not log_cam_stuck:
                             elapsed_cam_stuck = (time.perf_counter() - start_cam_stuck)/60.0
@@ -668,10 +656,8 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                             logwriter("Me destrabe, camara, minutos:", minutos=round(elapsed_cam_stuck,2), id=17)
                             log_cam_stuck = True
                         cam_stuck_flag.value = False
-
-                    image_to_compare0 = f
-                    compare_timer = time.perf_counter()
-
+                    #endregion
+                #region Guardar fotos
                 if (cam_req.value == True and was_taking == False):
                     img_index_num.value = img_index_num.value + 1
                     json_string = {"num": int(img_index_num.value)}
@@ -680,7 +666,6 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                     img_counter = 0
                     logwriter("Empece a sacar fotos", id=3)
                     log_cam = True
-                
                 if cam_req.value == True:
                     was_taking = True
                     if time.perf_counter() - last_pic > (camera_rate.value - 1):
@@ -706,10 +691,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                                 json.dump( img_to_compress, outfile)
                             with open('send_queue/imgs/list/{}_backup.json'.format(current_date), 'w') as outfile:
                                 json.dump( img_to_compress, outfile)
-
-                            
                         taking_pics.value = True      
-
                         if is_stopped.value == True:
                             last_pic = time.perf_counter()
                             print("Voy a sacar foto detenida")
@@ -724,7 +706,6 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                                 img_type = "P"
                             img_name = "resources/{}/{}_{}_{}_{}.png".format(img_folder,d1,img_type,
                                                                     img_index_num.value, img_counter)
-                            # print(img_name)
                             img_to_filter.append(img_name)
                             camera.capture(img_name)
                             with open('send_queue/imgs/list/{}.json'.format(current_date), 'w') as outfile:
@@ -742,11 +723,11 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                         logwriter("Termine de sacar fotos", id=4)
                         log_cam = False
                 raw_capture.truncate(0)
-# Esta va a ser la rutina de envio de data cuando esta descansado
+                #endregion 
                 
-                    
+                #region Esta va a ser la rutina de envio de data cuando esta descansado
                 if is_rest.value and not data_was_sended:
-                    # RUTINA DE CHEQUE0 SI QUEDO ALGO DE UNA SESION ANTERIOR ( Puede que lo haga cuando prende)
+                    
                     try:
                         subprocess.call("./enablewifi", timeout=40)
                     except Exception as e:
@@ -788,12 +769,11 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                             with open('send_queue/imgs/zip_to_send_backup.json', 'w') as outfile:
                                 json.dump( zip_to_send, outfile)
 
-
-
                 else:
                     data_was_sended = False
                     subprocess.call("./enablehotspot", timeout=40)
-
+                #endregion
+                #region Rutina de filtrado de imagenes
                 if is_rest.value and len(img_to_filter) > 0:
                     try:
                         string_array = img_to_filter[0].split("/")
@@ -816,57 +796,64 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
 
                     except:
                         img_to_filter.pop(0)
-                if imu_req.value == True and imu_ok == True:
-                    if time.perf_counter()-last_imu > 0.5:
-                        try:
-                            last_imu = time.perf_counter()
-                            # acc_x = read_raw_data(ACCEL_XOUT_H)
-                            acc_y = read_raw_data(ACCEL_YOUT_H)
-                            acc_z = read_raw_data(ACCEL_ZOUT_H)
+                #endregion
+                if imu_req.value == True and imu_ok == True and time.perf_counter()-last_imu > 0.5:
+                    try:
+                        last_imu = time.perf_counter()
+                        acc_y = read_raw_data(ACCEL_YOUT_H)
+                        acc_z = read_raw_data(ACCEL_ZOUT_H)
+                        gyro_x = read_raw_data(GYRO_XOUT_H)
+                        gyro_y = read_raw_data(GYRO_YOUT_H)
+                        gyro_z = read_raw_data(GYRO_ZOUT_H)
+                        Ax = acc_x/16384.0
+                        Ay = acc_y/16384.0
+                        Az = acc_z/16384.0
+                        Gx = gyro_x/131.0
+                        Gy = gyro_y/131.0
+                        Gz = gyro_z/131.0
+                        if imu_debug:
+                            acc_x = read_raw_data(ACCEL_XOUT_H)
+                            gyro_x = read_raw_data(GYRO_XOUT_H)
+                            gyro_y = read_raw_data(GYRO_YOUT_H)
+                            gyro_z = read_raw_data(GYRO_ZOUT_H)
+                            imu_array = [Ax, Ay, Az, Gx, Gy, Gz]
+                            imu_array_list = []
+                        pitch = math.atan2(Ay,  Az) * 57.3
 
-                            # Full scale range +/- 250 degree/C as per sensitivity scale factor
-                            # Ax = acc_x/16384.0
-                            Ay = acc_y/16384.0
-                            Az = acc_z/16384.0
-                            
-
-                            pitch = math.atan2(Ay,  Az) * 57.3
-                            # print(
-                            #     "AX: {0:2.2f} / AY: {1:2.2f} / AZ: {2:2.2f}".format(Ax, Ay, Az))
-                            if pitch > pitch_flag.value:
-                                counter += 1
-                            else:
-                                counter = 0
-                                imu_stuck_flag.value = False
-                                if log_imu_stuck == False:
-                                    elapsed_imu_stuck = round((time.perf_counter() - start_imu_stuck)/60.0, 2)
-                                    total_elapsed_imu_stuck = last_total_elapsed_imu_stuck + elapsed_imu_stuck
-                                    json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck, "CamConf": confirm_total_elapsed_cam_stuck}
-                                    with open('stuck_count.json', 'w') as outfile:
-                                        json.dump(json_stuck_line, outfile)
-                                    with open('stuck_count_backup.json', 'w') as outfile:
-                                        json.dump(json_stuck_line, outfile)
-                                    print("IMU destuck")
-                                    logwriter("Me destrabe, IMU, minutos", minutos=elapsed_imu_stuck, id=19)
-                                    log_imu_stuck = True
-                            if counter > pitch_counter.value:
-                                if log_imu_stuck:
-                                    print("Estoy trabado!!! Detecte inclinacion mayor a la safe")
-                                    logwriter("Me trabe, IMU", id=18)
-                                    log_imu_stuck = False
-                                    start_imu_stuck = time.perf_counter()
-                                    last_total_elapsed_imu_stuck = total_elapsed_imu_stuck
-                                elapsed_imu_stuck =  round((time.perf_counter() - start_imu_stuck)/60.0, 2)
+                        if pitch > pitch_flag.value:
+                            counter += 1
+                        else:
+                            counter = 0
+                            imu_stuck_flag.value = False
+                            if log_imu_stuck == False:
+                                elapsed_imu_stuck = round((time.perf_counter() - start_imu_stuck)/60.0, 2)
                                 total_elapsed_imu_stuck = last_total_elapsed_imu_stuck + elapsed_imu_stuck
                                 json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck, "CamConf": confirm_total_elapsed_cam_stuck}
                                 with open('stuck_count.json', 'w') as outfile:
                                     json.dump(json_stuck_line, outfile)
                                 with open('stuck_count_backup.json', 'w') as outfile:
-                                        json.dump(json_stuck_line, outfile)
-                                imu_stuck_flag.value = True
-                        except Exception as ex:
-                            errorwriter(ex, "El IMU no pudo tomar lectura")
-                            print(ex, "Ups! El IMU no pudo tomar lectura")
+                                    json.dump(json_stuck_line, outfile)
+                                print("IMU destuck")
+                                logwriter("Me destrabe, IMU, minutos", minutos=elapsed_imu_stuck, id=19)
+                                log_imu_stuck = True
+                        if counter > pitch_counter.value:
+                            if log_imu_stuck:
+                                print("Estoy trabado!!! Detecte inclinacion mayor a la safe")
+                                logwriter("Me trabe, IMU", id=18)
+                                log_imu_stuck = False
+                                start_imu_stuck = time.perf_counter()
+                                last_total_elapsed_imu_stuck = total_elapsed_imu_stuck
+                            elapsed_imu_stuck =  round((time.perf_counter() - start_imu_stuck)/60.0, 2)
+                            total_elapsed_imu_stuck = last_total_elapsed_imu_stuck + elapsed_imu_stuck
+                            json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck, "CamConf": confirm_total_elapsed_cam_stuck}
+                            with open('stuck_count.json', 'w') as outfile:
+                                json.dump(json_stuck_line, outfile)
+                            with open('stuck_count_backup.json', 'w') as outfile:
+                                    json.dump(json_stuck_line, outfile)
+                            imu_stuck_flag.value = True
+                    except Exception as ex:
+                        errorwriter(ex, "El IMU no pudo tomar lectura")
+                        print(ex, "Ups! El IMU no pudo tomar lectura")
                 if time.perf_counter() - temp_timer > timer_temp.value:
                     temp_timer = time.perf_counter()
                     last_on()
@@ -1758,16 +1745,9 @@ def main():
 
 
 if __name__ == '__main__':
-    # motor_1_pwm = PWMOutputDevice("BOARD29")
-    # motor_2_pwm = PWMOutputDevice("BOARD33")
-    # motor_1_pwm = DigitalOutputDevice("BOARD29")
-    # motor_2_pwm = DigitalOutputDevice("BOARD33")
-    # motor_1_pwm.frequency = 10000
-    # motor_2_pwm.frequency = 10000
+
     start_time = time.perf_counter()
-    # led_ground.off()
-    # motor_1_pwm.off()
-    # motor_2_pwm.off()
+
     try:
         if os.path.exists("/dev/sda"):
             led_enable.on()
