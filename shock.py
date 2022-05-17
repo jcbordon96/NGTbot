@@ -21,7 +21,8 @@ import sensors
 import os
 import csv
 from scipy.linalg import norm
-from numpy import sum, average, mean
+from scipy import optimize
+import numpy as np
 import Adafruit_ADS1x15
 import board
 import adafruit_dht
@@ -163,6 +164,7 @@ def command(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_f
         print("COMMAND SOCKET INIT")
 
         await register(websocket)
+        # await websocket.send(man[0].tobytes())
         try:
             await websocket.send(state_event())
 
@@ -285,9 +287,10 @@ def command(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_f
     asyncio.get_event_loop().run_until_complete(start_server2)
     asyncio.get_event_loop().run_forever()
 
-def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day):
+def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day):
     #region Iniciar Variables
     print("CAMERA INIT")
+    shutdown_button = Button('BOARD5')
     camera = PiCamera()
     camera.resolution = (640, 480)
     camera.framerate = 32
@@ -400,7 +403,8 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
     data_was_sended = False
     img_to_compress = []
     zip_to_send = []
-    imu_debug = True
+    imu_debug = False
+    
     #endregion
     #region Levanto mediciones que han quedado sin enviar antes de apagarse
     if os.path.exists("send_queue/logs"):
@@ -443,7 +447,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
     #region Funciones
     def mean_check(value_list):
         if len(value_list) > 0:
-            return mean(value_list)
+            return np.mean(value_list)
         else:
             return 0
 
@@ -457,7 +461,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
             img1 = normalize(img1)
             img2 = normalize(img2)
             diff = img1 - img2  # elementwise for scipy arrays
-            m_norm = sum(abs(diff))  # Manhattan norm
+            m_norm = np.sum(abs(diff))  # Manhattan norm
             return (m_norm)
         except:
             return math.nan
@@ -466,7 +470,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
     def to_grayscale(arr):
         if len(arr.shape) == 3:
             # average over the last axis (color channels)
-            return average(arr, -1)
+            return np.average(arr, -1)
         else:
             return arr
 
@@ -494,16 +498,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
         return value
     #endregion
     #region Inicio de sensores
-    try:
-        tof = VL53L0X.VL53L0X(i2c_bus=4,i2c_address=0x29)
-        tof.open()
-        tof.start_ranging(VL53L0X.Vl53l0xAccuracyMode.HIGH_SPEED)
-        tof_ok = True
-        print("Tof inicio bien")
-    except:
-        errorwriter(ex, "Error al iniciar medidor tof")
-        print("Error al inciar el medidor tof")
-        tof_ok = False
+    
     try:
         mlxbus = smbus.SMBus(4)
         mlx = MLX90614(mlxbus, address=0x5A)
@@ -568,6 +563,13 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                 f = cv2.resize(f, (640, 480))
                 encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 65]
                 man[0] = cv2.imencode('.jpg', f, encode_param)[1]# The function imencode compresses the image and stores it in the memory buffer that is resized to fit
+                if shutdown_button.is_pressed:
+                    time.sleep(3)
+                    if shutdown_button.is_pressed:
+                        print('Me voy a apagar')
+                        logwriter("Recibi pedido de apagado", id=8)
+                        os.system("sudo shutdown now")
+                
                 if first_img:
                     image_to_compare0 = f
                     first_img = False
@@ -862,8 +864,6 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
                         for chip in sensors.iter_detected_chips():
                             for feature in chip:
                                 if feature.label == "temp1":
-                                    # print("el nombre del chip es:")
-                                    # print(chip.adapter_name)
                                     if chip.adapter_name == "bcm2835 (i2c@7e804000)" or chip.adapter_name == "i2c-gpio-rtc@0":
                                         temp_clock.value = round(feature.get_value(), 1)
                                         if chip.adapter_name == "i2c-gpio-rtc@0":
@@ -1077,9 +1077,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, cam
             # print(ex)
             pass
 
-
-
-def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout, last_touch_timeout, last_touch_counter, last_touch_osc_counter, flash_req, vel_array, time_array, x_com, z_com, is_rest):
+def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout, last_touch_timeout, last_touch_counter, last_touch_osc_counter, flash_req, vel_array, time_array, x_com, z_com, is_rest):
     motor_1_pwm = PWMOutputDevice("BOARD35")
     motor_2_pwm = PWMOutputDevice("BOARD33")
     motor_1_pwm.frequency = 20000
@@ -1087,9 +1085,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
     
     was_auto = False
     motor_1_dir = DigitalOutputDevice("BOARD31")
-    # motor_1_pwm = DigitalOutputDevice("BOARD38")
     motor_2_dir = DigitalOutputDevice("BOARD29")
-    # motor_2_pwm = DigitalOutputDevice("BOARD35")
     button_left = Button("BOARD40")
     button_middle = Button("BOARD38")
     button_right = Button("BOARD36")
@@ -1106,6 +1102,8 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
     led_on = True
     second_back = False
     back_change = 0
+    move_status = ''
+    sinking = False
     class Velocity:
         def __init__(self, forward, backward, left, right):
             self.forward = self.VelocityData(forward)
@@ -1122,7 +1120,15 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
     
 
     def move(x = 0, z = 0, t = 0):
-        # print("Llegamos aca",x,z, t)
+        global move_status
+        if x < 0 and z == 0:
+            move_status = 'B'
+        elif x > 0 and z == 0:
+            move_status = 'F'
+        elif x > 0 and z > 0:
+            move_status = 'R'
+        elif x > 0 and z < 0:
+            move_status = 'L'
         check_rate = 0.5
         if abs(x) > 1:
             x = x/abs(x)
@@ -1149,21 +1155,16 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                 else:
                     pwm2 = x - z
                     pwm1 = x
-        # print("PWM1 {}".format(pwm1))
-        # print("PWM2 {}".format(pwm2))
+
         if (pwm1 > 0):
-            # motor_1_pwm.value = abs(pwm1)
             motor_1_dir.off()
         elif(pwm1 < 0):
-            # motor_1_pwm.value = abs(pwm1)
             motor_1_dir.on()
         else:
             motor_1_pwm.off()
         if (pwm2 < 0):
-            # motor_2_pwm.value = abs(pwm2)
             motor_2_dir.off()
         elif(pwm2 > 0):
-            # motor_2_pwm.value = abs(pwm2)
             motor_2_dir.on()
         else:
             motor_2_pwm.off()
@@ -1172,8 +1173,6 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             motor_1_pwm.value = abs(pwm1)
         if motor_2_pwm.value != abs(pwm2):
             motor_2_pwm.value = abs(pwm2)
-        # motor_1_pwm.on()
-        # motor_2_pwm.on()
         if t > 0:
             number_check_rate = int(t / check_rate)
             rest = t - number_check_rate * check_rate
@@ -1183,32 +1182,49 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                     time.sleep(check_rate)
                     counter_check_rate += 1
             else:
-                while (counter_check_rate <= number_check_rate and auto_req.value == True and not taking_pics.value and not (button_left.is_pressed or button_right.is_pressed or button_middle.is_pressed)):
+                while (counter_check_rate <= number_check_rate and auto_req.value == True and not taking_pics.value):
                     time.sleep(check_rate)
                     counter_check_rate += 1
             if counter_check_rate == number_check_rate and auto_req.value == True:
                     time.sleep(rest)
             motor_1_pwm.off()
             motor_2_pwm.off()
-            # motor_1_pwm.value = abs(0)
-            # motor_2_pwm.value = abs(0)
     def move_sequence(type):
         steer_count = 0
+
         if type == "TURN_STUCK":
             while (steer_count < steer_counter.value and auto_req.value == True):
                 # move(vel.forward.stuck, 0, time_turn_forward)
                 move(vel.forward.stuck, vel.left.stuck, time_turn_turn)
                 steer_count += 1
             steer_count = 0
-        if type == "DER":
+        if type == "TOUCH_IZQ":
             while (steer_count < steer_counter.value and auto_req.value == True and not (button_left.is_pressed or button_right.is_pressed or button_middle.is_pressed)):                      
-                # move(vel.forward.normal, 0, time_turn_forward)
+                if second_back == False:
+                    back_change = backwards_counter.value
+                    second_back = True
+                else:
+                    back_change = backwards_counter.value * 1.5
+                    second_back = False
+                if second_back == False:
+                    back_change = backwards_counter.value
+                    second_back = True
+                else:
+                    back_change = backwards_counter.value * 1.5
+                    second_back = False
+                move(vel.backward.normal, 0, back_change)
                 move(vel.forward.normal, vel.right.normal, time_turn_turn)
                 steer_count += 1
             steer_count = 0
-        if type == "IZQ":
+        if type == "TOUCH_DER":
             while (steer_count < steer_counter.value and auto_req.value == True and not (button_left.is_pressed or button_right.is_pressed or button_middle.is_pressed)):                      
-                # move(vel.forward.normal, 0, time_turn_forward)
+                if second_back == False:
+                    back_change = backwards_counter.value
+                    second_back = True
+                else:
+                    back_change = backwards_counter.value * 1.5
+                    second_back = False
+                move(vel.backward.normal, 0, back_change)
                 move(vel.forward.normal, vel.left.normal, time_turn_turn)
                 steer_count += 1
             steer_count = 0
@@ -1218,7 +1234,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
         print(mode)
         if mode == "IZQ":
             move(vel.backward.normal, 0, backwards_counter.value)
-            move_sequence('IZQ')
+            move_sequence('TOUCH_DER')
         elif mode == "OSC":
             move(vel.backward.normal, 0, backwards_counter.value)
             if last_touch == "IZQ":
@@ -1228,12 +1244,12 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             else:
                 go_right = random.choice([True, False])
             if go_right == True:
-                move_sequence('DER')
+                move_sequence('TOUCH_IZQ')
             else:
-                move_sequence('IZQ')
+                move_sequence('TOUCH_DER')
         elif mode == "DER":
             move(vel.backward.normal, 0, backwards_counter.value)
-            move_sequence('DER')
+            move_sequence('TOUCH_IZQ')
         last_touch_count = 0
         last_touch_osc_count = 0   
     while True:
@@ -1292,37 +1308,33 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                     backward_count = 0
                     steer_count = 0
                     stuck_seq = 0
-
-                    if cam_stuck_flag.value == True or imu_stuck_flag.value == True:
-                        stuck_seq = 0
-                        while ((cam_stuck_flag.value == True or imu_stuck_flag == True) and auto_req.value == True):
+                    
+                    if cam_stuck_flag.value == True or imu_stuck_flag.value == True or clearance_stuck_flag.value == True:
+                        move(0, 0)
+                        start_clearance = clearance.value
+                        if move_status in ['R','L','F']:
+                            move(vel.backward.stuck, 0, 0)
+                        else:
+                            move(vel.forward.stuck, 0, 0)
+                        if clearance_stuck_flag.value:
+                            while clearance_stuck_flag.value and not sinking:
+                                pass
+                            pass
+                        elif imu_stuck_flag.value:
+                            pass
+                        else:
+                            pass
+                        
+                        
                             
-                            if stuck_seq == 0:
-                                move(vel.backward.stuck, 0, backwards_counter.value)
-                                # print("Going backwards")
-                                stuck_seq = 1
-                                
-                            elif stuck_seq == 1:
-                                move(vel.forward.stuck, 0, backwards_counter.value)
-                                # print("Going forward")
-                                stuck_seq = 2
-                            elif stuck_seq == 2:
-                                move_sequence("TURN_STUCK")
-                                break
-                        if stuck_seq != 1:
-                            move(vel.backward.stuck, 0, backwards_counter.value)
-                        stuck_seq = 0
-                        backward_count = 0
-                        move_sequence("TURN_STUCK")
-                        timer = time.perf_counter()
-                    move(vel.forward.normal, 0)
+
                     while taking_pics.value == True:
                         move(0, 0)
                         time.sleep(1)
                         is_stopped.value = True
                         print("Stop esperando foto")
                     is_stopped.value = False
-                    if button_left.is_pressed and not button_right.is_pressed:
+                    if button_left.is_pressed and not button_right.is_pressed: # Choque izquierdo
                         crash_confirmed = False
                         crash_timer = time.perf_counter()
                         # print("Me apretaron de izquierda")
@@ -1355,16 +1367,9 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                 antiloop("OSC")
                                 last_touch_osc_count = 0
                             else:
-                                if second_back == False:
-                                    back_change = backwards_counter.value
-                                    second_back = True
-                                else:
-                                    back_change = backwards_counter.value * 1.5
-                                    second_back = False
-                                move(vel.backward.normal, 0, back_change)
-                                move_sequence('DER')
-
-                    elif button_right.is_pressed and not button_left.is_pressed:
+                            
+                                move_sequence('TOUCH_IZQ')
+                    elif button_right.is_pressed and not button_left.is_pressed: #Choque derecho
                         crash_confirmed = False
                         crash_timer = time.perf_counter()
                         # print("Me apretaron de derecha")
@@ -1380,7 +1385,6 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                             crash_confirmed = True
                         if crash_confirmed:
                             timer = time.perf_counter()
-                            # print("Choque confirmado de derecha")
                             if last_touch == "DER":
                                 last_touch_count +=1
                                 last_touch_osc_count = 0
@@ -1399,149 +1403,8 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                 antiloop("OSC")
                                 last_touch_osc_count = 0
                             else:
-                                if second_back == False:
-                                    back_change = backwards_counter.value
-                                    second_back = True
-                                else:
-                                    back_change = backwards_counter.value * 1.5
-                                    second_back = False
-                                move(vel.backward.normal, 0, back_change)
-                                move_sequence('IZQ')
-                    elif (button_middle.is_pressed and not (button_left.is_pressed or button_right.is_pressed)):
-                        crash_confirmed = False
-                        crash_timer = time.perf_counter()
-
-                        
-                        # print("Me apretaron de frente")
-                        if crash_timeout.value > 0:
-                            while (time.perf_counter() - crash_timer) < crash_timeout.value:
-                                time.sleep(0.25)
-                                if (button_middle.is_pressed and not (button_left.is_pressed or button_right.is_pressed)):
-                                    crash_confirmed = True
-                                else:
-                                    crash_confirmed = False
-                                    break
-                        else:
-                            crash_confirmed = True
-                            time.sleep(0.2)
-                            if button_left.is_pressed and not button_right.is_pressed:
-                                crash_confirmed = False
-                                crash_timer = time.perf_counter()
-                                # print("Me apretaron de izquierda")
-                                if crash_timeout.value > 0:
-                                    while (time.perf_counter() - crash_timer) < crash_timeout.value:
-                                        time.sleep(0.25)
-                                        if button_left.is_pressed and not button_right.is_pressed:
-                                            crash_confirmed = True
-                                        else:
-                                            crash_confirmed = False
-                                            break
-                                else:
-                                    crash_confirmed = True
-                                if crash_confirmed:
-                                    # print("Choque confirmado de izquierda")
-                                    timer = time.perf_counter()
-                                    if last_touch == "IZQ":
-                                        last_touch_count +=1
-                                        last_touch_osc_count = 0
-                                        last_touch_timer = time.perf_counter()
-                                        # print("Izquierda count: {}".format(last_touch_count))
-                                    elif last_touch == "DER":
-                                        last_touch_osc_count += 1
-                                        last_touch_count = 0
-                                        last_touch_osc_timer = time.perf_counter()
-                                        # print("Osci count: {}".format(last_touch_osc_count))
-                                    last_touch = "IZQ"
-                                    if last_touch_count >= last_touch_counter.value:
-                                        antiloop("IZQ")
-                                        last_touch = "DER"
-                                    elif last_touch_osc_count >= last_touch_osc_counter.value:
-                                        antiloop("OSC")
-                                        last_touch_osc_count = 0
-                                    else:
-                                        # print("Going backwards")
-                                        if second_back == False:
-                                            back_change = backwards_counter.value
-                                            second_back = True
-                                        else:
-                                            back_change = backwards_counter.value * 1.5
-                                            second_back = False
-                                        move(vel.backward.normal, 0, back_change)
-                                        move_sequence('DER')
-                                        
-                                crash_confirmed = False
-                            elif button_right.is_pressed and not button_left.is_pressed:
-                                crash_confirmed = False
-                                crash_timer = time.perf_counter()
-                                # print("Me apretaron de derecha")
-                                if crash_timeout.value > 0:
-                                    while (time.perf_counter() - crash_timer) < crash_timeout.value:
-                                        time.sleep(0.25)
-                                        if button_right.is_pressed and not button_left.is_pressed:
-                                            crash_confirmed = True
-                                        else:
-                                            crash_confirmed = False
-                                            break
-                                else:
-                                    crash_confirmed = True
-                                if crash_confirmed:
-                                    timer = time.perf_counter()
-                                    # print("Choque confirmado de derecha")
-                                    if last_touch == "DER":
-                                        last_touch_count +=1
-                                        last_touch_osc_count = 0
-                                        last_touch_timer = time.perf_counter()
-                                        # print("Derecha count: {}".format(last_touch_count))
-                                    elif last_touch == "IZQ":
-                                        last_touch_osc_count += 1
-                                        last_touch_count = 0
-                                        last_touch_osc_timer = time.perf_counter()
-                                        # print("Oscilation count: {}".format(last_touch_osc_count))
-                                    last_touch = "DER"
-                                    if last_touch_count >= last_touch_counter.value:
-                                        antiloop("DER")
-                                        last_touch = "IZQ"
-                                    elif last_touch_osc_count >= last_touch_osc_counter.value:
-                                        antiloop("OSC")
-                                        last_touch_osc_count = 0
-                                    else:
-                                        if second_back == False:
-                                            back_change = backwards_counter.value
-                                            second_back = True
-                                        else:
-                                            back_change = backwards_counter.value * 1.5
-                                            second_back = False
-                                        move(vel.backward.normal, 0, back_change)
-                                        move_sequence('IZQ')
-                                crash_confirmed = False
-                        if crash_confirmed:
-                            # print("Choque frontal")
-                            timer = time.perf_counter()
-                            # print("Going backwards")
-                            if second_back == False:
-                                back_change = backwards_counter.value
-                                second_back = True
-                            else:
-                                back_change = backwards_counter.value * 1.5
-                                second_back = False
-                            move(vel.backward.normal, 0, back_change)
-                            if last_touch == "IZQ":
-                                go_right = True
-                            elif last_touch == "DER":
-                                go_right = False
-                            else:
-                                go_right = random.choice([True, False])
-                            last_touch = "FRO"
-                            if go_right == True:
-                                move_sequence('DER')
-                                # print("Going right")
-                            else:
-                                move_sequence('IZQ')
-                                # print("Going left")
-                    elif not (button_middle.is_pressed or button_left.is_pressed or button_right.is_pressed):
-                        pass
-                    elif (button_left.is_pressed and button_right.is_pressed):
-                        # print("Toque randomn")
+                                move_sequence('TOUCH_DER')
+                    elif (button_left.is_pressed and button_right.is_pressed): #Choque frontal
                         crash_confirmed = False
                         crash_timer = time.perf_counter()
                         if crash_timeout.value > 0:
@@ -1558,14 +1421,6 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                             # print("Choque confirmado randomn")
                             timer = time.perf_counter()
                             # print("Going backwards")
-                            if second_back == False:
-                                back_change = backwards_counter.value
-                                second_back = True
-                            else:
-                                back_change = backwards_counter.value * 1.5
-                                second_back = False
-                            
-                            move(vel.backward.normal, 0, back_change)
                             if last_touch == "IZQ":
                                 go_right = True
                             elif last_touch == "DER":
@@ -1574,67 +1429,91 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                 go_right = random.choice([True, False])
                             last_touch = "FRO"
                             if go_right == True:
-                                move_sequence('DER')
+                                move_sequence('TOUCH_IZQ')
                                 # print("Going right")
                             else:
-                                move_sequence('IZQ')
-                                # print("Going left")
+                                move_sequence('TOUCH_DER')
                 else:
-                    # print('No paso nada')
                     timer = time.perf_counter()
-                    
-                    # print("Going backwards")
-                    if second_back == False:
-                        back_change = backwards_counter.value
-                        second_back = True
-                    else:
-                        back_change = backwards_counter.value * 1.5
-                        second_back = False
-                    move(vel.backward.normal, 0, back_change)
                     go_right = random.choice([True, False])
                     if go_right == True:
-                        move_sequence('DER')
-                        # print("Going right")
+                        move_sequence('TOUCH_IZQ')
                     else:
-                        move_sequence('IZQ')
-                        # print("Going left")
+                        move_sequence('TOUCH_DER')
                     
         time.sleep(1)
 
 
-def camera(man):
+def savior(clearance_stuck_flag, clearance):
 
-    print("CAMERA SENDER INIT")
+    print("SAVIOR INIT")
 
-    async def handler(websocket, path):
-        print("CAMERA SOCKET INIT")
+    tof_ok = False
+    tof_offset = 78
+    min_tof_clearance = 20
+    sink_tof_clearance = 16
+    watch_tof_clearance = 30
+    max_tof_clearance = 25
+    clearance_array = []
+    time_clearance_array = []
+    clearance_window = 2
+    clearance_timer = time.perf_counter()
+    time_to_sink = 3
+    sink_slope = (sink_tof_clearance-max_tof_clearance)/time_to_sink
+    try:
+        tof = VL53L0X.VL53L0X(i2c_bus=4,i2c_address=0x29)
+        tof.open()
+        tof.start_ranging(VL53L0X.Vl53l0xAccuracyMode.BETTER)
+        tof_ok = True
+        print("Tof inicio bien")
+    except Exception as ex:
+        errorwriter(ex, "Error al iniciar medidor tof")
+        print("Error al inciar el medidor tof")
+        tof_ok = False
+
+    if tof_ok:
         while True:
-            try:
-                # try:
-                await websocket.send(man[0].tobytes())
-                await asyncio.sleep(0.1)  # 30 fps
-                # except:
-                #     print("Ups!")
-                #     time.sleep(1)
-                #     # start_server = websockets.serve(
-                #     #     ws_handler=handler, host='192.168.4.1', port=9000)
-                #     # # Start the server, add it to the event loop
-                #     # asyncio.get_event_loop().run_until_complete(start_server)
-                #     # # Registered our websocket connection handler, thus run event loop forever
-                #     # asyncio.get_event_loop().run_forever()
-                #         print(sys.exc_info()[0])
+            clearance.value = tof.get_distance() - tof_offset
+            if not clearance_stuck_flag.value:
+                if clearance.value < min_tof_clearance:
+                    clearance_stuck_flag.value = True
+                    time_clearance_array = []
+                    clearance_array = []
+                elif clearance.value < watch_tof_clearance:
+                    time_clearance_array.append(time.perf_counter())
+                    clearance_array.append(clearance.value)
+                    if (time_clearance_array[-1] - time_clearance_array[0]) > clearance_window:
+                        time_clearance_array.pop(0)
+                        clearance_array.pop(0)
+                    if len(clearance_array) > 5:
+                        y = np.array(clearance_array)
+                        x = np.array([count for count, i in enumerate(clearance_array)])
+                        A = np.stack([x, np.ones(len(x))]).T
+                        slope, point_zero = np.linalg.lstsq(A, y, rcond=None)[0]
+                        if slope < sink_slope:
+                            clearance_stuck_flag.value = True
+                            time_clearance_array = []
+                            clearance_array = []
+            else:
+                if clearance.value > max_tof_clearance:
+                    clearance_stuck_flag.value = False
+            
+                # t = [count for count, i in enumerate(clearance_array)]
+                # ty = [count * i for count, i in enumerate(clearance_array)]
+                # t_sqrt = [i**2 in t]
+                # n = len(clearance_array)
+                # slope = (n*sum(ty)-sum(t)*sum(clearance_array)/(n*sum(t_sqrt)-sum(t)**2))
 
-            except websockets.exceptions.ConnectionClosed:
-                print("Socket closed")
-                break
-        # vc.release()
-        # cv2.destroyAllWindows()
-    start_server = websockets.serve(
-        ws_handler=handler, host='192.168.4.1', port=9000)
-    # Start the server, add it to the event loop
-    asyncio.get_event_loop().run_until_complete(start_server)
-    # Registered our websocket connection handler, thus run event loop forever
-    asyncio.get_event_loop().run_forever()
+                y = np.array(clearance_array)
+                x = np.array([count for count, i in enumerate(clearance_array)])
+                A = np.stack([x, np.ones(len(x))]).T
+                slope, point_zero = np.linalg.lstsq(A, y, rcond=None)[0]
+                
+                pass
+            if clearance.value < min_tof_clearance:
+                clearance_stuck_flag.value = True
+            elif clearance.value > max_tof_clearance:
+                clearance_stuck_flag.value = False
 
 
 def main():
@@ -1652,6 +1531,8 @@ def main():
     pitch_counter = multiprocessing.Value('i', 0)
     cam_stuck_flag = multiprocessing.Value('b', False)
     imu_stuck_flag = multiprocessing.Value('b', False)
+    clearance_stuck_flag = multiprocessing.Value('b', False)
+    clearance = pitch_flag = multiprocessing.Value('i', 0)
     taking_pics = multiprocessing.Value('b', False)
     is_stopped = multiprocessing.Value('b', True)
     is_hot = multiprocessing.Value('b', False)
@@ -1728,11 +1609,11 @@ def main():
         target=command, args=(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_flag, flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, timer_rest, timer_wake, steer_counter, backwards_counter, timer_boring, crash_timeout, x_com, z_com,))
     # Set up our camera
     camera_handler = multiprocessing.Process(
-        target=camera, args=(lst,))
+        target=savior, args=(lst,clearance_stuck_flag, clearance,))
     auto_handler = multiprocessing.Process(
-        target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout, last_touch_timeout,last_touch_counter, last_touch_osc_counter, flash_req, vel_array, time_array, x_com, z_com, is_rest,))
+        target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout, last_touch_timeout,last_touch_counter, last_touch_osc_counter, flash_req, vel_array, time_array, x_com, z_com, is_rest,))
     pitch_handler = multiprocessing.Process(
-        target=pitch, args=(lst, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day,))
+        target=pitch, args=(lst, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day,))
     # Add 'em to our list
     PROCESSES.append(camera_handler)
     PROCESSES.append(command_handler)
