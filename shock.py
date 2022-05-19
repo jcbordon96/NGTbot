@@ -1199,32 +1199,26 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                 steer_count += 1
             steer_count = 0
         if type == "TOUCH_IZQ":
-            while (steer_count < steer_counter.value and auto_req.value == True and not (button_left.is_pressed or button_right.is_pressed or button_middle.is_pressed)):                      
-                if second_back == False:
-                    back_change = backwards_counter.value
-                    second_back = True
-                else:
-                    back_change = backwards_counter.value * 1.5
-                    second_back = False
-                if second_back == False:
-                    back_change = backwards_counter.value
-                    second_back = True
-                else:
-                    back_change = backwards_counter.value * 1.5
-                    second_back = False
-                move(vel.backward.normal, 0, back_change)
+            if second_back == False:
+                back_change = backwards_counter.value
+                second_back = True
+            else:
+                back_change = backwards_counter.value * 1.5
+                second_back = False
+            move(vel.backward.normal, 0, back_change)
+            while (steer_count < steer_counter.value and auto_req.value == True and not (button_left.is_pressed or button_right.is_pressed or button_middle.is_pressed)):
                 move(vel.forward.normal, vel.right.normal, time_turn_turn)
                 steer_count += 1
             steer_count = 0
         if type == "TOUCH_DER":
+            if second_back == False:
+                back_change = backwards_counter.value
+                second_back = True
+            else:
+                back_change = backwards_counter.value * 1.5
+                second_back = False
+            move(vel.backward.normal, 0, back_change)
             while (steer_count < steer_counter.value and auto_req.value == True and not (button_left.is_pressed or button_right.is_pressed or button_middle.is_pressed)):                      
-                if second_back == False:
-                    back_change = backwards_counter.value
-                    second_back = True
-                else:
-                    back_change = backwards_counter.value * 1.5
-                    second_back = False
-                move(vel.backward.normal, 0, back_change)
                 move(vel.forward.normal, vel.left.normal, time_turn_turn)
                 steer_count += 1
             steer_count = 0
@@ -1608,14 +1602,14 @@ def main():
     command_handler = multiprocessing.Process(
         target=command, args=(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_flag, flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, timer_rest, timer_wake, steer_counter, backwards_counter, timer_boring, crash_timeout, x_com, z_com,))
     # Set up our camera
-    camera_handler = multiprocessing.Process(
+    savior_handler = multiprocessing.Process(
         target=savior, args=(lst,clearance_stuck_flag, clearance,))
     auto_handler = multiprocessing.Process(
         target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout, last_touch_timeout,last_touch_counter, last_touch_osc_counter, flash_req, vel_array, time_array, x_com, z_com, is_rest,))
     pitch_handler = multiprocessing.Process(
         target=pitch, args=(lst, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day,))
     # Add 'em to our list
-    PROCESSES.append(camera_handler)
+    PROCESSES.append(savior_handler)
     PROCESSES.append(command_handler)
     PROCESSES.append(auto_handler)
     PROCESSES.append(pitch_handler)
