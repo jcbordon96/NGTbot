@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 from picamera.array import PiRGBArray
 from picamera import PiCamera
@@ -16,7 +16,7 @@ from gpiozero import DigitalOutputDevice, PWMOutputDevice, Button
 import smbus
 import smbus2
 import math
-from datetime import datetime
+from datetime import date, datetime
 import sensors
 import os
 import csv
@@ -34,6 +34,9 @@ import requests
 import subprocess
 from zipfile import ZipFile
 import VL53L0X
+import sys
+from bluetooth import *
+
 
 PWR_MGMT_1 = 0x6B
 SMPLRT_DIV = 0x19
@@ -287,7 +290,7 @@ def command(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_f
     asyncio.get_event_loop().run_until_complete(start_server2)
     asyncio.get_event_loop().run_forever()
 
-def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day):
+def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id):
     #region Iniciar Variables
     print("CAMERA INIT")
     shutdown_button = Button('BOARD5')
@@ -395,14 +398,13 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
     t_mlx_amb_mean = 0
     t_mlx_surface_mean = 0
     measurements_list = []
-    robot_id = "001"
-    campaign_id = "01"
+    robot_id = 2
     day_info = {"day": {"breeding_day": breeding_day, "config": day_score_config, "total_time": 0, "active_time": 0, "rest_time": 0, "stuck_time": 0, "date": current_date, "campaign_id": campaign_id}}
     day_info_list = []
-    url = ""
+    url = "http://192.168.0.191:4000/loadMeasurements"
+    url_img = "http://192.168.0.191:4000/loadImages"
     data_was_sended = False
     img_to_compress = []
-    zip_to_send = []
     imu_debug = False
     
     #endregion
@@ -424,31 +426,26 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
     #endregion
     #region Levanto lista de fotos que todavia no han sido enviadas
     try:
-        with open('send_queue/imgs/img_to_compress.json') as send_file:
+        with open('send_queue/imgs/list/img_to_compress.json') as send_file:
             img_to_compress += json.load(send_file)
     except:
         try:
 
-            with open('send_queue/imgs/img_to_compress_backup.json') as send_file:
+            with open('send_queue/imgs/list/img_to_compress_backup.json') as send_file:
                 img_to_compress += json.load(send_file)
         except:
             pass
-    try:
-        with open('send_queue/imgs/zip_to_send.json') as send_file:
-            zip_to_send += json.load(send_file)
-    except:
-        try:
 
-            with open('send_queue/imgs/zip_to_send_backup.json') as send_file:
-                zip_to_send += json.load(send_file)
-        except:
-            pass
     #endregion
     #region Funciones
     def mean_check(value_list):
-        if len(value_list) > 0:
-            return np.mean(value_list)
-        else:
+        try:
+            if len(value_list) > 0:
+                return np.mean(value_list)
+            else:
+                return 0
+        except:
+            print("Error mean check")
             return 0
 
     def thi_calc(temperatura, humedad):
@@ -689,9 +686,9 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                             moving_img = True
                             camera.capture(img_name)
                             img_to_compress.append(img_name)
-                            with open('send_queue/imgs/list/{}.json'.format(current_date), 'w') as outfile:
+                            with open('send_queue/imgs/list/img_to_compress.json', 'w') as outfile:
                                 json.dump( img_to_compress, outfile)
-                            with open('send_queue/imgs/list/{}_backup.json'.format(current_date), 'w') as outfile:
+                            with open('send_queue/imgs/list/img_to_compress_backup.json', 'w') as outfile:
                                 json.dump( img_to_compress, outfile)
                         taking_pics.value = True      
                         if is_stopped.value == True:
@@ -709,10 +706,11 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                             img_name = "resources/{}/{}_{}_{}_{}.png".format(img_folder,d1,img_type,
                                                                     img_index_num.value, img_counter)
                             img_to_filter.append(img_name)
+                            img_to_compress.append(img_name)
                             camera.capture(img_name)
-                            with open('send_queue/imgs/list/{}.json'.format(current_date), 'w') as outfile:
+                            with open('send_queue/imgs/list/img_to_compress.json', 'w') as outfile:
                                 json.dump( img_to_compress, outfile)
-                            with open('send_queue/imgs/list/{}_backup.json'.format(current_date), 'w') as outfile:
+                            with open('send_queue/imgs/list/img_to_compress_backup.json', 'w') as outfile:
                                 json.dump( img_to_compress, outfile)
                             if is_rest.value or not flash_req.value:
                                 flash_enable.off()
@@ -731,7 +729,8 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                 if is_rest.value and not data_was_sended:
                     
                     try:
-                        subprocess.call("./enablewifi", timeout=40)
+                        print("Enabling wifi")
+                        subprocess.call("./enablewifi_silent", timeout=40)
                     except Exception as e:
                         print(e, "No me pude conectar para mandar data")
                         errorwriter(e, "No me pude conectar para mandar data")
@@ -739,41 +738,67 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                     if len(day_info_list)>0:
                         day_info_to_send = day_info_list[0]
                         head = {u'content-type': u'application/json'}
+                        print("Envio esta data", day_info_to_send)
                         r = requests.post(url=url, data=json.dumps(day_info_to_send), headers=head)
-                        if r == 200:
-                            day_info_list.pop()
+                        print(r)
+                        if r.status_code == 200:
+                            day_info_list.pop(0)
                     else:
                         # Borrar todo el contenido de la carpeta send queue
+                        print("No hay mas logs que enviar")
                         for file in os.listdir("send_queue/logs"):
                             os.remove(os.path.join("send_queue/logs",file))
-                        data_was_sended = True
-                        subprocess.call("./enablehotspot", timeout=40)
                         # Ya no hay mas elementos para enviar, voy a esperar a que vuelva a entrar a descanso para entrar
                     if len(img_to_compress) > 0:
-                        zip_name = datetime.now().strftime("%Y%m%d_%H%M%S")
-                        with ZipFile("send_queue/imgs/zipfiles/{}.zip".format(zip_name),'w') as zip:
-                            for file in img_to_compress:
-                                zip.write(file)
-                        zip_to_send.append("send_queue/imgs/zipfiles/{}.zip".format(zip_name))
-                        with open('send_queue/imgs/zip_to_send.json', 'w') as outfile:
-                            json.dump( zip_to_send, outfile)
-                        with open('send_queue/imgs/zip_to_send_backup.json', 'w') as outfile:
-                            json.dump( zip_to_send, outfile)
-                        img_to_compress = []
-                    if len(zip_to_send)>0:
-                        for zipfile in zip_to_send:
-                            fileobj = open(zipfile, 'rb')
-                            head = {u'content-type': u'multipart/form-data'}
-                            r = requests.post(url=url, data={"robot_identifier": robot_id, "campaign_id": campaign_id, "date":current_date}, files ={'archive':(zipfile, fileobj)})
-                            zip_to_send.pop(0)
-                            with open('send_queue/imgs/zip_to_send.json', 'w') as outfile:
-                                json.dump( zip_to_send, outfile)
-                            with open('send_queue/imgs/zip_to_send_backup.json', 'w') as outfile:
-                                json.dump( zip_to_send, outfile)
+                        start_new_compress = True
+                        print("Hay imagenes para comprimir")
+                        while start_new_compress:
+                            start_new_compress = False
+                            zip_name = datetime.now().strftime("%Y%m%d_%H%M%S")
+                            print(img_to_compress)
+                            last_zip_name = img_to_compress[0].split('/')[1]
+                            with ZipFile("send_queue/imgs/zipfiles/{}_{}.zip".format(last_zip_name,zip_name),'w') as zip:
+                                while img_to_compress:
+                                    print("Agregando {} al zip".format(img_to_compress[0]))
+                                    if img_to_compress[0].split('/')[1] != last_zip_name:
+                                        print("Cambio de nombre")
+                                        start_new_compress = True
+                                        break
+                                    zip.write(img_to_compress[0])
+                                    img_to_compress.pop(0)
+                                    with open('send_queue/imgs/list/img_to_compress.json', 'w') as outfile:
+                                        json.dump( img_to_compress, outfile)
+                                    with open('send_queue/imgs/list/img_to_compress_backup.json', 'w') as outfile:
+                                        json.dump( img_to_compress, outfile)
+                            print("Acabo de crear zip:", "{}_{}.zip".format(last_zip_name,zip_name))
+                    else:
+                        print("No hay mas imagenes para comprimir")
+                    if os.path.exists("send_queue/imgs/zipfiles"):
+                        if len(os.listdir("send_queue/imgs/zipfiles")) > 0:
+                            for zipfile in os.listdir("send_queue/imgs/zipfiles"):
+                                delete_zip = False
+                                date_zip_file = datetime.strptime(zipfile.split('_')[0], "%Y%m%d").strftime("%Y-%m-%d")
+                                with open("send_queue/imgs/zipfiles/"+ zipfile, 'rb') as file:
+                                    fileobj = [('zip', (zipfile, file, 'zip'))]
+                                    head = {u'content-type': u'multipart/form-data'}
+                                    print("Voy a enviar imagenes, zipfile:", zipfile)
+                                    r = requests.post(url=url_img, data={"robot_identifier": robot_id, "campaign_id": campaign_id, "date":date_zip_file}, files = fileobj)
+                                    print(r)
+                                    if r.status_code == 200:
+                                        delete_zip = True
+                                if delete_zip:
+                                    print("Borre zip: ", zipfile)
+                                    os.remove("send_queue/imgs/zipfiles/"+ zipfile)
+                        else:
+                            print('No hay mas imagenes que mandar')
+                    if len(os.listdir("send_queue/imgs/zipfiles")) == 0 and len(img_to_compress) == 0 and len(day_info_list) == 0:
+                        data_was_sended = True
+                        print("No queda mas para hacer en reposo")
 
-                else:
+                elif not is_rest.value and data_was_sended:
                     data_was_sended = False
-                    subprocess.call("./enablehotspot", timeout=40)
+                    print("Enabling hotspot")
+                    subprocess.call("./enablehotspot_silent", timeout=40)
                 #endregion
                 #region Rutina de filtrado de imagenes
                 if is_rest.value and len(img_to_filter) > 0:
@@ -804,20 +829,24 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                         last_imu = time.perf_counter()
                         acc_y = read_raw_data(ACCEL_YOUT_H)
                         acc_z = read_raw_data(ACCEL_ZOUT_H)
-                        gyro_x = read_raw_data(GYRO_XOUT_H)
-                        gyro_y = read_raw_data(GYRO_YOUT_H)
-                        gyro_z = read_raw_data(GYRO_ZOUT_H)
-                        Ax = acc_x/16384.0
+                        
+                        
                         Ay = acc_y/16384.0
                         Az = acc_z/16384.0
-                        Gx = gyro_x/131.0
-                        Gy = gyro_y/131.0
-                        Gz = gyro_z/131.0
+                        
                         if imu_debug:
+                            
+                            gyro_x = read_raw_data(GYRO_XOUT_H)
+                            gyro_y = read_raw_data(GYRO_YOUT_H)
+                            gyro_z = read_raw_data(GYRO_ZOUT_H)
                             acc_x = read_raw_data(ACCEL_XOUT_H)
                             gyro_x = read_raw_data(GYRO_XOUT_H)
                             gyro_y = read_raw_data(GYRO_YOUT_H)
                             gyro_z = read_raw_data(GYRO_ZOUT_H)
+                            Ax = acc_x/16384.0
+                            Gx = gyro_x/131.0
+                            Gy = gyro_y/131.0
+                            Gz = gyro_z/131.0
                             imu_array = [Ax, Ay, Az, Gx, Gy, Gz]
                             imu_array_list = []
                         pitch = math.atan2(Ay,  Az) * 57.3
@@ -870,6 +899,8 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                                             is_tails = True
                                     if chip.adapter_name == "Virtual device":
                                         temp_cpu.value = round(feature.get_value(), 1)
+                    except:
+                        pass
                     finally:
                         if (temp_cpu.value > 80 or temp_clock.value > 80) and not is_hot.value:
                             is_hot.value = True
@@ -978,10 +1009,8 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                     humedad.value = h_bme_mean
                     amoniaco.value = t_mlx_surface_mean
                     
-                    print("1")
-                    
+
                     if t_bme_mean != 0 and h_bme_mean != 0:
-                        print("2")
                         thi = thi_calc(temperatura=t_bme_mean, humedad=h_bme_mean)
                         t_amb_list.append(t_bme_mean)
                         h_list.append(h_bme_mean)
@@ -1024,7 +1053,6 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                     else:
                         score_general_rt = score_temp_amb_rt * 0.4 + score_hum_rt * 0.4 + score_thi_rt * 0.2
                         score_general_prom = score_temp_amb_prom * 0.4 + score_hum_prom * 0.4 + score_thi_prom * 0.2
-                    print("3")
                     if is_stuck_confirm:
                         if last_t_stuck != 0:
                             t_stuck_sec += time.perf_counter()-last_t_stuck
@@ -1054,10 +1082,15 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                             t_active = t_active_sec/3600
                         last_t_active = time.perf_counter()
                     t_total = (time.perf_counter() - t_init)/3600
-                    print("4")
+                    if len(day_info_list) == 0:
+                        print("Se envio todo lo actual, reseteo las variables")
+                        day_info_list.append("")
+                        measurements_list = []
+                    current_date_server = datetime.strptime(current_date, "%Y%m%d").strftime("%Y-%m-%d")
                     measurement = {"temp_environment": t_bme_mean, "temp_surface": t_mlx_surface_mean, "humidity": h_bme_mean, "comfort": thi, "score_temp_environment": round(score_temp_amb_rt,2), "score_temp_surface": round(score_temp_bed_rt,2), "score_humidity": round(score_hum_rt,2), "score_comfort": round(score_thi_rt,2), "time":datetime.now().strftime("%H:%M:%S"), "robot_identifier": robot_id, "score_overall": round(score_general_rt,2)}
                     measurements_list.append(measurement)
-                    day_info ={"day": {"breeding_day": breeding_day, "config": day_score_config, "total_time": t_total, "active_time": t_active, "rest_time": t_rest, "stuck_time": t_stuck, "date":current_date, "campaign_id": campaign_id, "measurements": measurements_list}}
+                    day_info ={"day": {"breeding_day": breeding_day, "config": day_score_config, "total_time": t_total, "active_time": t_active, "rest_time": t_rest, "stuck_time": t_stuck, "date":current_date_server, "campaign_id": campaign_id, "measurements": measurements_list}}
+                    
                     day_info_list[-1] = day_info
                     with open('send_queue/logs/{}.json'.format(current_date), 'w') as outfile:
                             json.dump(day_info, outfile)
@@ -1072,6 +1105,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                         logwriter("Estado, descansando", id=15, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=t_bme_mean, t_bmp=t_bmp_mean,
                             t_dht=t_dht_mean, t_laser_surf= t_mlx_surface_mean, t_laser_amb=t_mlx_amb_mean, h_dht=h_dht_mean, h_bme=h_bme_mean, p_bme=p_bme_mean, p_bmp=p_bmp_mean, thi=thi, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = t_total, t_active = t_active, t_rest = t_rest, t_stuck = t_stuck)
         except Exception as ex:
+            print("Error in line:", sys.exc_info()[-1].tb_lineno)
             print(ex)
             # errorwriter("Camara", "Fallo timeout")
             # print(ex)
@@ -1104,6 +1138,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
     back_change = 0
     move_status = ''
     sinking = False
+    second_back = False
     class Velocity:
         def __init__(self, forward, backward, left, right):
             self.forward = self.VelocityData(forward)
@@ -1169,7 +1204,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
         else:
             motor_2_pwm.off()
         if motor_1_pwm.value != abs(pwm1):
-            print(pwm1,pwm2)
+            # print(pwm1,pwm2)
             motor_1_pwm.value = abs(pwm1)
         if motor_2_pwm.value != abs(pwm2):
             motor_2_pwm.value = abs(pwm2)
@@ -1191,7 +1226,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             motor_2_pwm.off()
     def move_sequence(type):
         steer_count = 0
-
+        second_back = False
         if type == "TURN_STUCK":
             while (steer_count < steer_counter.value and auto_req.value == True):
                 # move(vel.forward.stuck, 0, time_turn_forward)
@@ -1438,77 +1473,283 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
         time.sleep(1)
 
 
-def savior(clearance_stuck_flag, clearance):
+def savior(timer_boring, pitch_flag, pitch_counter, timer_stuck_pic, timer_temp, timer_log, timer_rest, timer_wake, steer_counter, backwards_counter, date_crash_timeout ,crash_timeout_before, crash_timeout_after, last_touch_timeout, last_touch_counter, last_touch_osc_counter, pic_sensibility, stucks_to_confirm, stuck_window):
 
-    print("SAVIOR INIT")
+    print("Inicio BT Server")
+    subprocess.Popen(['hciconfig', 'hci0', 'piscan'], stdout=subprocess.PIPE)
+    with open('admin_request.json') as json_file:
+        data = json.load(json_file)
+      
+    # returns JSON object as 
+    # a dictionary
 
-    tof_ok = False
-    tof_offset = 78
-    min_tof_clearance = 20
-    sink_tof_clearance = 16
-    watch_tof_clearance = 30
-    max_tof_clearance = 25
-    clearance_array = []
-    time_clearance_array = []
-    clearance_window = 2
-    clearance_timer = time.perf_counter()
-    time_to_sink = 3
-    sink_slope = (sink_tof_clearance-max_tof_clearance)/time_to_sink
-    try:
-        tof = VL53L0X.VL53L0X(i2c_bus=4,i2c_address=0x29)
-        tof.open()
-        tof.start_ranging(VL53L0X.Vl53l0xAccuracyMode.BETTER)
-        tof_ok = True
-        print("Tof inicio bien")
-    except Exception as ex:
-        errorwriter(ex, "Error al iniciar medidor tof")
-        print("Error al inciar el medidor tof")
-        tof_ok = False
 
-    if tof_ok:
-        while True:
-            clearance.value = tof.get_distance() - tof_offset
-            if not clearance_stuck_flag.value:
-                if clearance.value < min_tof_clearance:
-                    clearance_stuck_flag.value = True
-                    time_clearance_array = []
-                    clearance_array = []
-                elif clearance.value < watch_tof_clearance:
-                    time_clearance_array.append(time.perf_counter())
-                    clearance_array.append(clearance.value)
-                    if (time_clearance_array[-1] - time_clearance_array[0]) > clearance_window:
-                        time_clearance_array.pop(0)
-                        clearance_array.pop(0)
-                    if len(clearance_array) > 5:
-                        y = np.array(clearance_array)
-                        x = np.array([count for count, i in enumerate(clearance_array)])
-                        A = np.stack([x, np.ones(len(x))]).T
-                        slope, point_zero = np.linalg.lstsq(A, y, rcond=None)[0]
-                        if slope < sink_slope:
-                            clearance_stuck_flag.value = True
-                            time_clearance_array = []
-                            clearance_array = []
-            else:
-                if clearance.value > max_tof_clearance:
-                    clearance_stuck_flag.value = False
+    server_sock=BluetoothSocket( RFCOMM )
+    server_sock.bind(("",1))
+    server_sock.listen(1)
+
+    port = server_sock.getsockname()[1]
+
+    uuid = "94f39d29-7d6d-437d-973b-fba39e49d4ee"
+
+    advertise_service( server_sock, "SampleServer",
+                       service_id = uuid,
+                       service_classes = [ uuid, SERIAL_PORT_CLASS ],
+                       profiles = [ SERIAL_PORT_PROFILE ], 
+    #                   protocols = [ OBEX_UUID ] 
+                        )
+                       
+    print("Waiting for connection on RFCOMM channel %d" % port)
+
+    client_sock, client_info = server_sock.accept()
+    print("Accepted connection from ", client_info)
+    first = True
+    build_string = ''
+    new_string_timer = time.perf_counter()
+    while True:
+        try:
+            if not first:
+                print("Waiting for connection")
+                client_sock, client_info = server_sock.accept()
+                print("Accepted connection from ", client_info)
+            first = False    
+            while True:
+                data_input = client_sock.recv(1024)
+                if len(data_input) == 0: break
+                # print(data_input)
+                try:
+                    if len(data_input) == 990:
+                        data_input = data_input.decode('utf8').replace("'",'"')
+                        build_string += data_input
+                        new_string_timer = time.perf_counter()
+                        print('Esperando el resto del mensaje')
+                    elif len(data_input) != 990 or time.perf_counter() - new_string_timer > 4:
+                        data_input = data_input.decode('utf8').replace("'",'"')
+                        build_string += data_input
+                        data_input = json.loads(build_string)
+                        build_string = ""
+                        print(data_input["request"])
+                        if (data_input["request"] == "GET_ROBOT_CONFIG"):
+                            try:
+                                
+                                with open('/var/www/html/default_admin.json') as default_admin_file:
+                                    default_admin = json.load(default_admin_file)
+                                if os.path.exists('/var/www/html/actual_admin.json'):
+                                    with open('/var/www/html/actual_admin.json') as actual_admin_file:
+                                        actual_admin = json.load(actual_admin_file)
+                                else:
+                                    actual_admin = None
+                                with open ('/var/www/html/default_config_scoring.csv') as default_breeding_config_file:
+                                    default_breeding_config = default_breeding_config_file.readlines()
+                                if os.path.exists('/var/www/html/actual_config_scoring.csv'):
+                                    with open ('/var/www/html/actual_config_scoring.csv') as actual_breeding_config_file:
+                                        actual_breeding_config = actual_breeding_config_file.readlines()
+                                else:
+                                    actual_breeding_config = None
+                                with open ('/var/www/html/campaign_status.json') as campaign_status_file:
+                                    campaign_status = json.load(campaign_status_file)
+                                campaign_status['zero_date'] = datetime.strptime(campaign_status['zero_date'], "%Y%m%d").strftime("%Y-%m-%d")
+                            
+                                send_info = client_sock.send(str({"request": "GET_ROBOT_CONFIG", "data": {"behavior_config":{"default": default_admin, "actual":actual_admin}, "breeding_config": {"default": default_breeding_config, "actual": actual_breeding_config}, "campaign_config": campaign_status}}))
+                                print("send",send_info)
+                            except Exception as ex:
+                                print(ex)
+                                pass
+                        elif (data_input["request"] == "SET_BEHAVIOR_CONFIG"):
+                            try:
+                                print(data_input["data"])
+                                if data_input["data"]["default"] == True:
+                                    print("Seteando behavior default")
+                                    if os.path.exists("/var/www/html/actual_admin.json"):
+                                        os.remove("/var/www/html/actual_admin.json")
+                                    admin = open_json('/var/www/html/default_admin.json')
+                                else:
+                                    print("Seteando behavior personalizada")
+                                    admin = data_input["data"]['behavior_config']
+                                    with open('/var/www/html/actual_admin.json',  'w') as json_file:
+                                        json.dump(admin,json_file)
+                                    with open('/var/www/html/actual_admin_backup.json',  'w') as json_file:
+                                        json.dump(admin,json_file)
+                                    
+                                timer_boring.value = admin["timer_boring"]
+                                pitch_flag.value = admin["pitch_flag"]
+                                pitch_counter.value = admin["pitch_counter"]
+                                timer_stuck_pic.value = admin["timer_stuck_pic"]
+                                timer_temp.value = admin["timer_temp"]
+                                timer_log.value = admin["timer_log"]
+                                timer_rest.value = admin["timer_rest"]
+                                timer_wake.value = admin["timer_wake"]
+                                steer_counter.value = admin["steer_counter"]
+                                backwards_counter.value = admin["backwards_counter"]
+                                date_crash_timeout = admin["date_crash_timeout"]
+                                crash_timeout_before = admin["crash_timeout_before"]
+                                crash_timeout_after = admin["crash_timeout_after"]
+                                last_touch_timeout.value = admin["last_touch_timeout"]
+                                last_touch_counter.value = admin["last_touch_counter"]
+                                last_touch_osc_counter.value = admin["last_touch_osc_counter"]
+                                pic_sensibility.value = admin["pic_sensibility"]
+                                stucks_to_confirm.value = admin['stucks_to_confirm']
+                                stuck_window.value = admin['stuck_window']
+                                vel_array = [[admin["vel_forward_stuck"], admin["vel_forward_normal"]], [admin["vel_backward_stuck"], admin["vel_backward_normal"]], [admin["vel_left_stuck"], admin["vel_left_normal"]], [admin["vel_right_stuck"], admin["vel_right_normal"]] ]
+                                time_array = [admin["time_turn_forward"], admin["time_turn_turn"]]
+                                print("Termino seteo de behavior")
+                                client_sock.send(str({"request": "SET_BEHAVIOR_CONFIG_STATUS", "data": 1}))
+                            except Exception as ex:
+                                print(ex)
+                                client_sock.send(str({"request": "SET_BEHAVIOR_CONFIG_STATUS", "data": 0}))
+                        elif (data_input["request"] == "SET_NEW_CAMPAIGN"):
+                            try:
+                                print(data_input["data"])
+                                campaign= {"is_active": data_input["data"]["is_active"], "zero_date": data_input["data"]["zero_date"], "end_date": data_input["data"]["end_date"], "campaign_id": data_input["data"]["campaign_id"]}
+                                with open('/var/www/html/campaign_status.json', 'w') as outfile:
+                                    json.dump(campaign, outfile)
+                                with open('/var/www/html/campaign_status_backup.json', 'w') as outfile:
+                                    json.dump(campaign, outfile)
+                                client_sock.send(str({"request": "SET_NEW_CAMPAIGN_STATUS", "data": 1}))
+                            except Exception as ex:
+                                print(ex)
+                                client_sock.send(str({"request": "SET_NEW_CAMPAIGN_STATUS", "data": 0}))
+                        elif (data_input["request"] == "SET_END_CAMPAIGN"):
+                            try:
+                                print(data_input["data"])
+                                campaign= {"is_active": data_input["data"]["is_active"], "zero_date": data_input["data"]["zero_date"], "end_date": data_input["data"]["end_date"], "campaign_id": data_input["data"]["campaign_id"]}
+                                with open('/var/www/html/campaign_status.json', 'w') as outfile:
+                                    json.dump(campaign, outfile)
+                                with open('/var/www/html/campaign_status_backup.json', 'w') as outfile:
+                                    json.dump(campaign, outfile)
+                                client_sock.send(str({"request": "SET_END_CAMPAIGN_STATUS", "data": 1}))
+                            except Exception as ex:
+                                print(ex)
+                                client_sock.send(str({"request": "SET_END_CAMPAIGN_STATUS", "data": 0}))
+                        elif (data_input["request"] == "SET_BREEDING_CONFIG"):
+                            try:
+                                print(data_input)
+                                if data_input["data"]["default"] == True:
+                                    print("Seteando breeding default")
+                                    if os.path.exists("/var/www/html/actual_config_scoring.csv"):
+                                        os.remove("/var/www/html/actual_config_scoring.csv")
+                                else:
+
+                                    lines = data_input["data"]["breeding_config"].splitlines()
+                                    rows = csv.reader(lines)
+                                    print(rows)
+                                    headers = next(rows)
+                                    print(headers)
+                                    record = dict(zip())
+                                    score_config = []
+                                    day_list=[]
+                                    with open("/var/www/html/actual_config_scoring.csv", 'w') as scoringfile:
+                                        wr = csv.writer(scoringfile)
+                                        wr.writerow(headers)
             
-                # t = [count for count, i in enumerate(clearance_array)]
-                # ty = [count * i for count, i in enumerate(clearance_array)]
-                # t_sqrt = [i**2 in t]
-                # n = len(clearance_array)
-                # slope = (n*sum(ty)-sum(t)*sum(clearance_array)/(n*sum(t_sqrt)-sum(t)**2))
+                                    for i,row in enumerate(rows):
+                                        print(i,row)
+                                        with open("/var/www/html/actual_config_scoring.csv", 'a', newline='') as scoringfile:
+                                            wr = csv.writer(scoringfile)
+                                            wr.writerow(row)
+                                    with open ('/var/www/html/actual_config_scoring.csv') as f:
+                                        copy = f.read()
+                                        with open ('/var/www/html/actual_config_scoring_backup.csv', 'w') as file:
+                                            file.write(copy)
 
-                y = np.array(clearance_array)
-                x = np.array([count for count, i in enumerate(clearance_array)])
-                A = np.stack([x, np.ones(len(x))]).T
-                slope, point_zero = np.linalg.lstsq(A, y, rcond=None)[0]
+                                    # if int(record['Dia']) != i:
+                                    #     print("Archivo corrupto")
+                                    #     raise Exception
+
+                                client_sock.send(str({"request": "SET_BREEDING_CONFIG_STATUS", "data": 1}))
+                            except Exception as ex:
+                                print(ex)
+                                client_sock.send(str({"request": "SET_BREEDING_CONFIG_STATUS", "data": 0}))
+                        
+                            
+                except Exception as ex:
+                    print("REQUEST_PARSING_ERROR")
+                    print("len:",len(data_input), "data_input:", data_input)
+                    client_sock.send(str({"request": "REQUEST_PARSING_ERROR", "data": 1}))
+                # print(data_input)
+               
                 
-                pass
-            if clearance.value < min_tof_clearance:
-                clearance_stuck_flag.value = True
-            elif clearance.value > max_tof_clearance:
-                clearance_stuck_flag.value = False
+        except Exception as ex:
+            print(ex)
+            print("disconnected")
+            pass
+        
 
+    print("disconnected")
+
+    client_sock.close()
+    server_sock.close()
+    print("all done")
+    #region SAVIOR 
+    # print("SAVIOR INIT")
+
+    # tof_ok = False
+    # tof_offset = 78
+    # min_tof_clearance = 20
+    # sink_tof_clearance = 16
+    # watch_tof_clearance = 30
+    # max_tof_clearance = 25
+    # clearance_array = []
+    # time_clearance_array = []
+    # clearance_window = 2
+    # clearance_timer = time.perf_counter()
+    # time_to_sink = 3
+    # sink_slope = (sink_tof_clearance-max_tof_clearance)/time_to_sink
+    # try:
+    #     tof = VL53L0X.VL53L0X(i2c_bus=4,i2c_address=0x29)
+    #     tof.open()
+    #     tof.start_ranging(VL53L0X.Vl53l0xAccuracyMode.BETTER)
+    #     tof_ok = True
+    #     print("Tof inicio bien")
+    # except Exception as ex:
+    #     errorwriter(ex, "Error al iniciar medidor tof")
+    #     print("Error al inciar el medidor tof")
+    #     tof_ok = False
+
+    # if tof_ok:
+    #     while True:
+    #         clearance.value = tof.get_distance() - tof_offset
+    #         if not clearance_stuck_flag.value:
+    #             if clearance.value < min_tof_clearance:
+    #                 clearance_stuck_flag.value = True
+    #                 time_clearance_array = []
+    #                 clearance_array = []
+    #             elif clearance.value < watch_tof_clearance:
+    #                 time_clearance_array.append(time.perf_counter())
+    #                 clearance_array.append(clearance.value)
+    #                 if (time_clearance_array[-1] - time_clearance_array[0]) > clearance_window:
+    #                     time_clearance_array.pop(0)
+    #                     clearance_array.pop(0)
+    #                 if len(clearance_array) > 5:
+    #                     y = np.array(clearance_array)
+    #                     x = np.array([count for count, i in enumerate(clearance_array)])
+    #                     A = np.stack([x, np.ones(len(x))]).T
+    #                     slope, point_zero = np.linalg.lstsq(A, y, rcond=None)[0]
+    #                     if slope < sink_slope:
+    #                         clearance_stuck_flag.value = True
+    #                         time_clearance_array = []
+    #                         clearance_array = []
+    #         else:
+    #             if clearance.value > max_tof_clearance:
+    #                 clearance_stuck_flag.value = False
+            
+    #             # t = [count for count, i in enumerate(clearance_array)]
+    #             # ty = [count * i for count, i in enumerate(clearance_array)]
+    #             # t_sqrt = [i**2 in t]
+    #             # n = len(clearance_array)
+    #             # slope = (n*sum(ty)-sum(t)*sum(clearance_array)/(n*sum(t_sqrt)-sum(t)**2))
+
+    #             y = np.array(clearance_array)
+    #             x = np.array([count for count, i in enumerate(clearance_array)])
+    #             A = np.stack([x, np.ones(len(x))]).T
+    #             slope, point_zero = np.linalg.lstsq(A, y, rcond=None)[0]
+                
+    #             pass
+    #         if clearance.value < min_tof_clearance:
+    #             clearance_stuck_flag.value = True
+    #         elif clearance.value > max_tof_clearance:
+    #             clearance_stuck_flag.value = False
+    #endregion 
 
 def main():
     # queue = multiprocessing.Queue()
@@ -1521,12 +1762,12 @@ def main():
     flash_req = multiprocessing.Value('b', False)
     timer_boring = multiprocessing.Value('i', 0)
     imu_req = multiprocessing.Value('b', False)
-    pitch_flag = multiprocessing.Value('i', 0)
+    pitch_flag = multiprocessing.Value('d', 0.1)
     pitch_counter = multiprocessing.Value('i', 0)
     cam_stuck_flag = multiprocessing.Value('b', False)
     imu_stuck_flag = multiprocessing.Value('b', False)
     clearance_stuck_flag = multiprocessing.Value('b', False)
-    clearance = pitch_flag = multiprocessing.Value('i', 0)
+    clearance = multiprocessing.Value('i', 0)
     taking_pics = multiprocessing.Value('b', False)
     is_stopped = multiprocessing.Value('b', True)
     is_hot = multiprocessing.Value('b', False)
@@ -1546,13 +1787,12 @@ def main():
     last_touch_timeout = multiprocessing.Value('i', 0)
     last_touch_counter = multiprocessing.Value('i', 0)
     last_touch_osc_counter = multiprocessing.Value('i', 0)
-    pic_sensibility = multiprocessing.Value('i', 0)
+    pic_sensibility = multiprocessing.Value('d', 0)
     stucks_to_confirm = multiprocessing.Value('i', 0)
     stuck_window = multiprocessing.Value('d', 0)
     x_com = multiprocessing.Value('d', 0)
     z_com = multiprocessing.Value('d', 0)
     is_rest = multiprocessing.Value('b', False)
-
     manager = multiprocessing.Manager()
     lst = manager.list()
     lst.append(None)
@@ -1603,26 +1843,28 @@ def main():
         target=command, args=(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_flag, flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, timer_rest, timer_wake, steer_counter, backwards_counter, timer_boring, crash_timeout, x_com, z_com,))
     # Set up our camera
     savior_handler = multiprocessing.Process(
-        target=savior, args=(lst,clearance_stuck_flag, clearance,))
+        target=savior, args=(timer_boring, pitch_flag, pitch_counter, timer_stuck_pic, timer_temp, timer_log, timer_rest, timer_wake, steer_counter, backwards_counter, date_crash_timeout , crash_timeout_before, crash_timeout_after, last_touch_timeout, last_touch_counter, last_touch_osc_counter, pic_sensibility, stucks_to_confirm, stuck_window,))
     auto_handler = multiprocessing.Process(
         target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, is_hot, timer_rest, timer_wake, steer_counter, backwards_counter, crash_timeout, last_touch_timeout,last_touch_counter, last_touch_osc_counter, flash_req, vel_array, time_array, x_com, z_com, is_rest,))
     pitch_handler = multiprocessing.Process(
-        target=pitch, args=(lst, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day,))
+        target=pitch, args=(lst, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, timer_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id,))
     # Add 'em to our list
     PROCESSES.append(savior_handler)
-    PROCESSES.append(command_handler)
-    PROCESSES.append(auto_handler)
-    PROCESSES.append(pitch_handler)
+    if campaign_is_active:
+        PROCESSES.append(command_handler)
+        PROCESSES.append(auto_handler)
+        PROCESSES.append(pitch_handler)
     for p in PROCESSES:
         p.start() 
     while True:
         time.sleep(0.1)
+        # print("che")
 
 
 if __name__ == '__main__':
 
     start_time = time.perf_counter()
-
+    #region Detecto si hay pendrive conectado y si es asi le copio la data
     try:
         if os.path.exists("/dev/sda"):
             led_enable.on()
@@ -1646,13 +1888,15 @@ if __name__ == '__main__':
             pass
     except:
         pass
-    while time.perf_counter()-start_time < 20:
-        led_enable.on()
-        time.sleep(0.5)
-        led_enable.off()
-        time.sleep(0.5)
-    print(bcolors.OKGREEN + "Avi-Sense 2.0 APELIE ROBOTICS - 2022" + bcolors.ENDC)
+    #endregion
+    # while time.perf_counter()-start_time < 20:
+    #     led_enable.on()
+    #     time.sleep(0.5)
+    #     led_enable.off()
+    #     time.sleep(0.5)
+    print(bcolors.OKGREEN + "AVI-Sense 1.0 APELIE ROBOTICS - 2022" + bcolors.ENDC)
     flash_enable.off()
+    #region Si no existe el log master lo creo
     if not os.path.exists("log/log.csv"):
         print("No existe el logfile")
         header = ["#", "Fecha", "Hora", "Evento","Minutos", "T. CPU",
@@ -1660,27 +1904,52 @@ if __name__ == '__main__':
         with open('log/log.csv', 'w') as logfile:
             wr = csv.writer(logfile)
             wr.writerow(header)
+    if not os.path.exists("log/error.log"):
+        with open('log/error.log', 'w') as errlog:
+            errlog.write("START ERROR LOG")
+    #endregion
     # Hacer funcion para poder levantar archivos de configuracion y backupearlos, si esta mal el archivo levantar el backup y sobreescribir el corrupto
-    try:
-        with open('/var/www/html/config.json') as json_file:
-            config = json.load(json_file)
-        with open('/var/www/html/backup_config.json', 'w') as outfile:
-            json.dump(config, outfile)
-    except:
-        with open('/var/www/html/backup_config.json') as json_file:
-            config = json.load(json_file)
-        with open('/var/www/html/config.json', 'w') as outfile:
-            json.dump(config, outfile)
-    try:
-        with open('/var/www/html/admin.json') as admin_file:
-            admin = json.load(admin_file)
-        with open('/var/www/html/backup_admin.json', 'w') as outfile:
-            json.dump(admin, outfile)
-    except:
-        with open('/var/www/html/backup_admin.json') as admin_file:
-            admin = json.load(admin_file)
-        with open('/var/www/html/admin.json', 'w') as outfile:
-            json.dump(admin, outfile)
+    def open_json(filename):
+        place = filename.strip(filename.split('/')[-1])
+        stripped_name = filename.split('/')[-1].split('.')[0]
+        stripped_extension = '.' + filename.split('/')[-1].split('.')[-1]
+        stripped_name_backup = stripped_name +'_backup'
+        try:
+            with open(filename) as json_file:
+                config = json.load(json_file)
+            with open(place + stripped_name_backup + stripped_extension , 'w') as outfile:
+                json.dump(config, outfile)
+        except:
+            with open(place + stripped_name_backup + stripped_extension) as json_file:
+                config = json.load(json_file)
+            with open(filename, 'w') as outfile:
+                json.dump(config, outfile)
+        return config
+    config = open_json('/var/www/html/config.json')
+    # try:
+    #     with open('/var/www/html/config.json') as json_file:
+    #         config = json.load(json_file)
+    #     with open('/var/www/html/backup_config.json', 'w') as outfile:
+    #         json.dump(config, outfile)
+    # except:
+    #     with open('/var/www/html/backup_config.json') as json_file:
+    #         config = json.load(json_file)
+    #     with open('/var/www/html/config.json', 'w') as outfile:
+    #         json.dump(config, outfile)
+    if os.path.exists("/var/www/html/actual_admin.json"):
+        admin = open_json('/var/www/html/actual_admin.json')
+    else:
+        admin = open_json('/var/www/html/default_admin.json')
+    # try:
+    #     with open('/var/www/html/admin.json') as admin_file:
+    #         admin = json.load(admin_file)
+    #     with open('/var/www/html/backup_admin.json', 'w') as outfile:
+    #         json.dump(admin, outfile)
+    # except:
+    #     with open('/var/www/html/backup_admin.json') as admin_file:
+    #         admin = json.load(admin_file)
+    #     with open('/var/www/html/admin.json', 'w') as outfile:
+    #         json.dump(admin, outfile)
 
     print(config)
     print(admin)
@@ -1698,48 +1967,49 @@ if __name__ == '__main__':
     time.sleep(0.5)
     led_enable.on()
     try:
-        subprocess.call("./enablehotspot", timeout=40)
+        print("Enabling hotspot")
+        subprocess.call("./enablehotspot_silent", timeout=40)
     except Exception as e:
         print(e, "No se pudo iniciar hotspot")
         errorwriter(e,"No inicio el hotspot")
 
-    if not os.path.exists("log/error.log"):
-        with open('log/error.log', 'w') as errlog:
-            errlog.write("START ERROR LOG")
+    
     if not os.path.exists("stuck_count.json"):
         json_stuck_line = {"IMU": 0, "Cam": 0, "CamConf": 0}
         with open('stuck_count.json', 'w') as outfile:
             json.dump(json_stuck_line, outfile)
-    try:
-        with open('stuck_count.json') as json_stuck:
-            last_stuck = json.load(json_stuck)
-        with open('stuck_count_backup.json', 'w') as outfile:
-            json.dump(last_stuck, outfile)
-    except:
-        try:
-            with open('stuck_count_backup.json') as json_stuck:
-                last_stuck = json.load(json_stuck)
-            with open('stuck_count.json', 'w') as outfile:
-                json.dump(last_stuck, outfile)
-        except:
-            json_stuck_line = {"IMU": -1, "Cam": -1}
-            with open('stuck_count.json', 'w') as outfile:
-                json.dump(json_stuck_line, outfile)
-            with open('stuck_count.json') as json_stuck:
-                last_stuck = json.load(json_stuck)
-    try:
-        with open('last_on.json') as json_on:
-            last_watch = json.load(json_on)
-    except:
-        try:
-            with open('last_on_backup.json') as json_on:
-                last_watch = json.load(json_on)
-            with open('last_on.json', 'w') as outfile:
-                json.dump(last_watch, outfile)
-        except:
-            last_on()
-            with open('last_on.json') as json_on:
-                last_watch = json.load(json_on)
+    last_stuck = open_json('stuck_count.json')
+    last_watch = open_json('last_on.json')
+    # try:
+    #     with open('stuck_count.json') as json_stuck:
+    #         last_stuck = json.load(json_stuck)
+    #     with open('stuck_count_backup.json', 'w') as outfile:
+    #         json.dump(last_stuck, outfile)
+    # except:
+    #     try:
+    #         with open('stuck_count_backup.json') as json_stuck:
+    #             last_stuck = json.load(json_stuck)
+    #         with open('stuck_count.json', 'w') as outfile:
+    #             json.dump(last_stuck, outfile)
+    #     except:
+    #         json_stuck_line = {"IMU": -1, "Cam": -1}
+    #         with open('stuck_count.json', 'w') as outfile:
+    #             json.dump(json_stuck_line, outfile)
+    #         with open('stuck_count.json') as json_stuck:
+    #             last_stuck = json.load(json_stuck)
+    # try:
+    #     with open('last_on.json') as json_on:
+    #         last_watch = json.load(json_on)
+    # except:
+    #     try:
+    #         with open('last_on_backup.json') as json_on:
+    #             last_watch = json.load(json_on)
+    #         with open('last_on.json', 'w') as outfile:
+    #             json.dump(last_watch, outfile)
+    #     except:
+    #         last_on()
+    #         with open('last_on.json') as json_on:
+    #             last_watch = json.load(json_on)
     
 
     start_log = "Me apague, minutos trabado camara / IMU " 
@@ -1748,30 +2018,110 @@ if __name__ == '__main__':
                 last_date=last_watch["Fecha"], last_hour=last_watch["Hora"], last_name=last_watch["Name"])
     logwriter("Me apague, minutos trabado camara confirmados", id=22, watch_dog=True, minutos= str(last_stuck["CamConf"]), 
                 last_date=last_watch["Fecha"], last_hour=last_watch["Hora"], last_name=last_watch["Name"])
+    # Vamos a tomar la configuracion de camapaña
+    campaign_status = open_json('/var/www/html/campaign_status.json')
+    # try:
+    #     with open('/var/www/html/campaign_status.json') as json_file:
+    #         campaign_status = json.load(json_file)
+    #     with open('/var/www/html/campaign_status_backup.json', 'w') as outfile:
+    #         json.dump(campaign_status, outfile)
+    # except:
+    #     with open('/var/www/html/campaign_status.json') as json_file:
+    #         campaign_status = json.load(json_file)
+    #     with open('/var/www/html/campaign_status.json', 'w') as outfile:
+    #         json.dump(campaign_status, outfile)
+    campaign_is_active = campaign_status["is_active"]
+    zero_date = campaign_status["zero_date"]
+    end_date = campaign_status["end_date"]
+    campaign_id = campaign_status["campaign_id"]
+    #region Cargo breeding config
     try:
-        with open ('config_scoring.csv', 'rt') as f:
-            rows = csv.reader(f)
-        
-            headers = next(rows)
-            record = dict(zip())
-            score_config = []
-            for i,row in enumerate(rows):
-                record = dict(zip(headers,row))
-                score_config.append(record)
-                if int(record['Dia']) != i:
-                    print("Archivo corrupto")
-                    raise Exception
-        zero_date = '20220428'
+        day_list=[]
+        if os.path.exists("/var/www/html/actual_config_scoring.csv"):
+            try:
+                with open ('/var/www/html/actual_config_scoring.csv') as f:
+                    rows = csv.reader(f)
+                
+                    headers = next(rows)
+                    record = dict(zip())
+                    score_config = []
+                    for i,row in enumerate(rows):
+                        record = dict(zip(headers,row))
+                        score_config.append(record)
+                        day_list.append(int(record['Dia']))
+                with open ('/var/www/html/actual_config_scoring.csv') as f:
+                    copy = f.read()
+                    with open ('/var/www/html/actual_config_scoring_backup.csv', 'w') as file:
+                        file.write(copy)
+                
+            except:
+                with open ('/var/www/html/actual_config_scoring_backup.csv') as f:
+                    rows = csv.reader(f)
+                
+                    headers = next(rows)
+                    record = dict(zip())
+                    score_config = []
+                    for i,row in enumerate(rows):
+                        record = dict(zip(headers,row))
+                        score_config.append(record)
+                        day_list.append(int(record['Dia']))
+                with open ('/var/www/html/actual_config_scoring_backup.csv') as f:
+                    copy = f.read()
+                    with open ('/var/www/html/actual_config_scoring.csv', 'w') as file:
+                        file.write(copy)
+        else:  
+            try:                         
+                with open ('/var/www/html/default_config_scoring.csv') as f:
+                    rows = csv.reader(f)
+                
+                    headers = next(rows)
+                    record = dict(zip())
+                    score_config = []
+                    for i,row in enumerate(rows):
+                        record = dict(zip(headers,row))
+                        score_config.append(record)
+                        day_list.append(int(record['Dia']))
+                with open ('/var/www/html/default_config_scoring.csv') as f:
+                    copy = f.read()
+                    with open ('/var/www/html/default_config_scoring_backup.csv', 'w') as file:
+                        file.write(copy)
+            except:
+                with open ('/var/www/html/default_config_scoring_backup.csv') as f:
+                    rows = csv.reader(f)
+                
+                    headers = next(rows)
+                    record = dict(zip())
+                    score_config = []
+                    for i,row in enumerate(rows):
+                        record = dict(zip(headers,row))
+                        score_config.append(record)
+                        day_list.append(int(record['Dia']))  
+                with open ('/var/www/html/default_config_scoring_backup.csv') as f:
+                    copy = f.read()
+                    with open ('/var/www/html/default_config_scoring.csv', 'w') as file:
+                        file.write(copy)   
         breeding_day = (datetime.now() - datetime.strptime(zero_date, "%Y%m%d")).days
+        print("breeding_day:", breeding_day)
         if breeding_day > 60 or breeding_day < 0:
             print("Fecha invalida")
             raise Exception
-        day_score_config = score_config[breeding_day]
-        logwriter(id=0, event=str(day_score_config))
-    except:
-        print("Fallo la carga de configuracion scoring")
-    current_date = datetime.now().strftime("%Y%m%d")
+        if breeding_day in day_list:
+            print("si esta en la lista")
+            breeding_day_index = day_list.index(breeding_day)
+        else:
+            print("no esta en la lista")
+            day_list.append(breeding_day)
+            day_list.sort()
+            breeding_day_index = day_list.index(breeding_day) - 1
+        day_score_config = score_config[breeding_day_index]
 
+        logwriter(id=0, event=str(day_score_config))
+    except Exception as ex:
+        print(ex)
+        print("Fallo la carga de configuracion scoring")
+    #endregion
+    
+    current_date = datetime.now().strftime("%Y%m%d")
     json_stuck_line = {"IMU": 0, "Cam": 0, "CamConf": 0}
     with open('stuck_count.json', 'w') as outfile:
         json.dump(json_stuck_line, outfile)
