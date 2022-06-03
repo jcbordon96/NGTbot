@@ -1244,13 +1244,42 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                     time.sleep(rest)
             motor_1_pwm.off()
             motor_2_pwm.off()
+    def crash(crash_side):
+        if crash_side == "DER":
+            pass
+        elif crash_side == "IZQ":
+            pass
+        crash_confirmed = False
+        crash_timer = time.perf_counter()
+        # printe("Me apretaron de izquierda")
+        if crash_timeout.value > 0:
+            while (time.perf_counter() - crash_timer) < crash_timeout.value:
+                time.sleep(0.25)
+                if crash_side == "IZQ" and button_left.is_pressed and not button_right.is_pressed:
+                    crash_confirmed = True
+                elif crash_side == "DER" and not button_left.is_pressed and button_right.is_pressed:
+                    crash_confirmed = True
+                else:
+                    crash_confirmed = False
+                    break
+        else:
+            crash_confirmed = True
+        if crash_confirmed:
+            timer = time.perf_counter()
+            time_turn_crash = time_turn.value
+            if crash_side != last_crash and crash_side != "":
+                time_turn_crash = 0.5 * time_turn.value
+                move_sequence(crash_side)
+            last_crash = crash_side
+        
+        
     def move_sequence(type):
         second_back = False
         if type == "TURN_STUCK":
 
             move(vel.forward.stuck, vel.left, time_turn)
 
-        if type == "TOUCH_IZQ":
+        if type == "IZQ":
             if second_back == False:
                 back_change = backwards_counter.value
                 second_back = True
@@ -1258,8 +1287,8 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                 back_change = backwards_counter.value * 1.5
                 second_back = False
             move(vel.backward.normal, 0, back_change)
-            move(vel.forward.normal, vel.right, time_turn)
-        if type == "TOUCH_DER":
+            move(vel.forward.normal, vel.right, time_turn_crash)
+        if type == "DER":
             if second_back == False:
                 back_change = backwards_counter.value
                 second_back = True
@@ -1267,7 +1296,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                 back_change = backwards_counter.value * 1.5
                 second_back = False
             move(vel.backward.normal, 0, back_change)
-            move(vel.forward.normal, vel.left, time_turn)
+            move(vel.forward.normal, vel.left, time_turn_crash)
 
     def antiloop(mode):
         printe("Antiloop")
@@ -1375,21 +1404,10 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                         printe("Stop esperando foto")
                     is_stopped.value = False
                     if button_left.is_pressed and not button_right.is_pressed: # Choque izquierdo
-                        crash_confirmed = False
-                        crash_timer = time.perf_counter()
-                        # printe("Me apretaron de izquierda")
-                        if crash_timeout.value > 0:
-                            while (time.perf_counter() - crash_timer) < crash_timeout.value:
-                                time.sleep(0.25)
-                                if button_left.is_pressed and not button_right.is_pressed:
-                                    crash_confirmed = True
-                                else:
-                                    crash_confirmed = False
-                                    break
-                        else:
-                            crash_confirmed = True
+}                       crash("IZQ")
                         if crash_confirmed:
                             # printe("Choque confirmado de izquierda")
+                            crash("IZQ")
                             timer = time.perf_counter()
                             if last_touch == "IZQ":
                                 last_touch_count +=1
