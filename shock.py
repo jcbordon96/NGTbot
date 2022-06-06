@@ -54,7 +54,7 @@ flash_enable = DigitalOutputDevice("BOARD12", active_high=True)
 led_enable = DigitalOutputDevice("BOARD16", active_high=True)
 def printe(*what_to_print):
     if prints_enable:
-        string = ""
+        string = datetime.now().strftime("%H:%M:%S ")
         for items in what_to_print:
             string += str(items) + " "
         print(string)
@@ -78,7 +78,7 @@ def open_json(filename):
 def last_on():
     now_logdate = datetime.now()
     log_date = now_logdate.strftime("%Y-%m-%d")
-    log_hour = now_logdate.strftime("%H:%M:%S")
+    log_hour = now_logdate.strftime("%H:%M:%S%H:%M:%S")
     date_name = now_logdate.strftime("%Y%m%d")
     json_last = {"Fecha": log_date, "Hora": log_hour, "Name": date_name}
     with open('last_on.json', 'w') as outfile:
@@ -817,8 +817,8 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
 
                 elif not is_rest.value and data_was_sended:
                     data_was_sended = False
-                    printe("Enabling hotspot")
-                    subprocess.call("./enablehotspot_silent", timeout=40)
+                    # printe("Enabling hotspot")
+                    # subprocess.call("./enablehotspot_silent", timeout=40)
                 #endregion
                 #region Rutina de filtrado de imagenes
                 if is_rest.value and len(img_to_filter) > 0:
@@ -1159,6 +1159,14 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
     move_status = ''
     sinking = False
     second_back = False
+    global crash_counter
+    crash_counter = 0
+    global crash_timer
+    crash_timer = 0
+    global last_crash 
+    last_crash = ''
+    global timer
+    timer = time.perf_counter()
     class Velocity:
         def __init__(self, forward, backward, left, right):
             self.forward = self.VelocityData(forward)
@@ -1170,7 +1178,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                 self.stuck = velArray[0]
                 self.normal = velArray[1]
     vel = Velocity(vel_array[0], vel_array[1], vel_array[2], vel_array[3])
-    time_turn = time_turn.value
+
 
     
 
@@ -1245,35 +1253,59 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             motor_1_pwm.off()
             motor_2_pwm.off()
     def crash(crash_side):
-        if crash_side == "DER":
-            pass
-        elif crash_side == "IZQ":
-            pass
+        global crash_counter
+        global timer
+        global crash_timer
+        global last_crash
+        printe('Toque de tipo :', crash_side)
+        if time.perf_counter() - crash_timer >= last_touch_window_timeout.value:
+            printe('Pasaron {} segundos desde el ultimo toque, el timeout esta en {} segundos, por lo que resetee variables'.format(int(time.perf_counter() - crash_timer), last_touch_window_timeout.value))
+            last_crash = ''
+            crash_counter = 0
         crash_confirmed = False
         crash_timer = time.perf_counter()
-        # printe("Me apretaron de izquierda")
         if crash_timeout.value > 0:
+            printe('Hay que esperar {} segundos para confirmar el choque'.format(crash_timeout.value))
             while (time.perf_counter() - crash_timer) < crash_timeout.value:
                 time.sleep(0.25)
-                if crash_side == "IZQ" and button_left.is_pressed and not button_right.is_pressed:
+                if crash_side == "FRO" and button_left.is_pressed and button_right.is_pressed:
                     crash_confirmed = True
-                elif crash_side == "DER" and not button_left.is_pressed and button_right.is_pressed:
+                    if last_crash != '' and last_crash != 'FRO':
+                        crash_side = last_crash
+                    else:
+                        crash_side = random.choice(['IZQ', 'DER'])
+                elif (crash_side == "IZQ" or crash_side == "FRO") and button_left.is_pressed:
                     crash_confirmed = True
+                    crash_side = 'IZQ'
+                elif (crash_side == "DER" or crash_side == "FRO") and button_right.is_pressed:
+                    crash_confirmed = True
+                    crash_side = 'DER'
                 else:
+                    printe('Se solto el toque antes, no hay choque confirmado')
                     crash_confirmed = False
                     break
         else:
             crash_confirmed = True
+            if crash_side == 'FRO' and last_crash != '' and last_crash != 'FRO':
+                crash_side = last_crash
+            elif crash_side == 'FRO':
+                crash_side = random.choice(['IZQ', 'DER'])
         if crash_confirmed:
+            printe('Toque confirmado lado:', crash_side)
             timer = time.perf_counter()
             time_turn_crash = time_turn.value
-            if crash_side != last_crash and crash_side != "":
+            crash_counter += 1
+            if crash_counter > 3:
+                printe('{} toques seguidos, vamor a dar un giro mas pronunciado'.format(crash_counter))
+                time_turn_crash = 2 * time_turn.value
+            elif (crash_side != last_crash and last_crash != "") or crash_counter == 3:
+                printe('Toques alternos seguidos, giro la mitad de tiempo')
                 time_turn_crash = 0.5 * time_turn.value
-                move_sequence(crash_side)
             last_crash = crash_side
+            move_sequence(crash_side, time_turn_crash)
+
         
-        
-    def move_sequence(type):
+    def move_sequence(type, time_turn_crash):
         second_back = False
         if type == "TURN_STUCK":
 
@@ -1404,99 +1436,16 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                         printe("Stop esperando foto")
                     is_stopped.value = False
                     if button_left.is_pressed and not button_right.is_pressed: # Choque izquierdo
-}                       crash("IZQ")
-                        if crash_confirmed:
-                            # printe("Choque confirmado de izquierda")
-                            crash("IZQ")
-                            timer = time.perf_counter()
-                            if last_touch == "IZQ":
-                                last_touch_count +=1
-                                last_touch_osc_count = 0
-                                last_touch_timer = time.perf_counter()
-                            elif last_touch == "DER":
-                                last_touch_osc_count += 1
-                                last_touch_count = 0
-                                last_touch_osc_timer = time.perf_counter()
-                            last_touch = "IZQ"
-                            if last_touch_count >= last_touch_counter.value:
-                                antiloop("IZQ")
-                                last_touch = "DER"
-                            elif last_touch_osc_count >= last_touch_osc_counter.value:
-                                antiloop("OSC")
-                                last_touch_osc_count = 0
-                            else:
-                            
-                                move_sequence('TOUCH_IZQ')
+                        crash("IZQ")
                     elif button_right.is_pressed and not button_left.is_pressed: #Choque derecho
-                        crash_confirmed = False
-                        crash_timer = time.perf_counter()
-                        # printe("Me apretaron de derecha")
-                        if crash_timeout.value > 0:
-                            while (time.perf_counter() - crash_timer) < crash_timeout.value:
-                                time.sleep(0.25)
-                                if button_right.is_pressed and not button_left.is_pressed:
-                                    crash_confirmed = True
-                                else:
-                                    crash_confirmed = False
-                                    break
-                        else:
-                            crash_confirmed = True
-                        if crash_confirmed:
-                            timer = time.perf_counter()
-                            if last_touch == "DER":
-                                last_touch_count +=1
-                                last_touch_osc_count = 0
-                                last_touch_timer = time.perf_counter()
-                                # printe("Derecha count: {}".format(last_touch_count))
-                                last_touch_count = 0
-                                last_touch_osc_timer = time.perf_counter()
-                                # printe("Oscilation count: {}".format(last_touch_osc_count))
-                            last_touch = "DER"
-                            if last_touch_count >= last_touch_counter.value:
-                                antiloop("DER")
-                                last_touch = "IZQ"
-                            elif last_touch_osc_count >= last_touch_osc_counter.value:
-                                antiloop("OSC")
-                                last_touch_osc_count = 0
-                            else:
-                                move_sequence('TOUCH_DER')
+                        crash("DER")
                     elif (button_left.is_pressed and button_right.is_pressed): #Choque frontal
-                        crash_confirmed = False
-                        crash_timer = time.perf_counter()
-                        if crash_timeout.value > 0:
-                            while (time.perf_counter() - crash_timer) < crash_timeout.value:
-                                time.sleep(0.25)
-                                if (button_left.is_pressed and button_right.is_pressed):
-                                    crash_confirmed = True
-                                else:
-                                    crash_confirmed = False
-                                    break
-                        else:
-                            crash_confirmed = True
-                        if crash_confirmed:
-                            # printe("Choque confirmado randomn")
-                            timer = time.perf_counter()
-                            # printe("Going backwards")
-                            if last_touch == "IZQ":
-                                go_right = True
-                            elif last_touch == "DER":
-                                go_right = False
-                            else:
-                                go_right = random.choice([True, False])
-                            last_touch = "FRO"
-                            if go_right == True:
-                                move_sequence('TOUCH_IZQ')
-                                # printe("Going right")
-                            else:
-                                move_sequence('TOUCH_DER')
+                        crash('FRO')
+
                 else:
+                    printe('No detecte ningun crash, voy marcha atras por las dudas')
                     timer = time.perf_counter()
-                    go_right = random.choice([True, False])
-                    if go_right == True:
-                        move_sequence('TOUCH_IZQ')
-                    else:
-                        move_sequence('TOUCH_DER')
-                    
+                    move_sequence(random.choice(['DER', 'IZQ']), time_turn.value)      
         time.sleep(1)
 
 
@@ -1516,6 +1465,7 @@ def savior(flash_req, cam_req, imu_req, auto_req, camera_rate, timer_boring, pit
     server_sock.listen(1)
 
     port = server_sock.getsockname()[1]
+    hotspot_status = 0
 
     uuid = "94f39d29-7d6d-437d-973b-fba39e49d4ee"
 
@@ -1577,7 +1527,7 @@ def savior(flash_req, cam_req, imu_req, auto_req, camera_rate, timer_boring, pit
                                     campaign_status = json.load(campaign_status_file)
                                 campaign_status['zero_date'] = datetime.strptime(campaign_status['zero_date'], "%Y%m%d").strftime("%Y-%m-%d")
                             
-                                send_info = client_sock.send(str({"request": "GET_ROBOT_CONFIG", "data": {"behavior_config":{"default": default_behavior, "actual":actual_behavior}, "breeding_config": {"default": default_breeding_config, "actual": actual_breeding_config}, "campaign_config": campaign_status}}))
+                                send_info = client_sock.send(str({"request": "GET_ROBOT_CONFIG", "data": {"behavior_config":{"default": default_behavior, "actual":actual_behavior}, "breeding_config": {"default": default_breeding_config, "actual": actual_breeding_config}, "campaign_config": campaign_status}, "hotspot": hotspot_status}))
                                 printe("send",send_info)
                             except Exception as ex:
                                 printe(ex)
@@ -1721,7 +1671,31 @@ def savior(flash_req, cam_req, imu_req, auto_req, camera_rate, timer_boring, pit
                             except Exception as ex:
                                 printe(ex)
                                 client_sock.send(str({"request": "SET_BREEDING_CONFIG_STATUS", "data": 0}))
-                        
+                        elif (data_input["request"] == "SET_ENABLED_HOTSPOT"):
+                            set_enabled_hotspot_status = 1
+                            printe(data_input["data"])
+                            if data_input["data"] == 1 and not hotspot_status:
+                                try:
+                                    printe("Enabling hotspot")
+                                    subprocess.call("./enablehotspot_silent", timeout=40)
+                                    hotspot_status = 1
+                                except Exception as e:
+                                    set_enabled_hotspot_status = 0
+                                    printe(e, "No se pudo iniciar hotspot")
+                                    errorwriter(e,"No inicio el hotspot")
+                                    hotspot_status = 0
+                            elif data_input["data"] == 0 and hotspot_status:
+                                try:
+                                    printe("Enabling wifi")
+                                    subprocess.call("./enablewifi_silent", timeout=40)
+                                    hotspot_status = 0
+                                except Exception as e:
+                                    set_enabled_hotspot_status = 0
+                                    hotspot_status = 1
+                                    printe(e, "No se pudo iniciar wifi")
+                                    errorwriter(e,"No inicio el wifi")
+                            client_sock.send(str({"request": "SET_ENABLED_HOTSPOT_STATUS", "data": set_enabled_hotspot_status}))
+
                             
                 except Exception as ex:
                     printe("REQUEST_PARSING_ERROR")
@@ -1905,9 +1879,10 @@ def main():
     # Add 'em to our list
     PROCESSES.append(savior_handler)
     if campaign_is_active:
-        PROCESSES.append(command_handler)
+        # PROCESSES.append(command_handler)
         PROCESSES.append(auto_handler)
         PROCESSES.append(pitch_handler)
+        
     for p in PROCESSES:
         p.start() 
     while True:
@@ -2011,11 +1986,11 @@ if __name__ == '__main__':
     time.sleep(0.5)
     led_enable.on()
     try:
-        printe("Enabling hotspot")
-        subprocess.call("./enablehotspot_silent", timeout=40)
+        printe("Enabling wifi")
+        subprocess.call("./enablewifi_silent", timeout=40)
     except Exception as e:
-        printe(e, "No se pudo iniciar hotspot")
-        errorwriter(e,"No inicio el hotspot")
+        printe(e, "No se pudo iniciar wifi")
+        errorwriter(e,"No inicio el wifi")
 
     
     if not os.path.exists("stuck_count.json"):
