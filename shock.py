@@ -1167,6 +1167,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
     timer = time.perf_counter()
     wake_time_watch = wake_time.value
     rest_time_watch = rest_time.value
+    night_mode_setted = False
 
     class Velocity:
         def __init__(self, forward, backward, left, right):
@@ -1352,15 +1353,26 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                 led_enable.on()
                 if flash_req.value == True:
                     flash_enable.on()
-            if night_mode_enable and not night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start and datetime.time(datetime.now()) < night_mode_end):
+            if not night_mode_setted and night_mode_enable and not night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start and datetime.time(datetime.now()) < night_mode_end):
+                night_mode_setted = True
                 wake_time_watch = night_mode_wake_time
                 rest_time_watch = night_mode_rest_time
-            elif night_mode_enable and night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start or datetime.time(datetime.now()) < night_mode_end):
+                vel = Velocity(night_mode_vel_array[0], night_mode_vel_array[1], night_mode_vel_array[2], night_mode_vel_array[3])
+            elif not night_mode_setted and night_mode_enable and night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start or datetime.time(datetime.now()) < night_mode_end):
+                night_mode_setted = True
                 wake_time_watch = night_mode_wake_time
                 rest_time_watch = night_mode_rest_time
-            else:
+                vel = Velocity(night_mode_vel_array[0], night_mode_vel_array[1], night_mode_vel_array[2], night_mode_vel_array[3])
+            elif night_mode_setted and not(night_mode_enable and not night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start and datetime.time(datetime.now()) < night_mode_end)):
+                night_mode_setted = False
                 wake_time_watch = wake_time.value
                 rest_time_watch = rest_time.value
+                vel = Velocity(vel_array[0], vel_array[1], vel_array[2], vel_array[3])
+            elif night_mode_setted and not (night_mode_enable and not night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start and datetime.time(datetime.now()) < night_mode_end)):
+                night_mode_setted = False
+                wake_time_watch = wake_time.value
+                rest_time_watch = rest_time.value
+                vel = Velocity(vel_array[0], vel_array[1], vel_array[2], vel_array[3])
             was_auto = True
             timer = time.perf_counter()
             while auto_req.value == True and not is_rest.value:
