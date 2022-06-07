@@ -1137,7 +1137,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
             # printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
             pass
 
-def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, is_hot, rest_time, wake_time, time_backwards, crash_timeout, last_touch_window_timeout, last_touch_counter, last_touch_osc_counter, flash_req, vel_array, time_turn, x_com, z_com, is_rest):
+def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, is_hot, rest_time, wake_time, time_backwards, crash_timeout, last_touch_window_timeout, last_touch_counter, last_touch_osc_counter, flash_req, vel_array, time_turn, x_com, z_com, is_rest, night_mode_enable, night_mode_start, night_mode_end, night_mode_rest_time, night_mode_wake_time, night_mode_vel_array, night_mode_reversed ):
     motor_1_pwm = PWMOutputDevice("BOARD35")
     motor_2_pwm = PWMOutputDevice("BOARD33")
     motor_1_pwm.frequency = 20000
@@ -1165,7 +1165,9 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
     last_crash = ''
     global timer
     timer = time.perf_counter()
-    trigger_cam_stuck = True
+    wake_time_watch = wake_time.value
+    rest_time_watch = rest_time.value
+
     class Velocity:
         def __init__(self, forward, backward, left, right):
             self.forward = self.VelocityData(forward)
@@ -1340,7 +1342,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                 printe("first auto")
                 first_auto = False
                 is_stopped.value = False
-            if is_rest.value and (time.perf_counter()-last_time_on > rest_time.value):
+            if is_rest.value and (time.perf_counter()-last_time_on > rest_time_watch):
                 is_rest.value = False
                 last_time_rest = time.perf_counter()
                 is_stopped.value = False
@@ -1350,11 +1352,20 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                 led_enable.on()
                 if flash_req.value == True:
                     flash_enable.on()
+            if night_mode_enable and not night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start and datetime.time(datetime.now()) < night_mode_end):
+                wake_time_watch = night_mode_wake_time
+                rest_time_watch = night_mode_rest_time
+            elif night_mode_enable and night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start or datetime.time(datetime.now()) < night_mode_end):
+                wake_time_watch = night_mode_wake_time
+                rest_time_watch = night_mode_rest_time
+            else:
+                wake_time_watch = wake_time.value
+                rest_time_watch = rest_time.value
             was_auto = True
             timer = time.perf_counter()
             while auto_req.value == True and not is_rest.value:
 
-                if ((time.perf_counter() - last_time_rest > wake_time.value) or is_hot.value) and not is_rest.value:
+                if ((time.perf_counter() - last_time_rest > wake_time_watch) or is_hot.value) and not is_rest.value:
                     is_rest.value = True
                     move(0, 0)
                     time.sleep(1)
@@ -1364,7 +1375,15 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                     flash_enable.off()
                     logwriter("Empece descanso", id=10)
                     break
-
+                if night_mode_enable and not night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start and datetime.time(datetime.now()) < night_mode_end):
+                    wake_time_watch = night_mode_wake_time
+                    rest_time_watch = night_mode_rest_time
+                elif night_mode_enable and night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start or datetime.time(datetime.now()) < night_mode_end):
+                    wake_time_watch = night_mode_wake_time
+                    rest_time_watch = night_mode_rest_time
+                else:
+                    wake_time_watch = wake_time.value
+                    rest_time_watch = rest_time.value
                 if time.perf_counter() - timer < timer_boring.value:
 
                     if imu_stuck_flag.value == True:
@@ -1784,9 +1803,16 @@ def main():
     pic_sensibility.value = behavior["pic_sensibility"]
     stucks_to_confirm.value = behavior['stucks_to_confirm']
     stuck_window.value = behavior['stuck_window']
-    vel_array = [[behavior["vel_forward_stuck"], behavior["vel_forward_normal"]], [-behavior["vel_backward_stuck"], -behavior["vel_backward_normal"]], behavior["vel_turn_inner"], behavior["vel_turn_outter"], ]
+    vel_array = [[behavior["vel_forward_stuck"], behavior["vel_forward_normal"]], [-behavior["vel_backward_stuck"], -behavior["vel_backward_normal"]], behavior["vel_turn_inner"], behavior["vel_turn_outter"]]
     time_turn.value = behavior["time_turn"]
     teen_day = behavior["teen_day"]
+    night_mode_enable = behavior["night_mode_enable"]
+    night_mode_start =  datetime.time(datetime.strptime.(behavior["night_mode_start"], "%H:%M"))
+    night_mode_end =  datetime.time(datetime.strptime.(behavior["night_mode_end"], "%H:%M"))
+    night_mode_rest_time = behavior["night_mode_rest_time"]
+    night_mode_wake_time = behavior["night_mode_wake_time"]
+    night_mode_vel_array = [[behavior["night_mode_vel_forward_stuck"], behavior["night_mode_vel_forward_normal"]], [-behavior["night_mode_vel_backward_stuck"], -behavior["night_mode_vel_backward_normal"]], behavior["vel_turn_inner"], behavior["vel_turn_outter"]]
+    night_mode_reversed = night_mode_start > night_mode_end
     if breeding_day >= day_crash_timeout:
         crash_timeout.value = crash_timeout_after
         printe("SENSIBILIDAD BAJA")
@@ -1809,7 +1835,7 @@ def main():
         target=command, args=(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_flag, flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, rest_time, wake_time, time_backwards, timer_boring, crash_timeout, x_com, z_com,))
     # Set up our camera
     savior_handler = multiprocessing.Process(target=savior, args=(flash_req, cam_req, imu_req, auto_req, camera_rate, timer_boring, pitch_flag, pitch_counter, window_stuck_pic, timer_temp, timer_log, rest_time, wake_time, time_backwards, day_crash_timeout , crash_timeout_before , crash_timeout_after, last_touch_window_timeout, last_touch_counter, last_touch_osc_counter, pic_sensibility, stucks_to_confirm, stuck_window, vel_array , time_turn, prints_enable,))
-    auto_handler = multiprocessing.Process(target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, is_hot, rest_time, wake_time, time_backwards, crash_timeout, last_touch_window_timeout,last_touch_counter, last_touch_osc_counter, flash_req, vel_array, time_turn, x_com, z_com, is_rest,))
+    auto_handler = multiprocessing.Process(target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, is_hot, rest_time, wake_time, time_backwards, crash_timeout, last_touch_window_timeout,last_touch_counter, last_touch_osc_counter, flash_req, vel_array, time_turn, x_com, z_com, is_rest, night_mode_enable, night_mode_start, night_mode_end, night_mode_rest_time, night_mode_wake_time, night_mode_vel_array, night_mode_reversed,))
     pitch_handler = multiprocessing.Process(target=pitch, args=(lst, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id,))
     # Add 'em to our list
     PROCESSES.append(savior_handler)
