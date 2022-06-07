@@ -52,12 +52,17 @@ GYRO_ZOUT_H = 0x47
 
 flash_enable = DigitalOutputDevice("BOARD12", active_high=True)
 led_enable = DigitalOutputDevice("BOARD16", active_high=True)
-def printe(*what_to_print):
-    if prints_enable:
-        string = datetime.now().strftime("%H:%M:%S ")
+global last_string
+last_string = ''
+def printe(*what_to_print, no_repeat = False):
+    global last_string
+    if prints_enable.value:
+        string = ''
         for items in what_to_print:
             string += str(items) + " "
-        print(string)
+        if (no_repeat and last_string != string) or not no_repeat:
+            last_string = string  
+            print(datetime.now().strftime("%H:%M:%S "), string)
 def open_json(filename):
     place = filename.strip(filename.split('/')[-1])
     stripped_name = filename.split('/')[-1].split('.')[0]
@@ -154,7 +159,7 @@ STATE = {"value": 0}
 USERS = set()
 
 
-def command(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_flag,  flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, timer_rest, timer_wake, backwards_counter, timer_boring, crash_timeout, x_com, z_com):
+def command(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_flag,  flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, rest_time, wake_time, time_backwards, timer_boring, crash_timeout, x_com, z_com):
 
 
     printe("COMMAND INIT")
@@ -531,7 +536,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
         bmp_ok = True
     except Exception as ex:
         errorwriter(ex, "Error al iniciar el BMP")
-        printe(ex, "Error al iniciar el BMP")
+        printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, "Error al iniciar el BMP" + bcolors.ENDC)
         bmp_ok = False
     try:
         calibration_params = bme280.load_calibration_params(mlxbus,0x76)
@@ -539,7 +544,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
         bme_ok = True
     except Exception as ex:
         errorwriter(ex, "Error al iniciar el BME")
-        printe(ex, "Error al iniciar el BME")
+        printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, "Error al iniciar el BME" + bcolors.ENDC)
         bme_ok = False
     try:
         dhtDevice = adafruit_dht.DHT22(board.D26, use_pulseio=False)
@@ -634,6 +639,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                             # if False:
                                 stuck_count += 1
                                 if log_cam_stuck:
+                                    printe("Me trabe, camara")
                                     logwriter("Me trabe, camara", id=16)
                                     log_cam_stuck = False
                                     start_cam_stuck = time.perf_counter()
@@ -656,7 +662,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                                         json.dump(json_stuck_line, outfile)
                                     with open('stuck_count_backup.json', 'w') as outfile:
                                         json.dump(json_stuck_line, outfile)
-                                    # printe(" Cam destuck")
+                                    printe("Me destrabe, camara")
                                     logwriter("Me destrabe, camara, minutos:", minutos=round(elapsed_cam_stuck,2), id=17)
                                     log_cam_stuck = True
                                 cam_stuck_flag.value = False
@@ -671,7 +677,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                                 json.dump(json_stuck_line, outfile)
                             with open('stuck_count_backup.json', 'w') as outfile:
                                 json.dump(json_stuck_line, outfile)
-                            printe(" Cam destuck")
+                            printe("Me destrabe, camara")
                             logwriter("Me destrabe, camara, minutos:", minutos=round(elapsed_cam_stuck,2), id=17)
                             log_cam_stuck = True
                         cam_stuck_flag.value = False
@@ -904,7 +910,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                             imu_stuck_flag.value = True
                     except Exception as ex:
                         errorwriter(ex, "El IMU no pudo tomar lectura")
-                        printe(ex, "Ups! El IMU no pudo tomar lectura")
+                        printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, "Ups! El IMU no pudo tomar lectura"+ bcolors.ENDC)
                 if time.perf_counter() - temp_timer > timer_temp.value:
                     temp_timer = time.perf_counter()
                     last_on()
@@ -940,7 +946,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                         except Exception as ex:
                             errorwriter(ex, "No se pudo tomar mediciones laser")
                             printe("Algo salio mal con el medidor laser")
-                            printe(ex)
+                            printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
                     if bmp_ok:
                         t_bmp = round(bmp280.get_temperature(),2)
                         p_bmp = round(bmp280.get_pressure(),2)
@@ -1125,13 +1131,13 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                         logwriter("Estado, descansando", id=15, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=t_bme_mean, t_bmp=t_bmp_mean,
                             t_dht=t_dht_mean, t_laser_surf= t_mlx_surface_mean, t_laser_amb=t_mlx_amb_mean, h_dht=h_dht_mean, h_bme=h_bme_mean, p_bme=p_bme_mean, p_bmp=p_bmp_mean, thi=thi, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = t_total, t_active = t_active, t_rest = t_rest, t_stuck = t_stuck)
         except Exception as ex:
-            printe("Error in line:", sys.exc_info()[-1].tb_lineno)
-            printe(ex)
+            printe("Error in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
+            printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
             # errorwriter("Camara", "Fallo timeout")
-            # printe(ex)
+            # printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
             pass
 
-def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, is_hot, timer_rest, timer_wake, backwards_counter, crash_timeout, last_touch_window_timeout, last_touch_counter, last_touch_osc_counter, flash_req, vel_array, time_turn, x_com, z_com, is_rest):
+def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, is_hot, rest_time, wake_time, time_backwards, crash_timeout, last_touch_window_timeout, last_touch_counter, last_touch_osc_counter, flash_req, vel_array, time_turn, x_com, z_com, is_rest):
     motor_1_pwm = PWMOutputDevice("BOARD35")
     motor_2_pwm = PWMOutputDevice("BOARD33")
     motor_1_pwm.frequency = 20000
@@ -1147,18 +1153,10 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
     motor_2_pwm.off()
     printe("AUTO INIT")
     first_auto = True
-    crash_confirmed = False
-    last_touch = ""
-    last_touch_timer = time.perf_counter()
-    last_touch_count = 0
-    last_touch_osc_count = 0
-    last_touch_osc_timer = time.perf_counter()
     led_on = True
-    second_back = False
-    back_change = 0
+    global move_status
     move_status = ''
     sinking = False
-    second_back = False
     global crash_counter
     crash_counter = 0
     global crash_timer
@@ -1167,6 +1165,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
     last_crash = ''
     global timer
     timer = time.perf_counter()
+    trigger_cam_stuck = True
     class Velocity:
         def __init__(self, forward, backward, left, right):
             self.forward = self.VelocityData(forward)
@@ -1306,53 +1305,17 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
 
         
     def move_sequence(type, time_turn_crash):
-        second_back = False
-        if type == "TURN_STUCK":
-
-            move(vel.forward.stuck, vel.left, time_turn)
-
-        if type == "IZQ":
-            if second_back == False:
-                back_change = backwards_counter.value
-                second_back = True
-            else:
-                back_change = backwards_counter.value * 1.5
-                second_back = False
-            move(vel.backward.normal, 0, back_change)
+        if type == "IZQ_STUCK":
+            move(vel.forward.stuck, vel.left, time_turn.value)
+        elif type == "DER_STUCK":
+            move(vel.forward.stuck, vel.right, time_turn.value)
+        elif type == "IZQ":
+            move(vel.backward.normal, 0, time_backwards.value)
             move(vel.forward.normal, vel.right, time_turn_crash)
-        if type == "DER":
-            if second_back == False:
-                back_change = backwards_counter.value
-                second_back = True
-            else:
-                back_change = backwards_counter.value * 1.5
-                second_back = False
-            move(vel.backward.normal, 0, back_change)
+        elif type == "DER":
+            move(vel.backward.normal, 0, time_backwards.value)
             move(vel.forward.normal, vel.left, time_turn_crash)
-
-    def antiloop(mode):
-        printe("Antiloop")
-        printe(mode)
-        if mode == "IZQ":
-            move(vel.backward.normal, 0, backwards_counter.value)
-            move_sequence('TOUCH_DER')
-        elif mode == "OSC":
-            move(vel.backward.normal, 0, backwards_counter.value)
-            if last_touch == "IZQ":
-                go_right = False
-            elif last_touch == "DER":
-                go_right = True
-            else:
-                go_right = random.choice([True, False])
-            if go_right == True:
-                move_sequence('TOUCH_IZQ')
-            else:
-                move_sequence('TOUCH_DER')
-        elif mode == "DER":
-            move(vel.backward.normal, 0, backwards_counter.value)
-            move_sequence('TOUCH_IZQ')
-        last_touch_count = 0
-        last_touch_osc_count = 0   
+            
     while True:
         if is_rest.value:
             if led_on:
@@ -1377,7 +1340,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                 printe("first auto")
                 first_auto = False
                 is_stopped.value = False
-            if is_rest.value and (time.perf_counter()-last_time_on > timer_rest.value):
+            if is_rest.value and (time.perf_counter()-last_time_on > rest_time.value):
                 is_rest.value = False
                 last_time_rest = time.perf_counter()
                 is_stopped.value = False
@@ -1391,7 +1354,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             timer = time.perf_counter()
             while auto_req.value == True and not is_rest.value:
 
-                if ((time.perf_counter() - last_time_rest > timer_wake.value) or is_hot.value) and not is_rest.value:
+                if ((time.perf_counter() - last_time_rest > wake_time.value) or is_hot.value) and not is_rest.value:
                     is_rest.value = True
                     move(0, 0)
                     time.sleep(1)
@@ -1401,33 +1364,57 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                     flash_enable.off()
                     logwriter("Empece descanso", id=10)
                     break
-                if time.perf_counter() - last_touch_timer > last_touch_window_timeout.value:
-                    last_touch_count = 0
-                    last_touch = ''
-                if time.perf_counter() - last_touch_osc_timer > last_touch_window_timeout.value:
-                    last_touch_osc_count = 0
+
                 if time.perf_counter() - timer < timer_boring.value:
-                    backward_count = 0
-                    stuck_seq = 0
-                    
-                    if cam_stuck_flag.value == True or imu_stuck_flag.value == True or clearance_stuck_flag.value == True:
+
+                    if imu_stuck_flag.value == True:
+                        printe("Estoy trabado por IMU", no_repeat = True)
+                        printe('Voy a frenar')
                         move(0, 0)
-                        start_clearance = clearance.value
+                        time.sleep(1)
+                        move_status_before_destuck = move_status
                         if move_status in ['R','L','F']:
-                            move(vel.backward.stuck, 0, 0)
+                            printe('Estaba yendo hacia delante, voy a retrocedecer a baja velocidad')
+                            move(vel.backward.stuck, 0, 5)
                         else:
-                            move(vel.forward.stuck, 0, 0)
-                        if clearance_stuck_flag.value:
-                            while clearance_stuck_flag.value and not sinking:
-                                pass
-                            pass
-                        elif imu_stuck_flag.value:
-                            pass
+                            printe('Estaba yendo hacia delante, voy a avanzar a baja velocidad')
+                            move(vel.forward.stuck, 0, 5)
+                        if move_status_before_destuck == 'R':
+                            printe('Antes de trabarme estaba yendo hacia la derecha, voy a girar a la izquierda')
+                            move_sequence('IZQ_STUCK', time_turn.value)
+                        elif move_status_before_destuck == 'L':
+                            printe('Antes de trabarme estaba yendo hacia la izquierda, voy a girar a la derecha')
+                            move_sequence('DER_STUCK', time_turn.value)
                         else:
-                            pass
-                        
-                        
-                            
+                            printe('Antes de trabarme esta yendo recto, voy a elegir aleatorio')
+                            move_sequence(random.choice(['DER_STUCK','IZQ_STUCK']), time_turn.value)
+                            if cam_stuck_flag.value == True:
+                                printe('Sigo trabado, voy a reintentar')
+                    elif cam_stuck_flag.value == True:
+                        printe("Estoy trabado por camara", no_repeat = True)
+                        printe('Voy a frenar')
+                        move(0, 0)
+                        time.sleep(1)
+                        move_status_before_destuck = move_status
+                        printe('move_status', move_status)
+                        if move_status in ['R','L','F']:
+                            printe('Estaba yendo hacia delante, voy a retrocedecer a baja velocidad')
+                            move(vel.backward.stuck, 0, 5)
+                        else:
+                            printe('Estaba yendo hacia atras, voy a avanzar a baja velocidad')
+                            move(vel.forward.stuck, 0, 5)
+                        if move_status_before_destuck == 'R':
+                            printe('Antes de trabarme estaba yendo hacia la derecha, voy a girar a la izquierda')
+                            move_sequence('IZQ_STUCK', time_turn.value)
+                        elif move_status_before_destuck == 'L':
+                            printe('Antes de trabarme estaba yendo hacia la izquierda, voy a girar a la derecha')
+                            move_sequence('DER_STUCK', time_turn.value)
+                        else:
+                            printe('Antes de trabarme esta yendo recto, voy a elegir aleatorio')
+                            move_sequence(random.choice(['DER_STUCK','IZQ_STUCK']), time_turn.value)
+                            if cam_stuck_flag.value == True:
+                                printe('Sigo trabado, voy a reintentar')
+
 
                     while taking_pics.value == True:
                         move(0, 0)
@@ -1449,16 +1436,11 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
         time.sleep(1)
 
 
-def savior(flash_req, cam_req, imu_req, auto_req, camera_rate, timer_boring, pitch_flag, pitch_counter, window_stuck_pic, timer_temp, timer_log, timer_rest, timer_wake, backwards_counter, day_crash_timeout , crash_timeout_before , crash_timeout_after, last_touch_window_timeout, last_touch_counter, last_touch_osc_counter, pic_sensibility, stucks_to_confirm, stuck_window, vel_array , time_turn):
+def savior(flash_req, cam_req, imu_req, auto_req, camera_rate, timer_boring, pitch_flag, pitch_counter, window_stuck_pic, timer_temp, timer_log, rest_time, wake_time, time_backwards, day_crash_timeout , crash_timeout_before , crash_timeout_after, last_touch_window_timeout, last_touch_counter, last_touch_osc_counter, pic_sensibility, stucks_to_confirm, stuck_window, vel_array , time_turn, prints_enable):
 
     printe("Inicio BT Server")
     printe("savior",sys.argv)
     subprocess.Popen(['hciconfig', 'hci0', 'piscan'], stdout=subprocess.PIPE)
-
-
-    # returns JSON object as 
-    # a dictionary
-
 
     server_sock=BluetoothSocket( RFCOMM )
     server_sock.bind(("",1))
@@ -1527,10 +1509,10 @@ def savior(flash_req, cam_req, imu_req, auto_req, camera_rate, timer_boring, pit
                                     campaign_status = json.load(campaign_status_file)
                                 campaign_status['zero_date'] = datetime.strptime(campaign_status['zero_date'], "%Y%m%d").strftime("%Y-%m-%d")
                             
-                                send_info = client_sock.send(str({"request": "GET_ROBOT_CONFIG", "data": {"behavior_config":{"default": default_behavior, "actual":actual_behavior}, "breeding_config": {"default": default_breeding_config, "actual": actual_breeding_config}, "campaign_config": campaign_status}, "hotspot": hotspot_status}))
+                                send_info = client_sock.send(str({"request": "GET_ROBOT_CONFIG", "data": {"behavior_config":{"default": default_behavior, "actual":actual_behavior}, "breeding_config": {"default": default_breeding_config, "actual": actual_breeding_config}, "campaign_config": campaign_status}, "hotspot": hotspot_status, "debug": prints_enable.value}))
                                 printe("send",send_info)
                             except Exception as ex:
-                                printe(ex)
+                                printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
                                 pass
                         elif (data_input["request"] == "SET_BEHAVIOR_CONFIG"):
                             try:
@@ -1559,9 +1541,9 @@ def savior(flash_req, cam_req, imu_req, auto_req, camera_rate, timer_boring, pit
                                 window_stuck_pic.value = behavior["window_stuck_pic"]
                                 timer_temp.value = behavior["timer_temp"]
                                 timer_log.value = behavior["timer_log"]
-                                timer_rest.value = behavior["timer_rest"]
-                                timer_wake.value = behavior["timer_wake"]
-                                backwards_counter.value = behavior["backwards_counter"]
+                                rest_time.value = behavior["rest_time"]
+                                wake_time.value = behavior["wake_time"]
+                                time_backwards.value = behavior["time_backwards"]
                                 day_crash_timeout = behavior["day_crash_timeout"]
                                 crash_timeout_before = behavior["crash_timeout_before"]
                                 crash_timeout_after= behavior["crash_timeout_after"]
@@ -1578,7 +1560,7 @@ def savior(flash_req, cam_req, imu_req, auto_req, camera_rate, timer_boring, pit
                                 printe("Termino seteo de behavior")
                                 client_sock.send(str({"request": "SET_BEHAVIOR_CONFIG_STATUS", "data": 1}))
                             except Exception as ex:
-                                printe(ex)
+                                printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
                                 client_sock.send(str({"request": "SET_BEHAVIOR_CONFIG_STATUS", "data": 0}))
                         elif (data_input["request"] == "SET_NEW_CAMPAIGN"):
                             try:
@@ -1618,7 +1600,7 @@ def savior(flash_req, cam_req, imu_req, auto_req, camera_rate, timer_boring, pit
                                             file.write(copy)
                                 client_sock.send(str({"request": "SET_NEW_CAMPAIGN_STATUS", "data": 1}))
                             except Exception as ex:
-                                printe(ex)
+                                printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
                                 client_sock.send(str({"request": "SET_NEW_CAMPAIGN_STATUS", "data": 0}))
                         elif (data_input["request"] == "SET_END_CAMPAIGN"):
                             try:
@@ -1630,7 +1612,7 @@ def savior(flash_req, cam_req, imu_req, auto_req, camera_rate, timer_boring, pit
                                     json.dump(campaign, outfile)
                                 client_sock.send(str({"request": "SET_END_CAMPAIGN_STATUS", "data": 1}))
                             except Exception as ex:
-                                printe(ex)
+                                printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
                                 client_sock.send(str({"request": "SET_END_CAMPAIGN_STATUS", "data": 0}))
                         elif (data_input["request"] == "SET_BREEDING_CONFIG"):
                             try:
@@ -1663,13 +1645,11 @@ def savior(flash_req, cam_req, imu_req, auto_req, camera_rate, timer_boring, pit
                                         with open ('/var/www/html/actual_config_scoring_backup.csv', 'w') as file:
                                             file.write(copy)
 
-                                    # if int(record['Dia']) != i:
-                                    #     printe("Archivo corrupto")
-                                    #     raise Exception
+
 
                                 client_sock.send(str({"request": "SET_BREEDING_CONFIG_STATUS", "data": 1}))
                             except Exception as ex:
-                                printe(ex)
+                                printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
                                 client_sock.send(str({"request": "SET_BREEDING_CONFIG_STATUS", "data": 0}))
                         elif (data_input["request"] == "SET_ENABLED_HOTSPOT"):
                             set_enabled_hotspot_status = 1
@@ -1695,6 +1675,27 @@ def savior(flash_req, cam_req, imu_req, auto_req, camera_rate, timer_boring, pit
                                     printe(e, "No se pudo iniciar wifi")
                                     errorwriter(e,"No inicio el wifi")
                             client_sock.send(str({"request": "SET_ENABLED_HOTSPOT_STATUS", "data": set_enabled_hotspot_status}))
+                        elif (data_input["request"] == "SET_ENABLED_DEBUG"):
+                            set_enabled_debug_status = 1
+                            printe(data_input["data"])
+                            if data_input["data"] == 1 and not prints_enable.value:
+                                try:
+                                    prints_enable.value = bool(data_input["data"])
+                                    printe("Enable debug")
+                                    
+                                except Exception as e:
+                                    set_enabled_hotspot_status = 0
+                                    printe(e, "No se pudo iniciar debug")
+                                    errorwriter(e,"No inicio el debug")
+                            elif data_input["data"] == 0 and prints_enable.value:
+                                try:
+                                    prints_enable.value = bool(data_input["data"])
+                                    printe("Enable silent")
+                                except Exception as e:
+                                    set_enabled_debug_status = 0
+                                    printe(e, "No se pudo sacar debug")
+                                    errorwriter(e,"No se pudo sacar debug")
+                            client_sock.send(str({"request": "SET_ENABLED_DEBUG_STATUS", "data": set_enabled_debug_status}))
 
                             
                 except Exception as ex:
@@ -1705,7 +1706,7 @@ def savior(flash_req, cam_req, imu_req, auto_req, camera_rate, timer_boring, pit
                
                 
         except Exception as ex:
-            printe(ex)
+            printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, bcolors.ENDC)
             printe("disconnected")
             pass
         
@@ -1715,79 +1716,9 @@ def savior(flash_req, cam_req, imu_req, auto_req, camera_rate, timer_boring, pit
     client_sock.close()
     server_sock.close()
     printe("all done")
-    #region SAVIOR 
-    # printe("SAVIOR INIT")
-
-    # tof_ok = False
-    # tof_offset = 78
-    # min_tof_clearance = 20
-    # sink_tof_clearance = 16
-    # watch_tof_clearance = 30
-    # max_tof_clearance = 25
-    # clearance_array = []
-    # time_clearance_array = []
-    # clearance_window = 2
-    # clearance_timer = time.perf_counter()
-    # time_to_sink = 3
-    # sink_slope = (sink_tof_clearance-max_tof_clearance)/time_to_sink
-    # try:
-    #     tof = VL53L0X.VL53L0X(i2c_bus=4,i2c_address=0x29)
-    #     tof.open()
-    #     tof.start_ranging(VL53L0X.Vl53l0xAccuracyMode.BETTER)
-    #     tof_ok = True
-    #     printe("Tof inicio bien")
-    # except Exception as ex:
-    #     errorwriter(ex, "Error al iniciar medidor tof")
-    #     printe("Error al inciar el medidor tof")
-    #     tof_ok = False
-
-    # if tof_ok:
-    #     while True:
-    #         clearance.value = tof.get_distance() - tof_offset
-    #         if not clearance_stuck_flag.value:
-    #             if clearance.value < min_tof_clearance:
-    #                 clearance_stuck_flag.value = True
-    #                 time_clearance_array = []
-    #                 clearance_array = []
-    #             elif clearance.value < watch_tof_clearance:
-    #                 time_clearance_array.append(time.perf_counter())
-    #                 clearance_array.append(clearance.value)
-    #                 if (time_clearance_array[-1] - time_clearance_array[0]) > clearance_window:
-    #                     time_clearance_array.pop(0)
-    #                     clearance_array.pop(0)
-    #                 if len(clearance_array) > 5:
-    #                     y = np.array(clearance_array)
-    #                     x = np.array([count for count, i in enumerate(clearance_array)])
-    #                     A = np.stack([x, np.ones(len(x))]).T
-    #                     slope, point_zero = np.linalg.lstsq(A, y, rcond=None)[0]
-    #                     if slope < sink_slope:
-    #                         clearance_stuck_flag.value = True
-    #                         time_clearance_array = []
-    #                         clearance_array = []
-    #         else:
-    #             if clearance.value > max_tof_clearance:
-    #                 clearance_stuck_flag.value = False
-            
-    #             # t = [count for count, i in enumerate(clearance_array)]
-    #             # ty = [count * i for count, i in enumerate(clearance_array)]
-    #             # t_sqrt = [i**2 in t]
-    #             # n = len(clearance_array)
-    #             # slope = (n*sum(ty)-sum(t)*sum(clearance_array)/(n*sum(t_sqrt)-sum(t)**2))
-
-    #             y = np.array(clearance_array)
-    #             x = np.array([count for count, i in enumerate(clearance_array)])
-    #             A = np.stack([x, np.ones(len(x))]).T
-    #             slope, point_zero = np.linalg.lstsq(A, y, rcond=None)[0]
-                
-    #             pass
-    #         if clearance.value < min_tof_clearance:
-    #             clearance_stuck_flag.value = True
-    #         elif clearance.value > max_tof_clearance:
-    #             clearance_stuck_flag.value = False
-    #endregion 
 
 def main():
-    # queue = multiprocessing.Queue()
+
     vel_array = multiprocessing.Array('d', [])
     time_turn = multiprocessing.Value('d', 0)
     img_index_num = multiprocessing.Value('i', 0)
@@ -1814,9 +1745,9 @@ def main():
     window_stuck_pic = multiprocessing.Value('d', 0)
     timer_temp = multiprocessing.Value('i', 0)
     timer_log = multiprocessing.Value('i', 0)
-    timer_rest = multiprocessing.Value('i', 0)
-    timer_wake = multiprocessing.Value('i', 0)
-    backwards_counter = multiprocessing.Value('d', 0)
+    rest_time = multiprocessing.Value('i', 0)
+    wake_time = multiprocessing.Value('i', 0)
+    time_backwards = multiprocessing.Value('d', 0)
     crash_timeout = multiprocessing.Value('d', 0)
     last_touch_window_timeout = multiprocessing.Value('i', 0)
     last_touch_counter = multiprocessing.Value('i', 0)
@@ -1841,9 +1772,9 @@ def main():
     window_stuck_pic.value = behavior["window_stuck_pic"]
     timer_temp.value = behavior["timer_temp"]
     timer_log.value = behavior["timer_log"]
-    timer_rest.value = behavior["timer_rest"]
-    timer_wake.value = behavior["timer_wake"]
-    backwards_counter.value = behavior["backwards_counter"]
+    rest_time.value = behavior["rest_time"]
+    wake_time.value = behavior["wake_time"]
+    time_backwards.value = behavior["time_backwards"]
     day_crash_timeout = behavior["day_crash_timeout"]
     crash_timeout_before = behavior["crash_timeout_before"]
     crash_timeout_after = behavior["crash_timeout_after"]
@@ -1855,6 +1786,7 @@ def main():
     stuck_window.value = behavior['stuck_window']
     vel_array = [[behavior["vel_forward_stuck"], behavior["vel_forward_normal"]], [-behavior["vel_backward_stuck"], -behavior["vel_backward_normal"]], behavior["vel_turn_inner"], behavior["vel_turn_outter"], ]
     time_turn.value = behavior["time_turn"]
+    teen_day = behavior["teen_day"]
     if breeding_day >= day_crash_timeout:
         crash_timeout.value = crash_timeout_after
         printe("SENSIBILIDAD BAJA")
@@ -1863,6 +1795,9 @@ def main():
         printe("SENSIBILIDAD ALTA")
         crash_timeout.value = crash_timeout_before
         logwriter("Sensibilidad alta", id=23)
+    if breeding_day < teen_day:
+        printe("Los pollos son pequeños, se va a a trabajar a velocidad reducida")
+        vel_array = [[behavior["baby_vel_forward_stuck"], behavior["baby_vel_forward_normal"]], [-behavior["baby_vel_backward_stuck"], -behavior["baby_vel_backward_normal"]], behavior["vel_turn_inner"], behavior["vel_turn_outter"], ]
 
 
     json_state = {"flash": flash_req.value, "auto": auto_req.value,
@@ -1871,10 +1806,10 @@ def main():
         json.dump(json_state, outfile)
     # Set up our websocket handler
     command_handler = multiprocessing.Process(
-        target=command, args=(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_flag, flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, timer_rest, timer_wake, backwards_counter, timer_boring, crash_timeout, x_com, z_com,))
+        target=command, args=(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_flag, flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, rest_time, wake_time, time_backwards, timer_boring, crash_timeout, x_com, z_com,))
     # Set up our camera
-    savior_handler = multiprocessing.Process(target=savior, args=(flash_req, cam_req, imu_req, auto_req, camera_rate, timer_boring, pitch_flag, pitch_counter, window_stuck_pic, timer_temp, timer_log, timer_rest, timer_wake, backwards_counter, day_crash_timeout , crash_timeout_before , crash_timeout_after, last_touch_window_timeout, last_touch_counter, last_touch_osc_counter, pic_sensibility, stucks_to_confirm, stuck_window, vel_array , time_turn,))
-    auto_handler = multiprocessing.Process(target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, is_hot, timer_rest, timer_wake, backwards_counter, crash_timeout, last_touch_window_timeout,last_touch_counter, last_touch_osc_counter, flash_req, vel_array, time_turn, x_com, z_com, is_rest,))
+    savior_handler = multiprocessing.Process(target=savior, args=(flash_req, cam_req, imu_req, auto_req, camera_rate, timer_boring, pitch_flag, pitch_counter, window_stuck_pic, timer_temp, timer_log, rest_time, wake_time, time_backwards, day_crash_timeout , crash_timeout_before , crash_timeout_after, last_touch_window_timeout, last_touch_counter, last_touch_osc_counter, pic_sensibility, stucks_to_confirm, stuck_window, vel_array , time_turn, prints_enable,))
+    auto_handler = multiprocessing.Process(target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, is_hot, rest_time, wake_time, time_backwards, crash_timeout, last_touch_window_timeout,last_touch_counter, last_touch_osc_counter, flash_req, vel_array, time_turn, x_com, z_com, is_rest,))
     pitch_handler = multiprocessing.Process(target=pitch, args=(lst, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id,))
     # Add 'em to our list
     PROCESSES.append(savior_handler)
@@ -1891,15 +1826,17 @@ def main():
 
 
 if __name__ == '__main__':
-    prints_enable = True
-    wait_to_run = False  
+    prints_enable = multiprocessing.Value('b', False)
+    prints_enable.value = True
+    wait_to_run = False 
+    #region Compruebo los modos en los cuales inicia el programa
     if len(sys.argv) > 1:
         if sys.argv[1] == "-s":
             # silent mode, no hay prints, es el modo que se pone en produccion
-            prints_enable = False
+            prints_enable.value = False
         elif sys.argv[1] == "-d":
             # debug mode, hay prints
-            prints_enable = True
+            prints_enable.value = True
         elif sys.argv[1] == "-nw":
             # no wait mode, no espera 20 segundos para empezar
             wait_to_run = False
@@ -1907,19 +1844,19 @@ if __name__ == '__main__':
             # no wait mode, no espera 20 segundos para empezar
             wait_to_run = True
         elif sys.argv[1] == "-snw":
-            prints_enable = False
+            prints_enable.value = False
             wait_to_run = False
         elif sys.argv[1] == "-dnw":
-            prints_enable = True
+            prints_enable.value = True
             wait_to_run = False        
         elif sys.argv[1] == "-sw":
-            prints_enable = False
+            prints_enable.value = False
             wait_to_run = True
         elif sys.argv[1] == "-dw":
-            prints_enable = True
+            prints_enable.value = True
             wait_to_run = True        
-    printe("main",len(sys.argv))
     start_time = time.perf_counter()
+    #endregion
     #region Detecto si hay pendrive conectado y si es asi le copio la data
     try:
         if os.path.exists("/dev/sda"):
@@ -1940,8 +1877,6 @@ if __name__ == '__main__':
                 time.sleep(0.2)
                 led_enable.off()
                 time.sleep(0.2)
-        else:
-            pass
     except:
         pass
     #endregion
@@ -1972,19 +1907,12 @@ if __name__ == '__main__':
         behavior = open_json('/var/www/html/default_behavior.json')
 
     printe(behavior)
-    flash_enable.on()
-    time.sleep(0.5)
-    flash_enable.off()
-    time.sleep(0.5)
-    flash_enable.on()
-    time.sleep(0.5)
-    flash_enable.off()
-    time.sleep(0.5)
-    flash_enable.on()
-    time.sleep(0.5)
-    flash_enable.off()
-    time.sleep(0.5)
-    led_enable.on()
+    for i in range(3):
+        flash_enable.on()
+        time.sleep(0.5)
+        flash_enable.off()
+        time.sleep(0.5)
+    
     try:
         printe("Enabling wifi")
         subprocess.call("./enablewifi_silent", timeout=40)
@@ -2099,7 +2027,7 @@ if __name__ == '__main__':
 
         logwriter(id=0, event=str(day_score_config))
     except Exception as ex:
-        printe(ex)
+        printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
         printe("Error in line:", sys.exc_info()[-1].tb_lineno)
         printe("Fallo la carga de configuracion scoring")
     #endregion
@@ -2122,4 +2050,9 @@ if __name__ == '__main__':
         led_enable.off()
         for p in PROCESSES:
             p.terminate()
-
+    except:
+        while True:
+            led_enable.on()
+            time.sleep(0.1)
+            led_enable.off()
+            time.sleep(0.1)
