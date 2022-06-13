@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+#region Importacion de librerias
 from picamera.array import PiRGBArray
 from picamera import PiCamera
 import asyncio
@@ -36,25 +37,13 @@ from zipfile import ZipFile
 import VL53L0X
 import sys
 from bluetooth import *
+#endregion
 
 
-PWR_MGMT_1 = 0x6B
-SMPLRT_DIV = 0x19
-CONFIG = 0x1A
-GYRO_CONFIG = 0x1B
-INT_ENABLE = 0x38
-ACCEL_XOUT_H = 0x3B
-ACCEL_YOUT_H = 0x3D
-ACCEL_ZOUT_H = 0x3F
-GYRO_XOUT_H = 0x43
-GYRO_YOUT_H = 0x45
-GYRO_ZOUT_H = 0x47
 
-flash_enable = DigitalOutputDevice("BOARD12", active_high=True)
-led_enable = DigitalOutputDevice("BOARD16", active_high=True)
-global last_string
-last_string = ''
-def printe(*what_to_print, no_repeat = False):
+
+
+def printe(*what_to_print, no_repeat = False): #Funcion auxiliar de printeo
     global last_string
     if prints_enable.value:
         string = ''
@@ -63,7 +52,7 @@ def printe(*what_to_print, no_repeat = False):
         if (no_repeat and last_string != string) or not no_repeat:
             last_string = string  
             print(datetime.now().strftime("%H:%M:%S "), string)
-def open_json(filename):
+def open_json(filename): #Funcion para abrir jsons y backupearlos
     place = filename.strip(filename.split('/')[-1])
     stripped_name = filename.split('/')[-1].split('.')[0]
     stripped_extension = '.' + filename.split('/')[-1].split('.')[-1]
@@ -80,7 +69,7 @@ def open_json(filename):
             json.dump(config, outfile)
     return config
 
-def last_on():
+def last_on(): #Funcion que es como un watchdog, va escribiendo cual es el ultimo minuto activo
     now_logdate = datetime.now()
     log_date = now_logdate.strftime("%Y-%m-%d")
     log_hour = now_logdate.strftime("%H:%M:%S%H:%M:%S")
@@ -91,13 +80,14 @@ def last_on():
     with open('last_on_backup.json', 'w') as outfile:
         json.dump(json_last, outfile)
 
-def errorwriter(error, comentario = ""):
-    error_date = str(datetime.now())
+def errorwriter(error, comentario = ""): #Funcion que escribe logs de errores
+    error_date = datetime.now().strftime("%Y%m%d")
+    error_hour = datetime.now().strftime("%H:%M:%S")
     err = str(error)
-    errlog = error_date + " Error: "+ err + " Comentario: "+ comentario + '\n'
-    with open("log/error.log",'a', newline='') as logerror:
+    errlog = error_hour + " Error: "+ err + " Comentario: "+ comentario + '\n'
+    with open("log/error/{}.log".format(error_date),'a', newline='') as logerror:
         logerror.write(errlog)
-
+# Funcion que escribe los logs
 def logwriter(event, id,  minutos =0, t_cpu=0, t_clock=0, t_dht=0, t_bme=0, t_bmp=0, t_laser_surf = 0, t_laser_amb = 0, h_dht=0, h_bme=0, p_bme=0, p_bmp=0, thi = 0, score_temp_amb_rt = 0, score_temp_bed_rt = 0, score_hum_rt = 0, score_thi_rt = 0, score_general_rt = 0, score_temp_amb_prom = 0, score_temp_bed_prom = 0, score_hum_prom = 0, score_thi_prom = 0, score_general_prom = 0, t_total= 0, t_active = 0, t_rest = 0, t_stuck = 0, watch_dog=False, last_date=-1, last_hour=-1, last_name=-1):
     nowlogdate = datetime.now()
     if watch_dog:
@@ -141,7 +131,7 @@ def logwriter(event, id,  minutos =0, t_cpu=0, t_clock=0, t_dht=0, t_bme=0, t_bm
         wr = csv.writer(logfile)
         wr.writerow(["", logdate, loghour, event, minutos,str(os.getloadavg()[0]), str(psutil.virtual_memory().percent), t_cpu,
                     t_clock, t_dht, t_bme, t_bmp, t_laser_amb, t_laser_surf, h_dht, h_bme, p_bme, p_bmp, thi, score_temp_amb_rt, score_temp_bed_rt, score_hum_rt, score_thi_rt, score_general_rt, score_temp_amb_prom, score_temp_bed_prom, score_hum_prom, score_thi_prom, score_general_prom, t_total, t_active, t_rest, t_stuck, id])
-
+# Clase que permite logear con color
 class bcolors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
@@ -318,7 +308,6 @@ def command(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_f
 def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id):
     #region Iniciar Variables
     printe("CAMERA INIT")
-    shutdown_button = Button('BOARD5')
     camera = PiCamera()
     camera.resolution = (640, 480)
     camera.framerate = 32
@@ -426,27 +415,37 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
     robot_id = 2
     day_info = {"day": {"breeding_day": breeding_day, "config": day_score_config, "total_time": 0, "active_time": 0, "rest_time": 0, "stuck_time": 0, "date": current_date, "campaign_id": campaign_id}}
     day_info_list = []
-    url = "http://192.168.0.191:4000/loadMeasurements"
-    url_img = "http://192.168.0.191:4000/loadImages"
+    url = "http://192.168.150.102:4000/loadMeasurements"
+    url_img = "http://192.168.150.102:4000/loadImages"
     data_was_sended = False
     img_to_compress = []
     imu_debug = False
-    
+    #region Constantes de address del IMU
+    PWR_MGMT_1 = 0x6B
+    SMPLRT_DIV = 0x19
+    CONFIG = 0x1A
+    GYRO_CONFIG = 0x1B
+    INT_ENABLE = 0x38
+    ACCEL_XOUT_H = 0x3B
+    ACCEL_YOUT_H = 0x3D
+    ACCEL_ZOUT_H = 0x3F
+    GYRO_XOUT_H = 0x43
+    GYRO_YOUT_H = 0x45
+    GYRO_ZOUT_H = 0x47
+    #endregion
     #endregion
     #region Levanto mediciones que han quedado sin enviar antes de apagarse
-    if os.path.exists("send_queue/logs"):
-        for file in os.listdir("send_queue/logs"):
-            if file.find("_backup") == -1:
-                try:
-                    with open('send_queue/logs/{}'.format(file)) as send_file:
-                        day_info_list.append(json.load(send_file))
-                except:
-                    try:
-                        backup_string = 'send_queue/logs/'+file.split(".")[0]+"_backup.json"
-                        with open(backup_string) as send_file:
-                            day_info_list.append(json.load(send_file))
-                    except:
-                        pass
+    try:
+        with open('send_queue/logs/logs_to_send.json') as send_file:
+            day_info_list = json.load(send_file)
+        printe("La lista de logs tiene un largo de: ", len(day_info_list),"de tipo: ",type(day_info_list), "y es:", day_info_list)
+    except Exception as ex:
+        printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, bcolors.ENDC)
+        try:
+            with open('send_queue/logs/logs_to_send_backup.json') as send_file:
+                day_info_list = json.load(send_file)
+        except Exception as ex:
+            printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, bcolors.ENDC)
     day_info_list.append("")
     #endregion
     #region Levanto lista de fotos que todavia no han sido enviadas
@@ -463,7 +462,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
 
     #endregion
     #region Funciones
-    def mean_check(value_list):
+    def mean_check(value_list): #Funcion que 
         try:
             if len(value_list) > 0:
                 return np.mean(value_list)
@@ -552,7 +551,6 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
     except Exception as ex:
         errorwriter(ex, "Error al iniciar el DHT")
         printe("Error al iniciar el DHT")
-        pass
     try:
         bus = smbus.SMBus(5) 	# or bus = smbus.SMBus(0) for older version boards
         Device_Address = 0x68   # MPU6050 device address
@@ -576,7 +574,6 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
             img_index = json.load(json_file)
         img_index_num.value = img_index["num"]
 
-
     while True:
         try:
             for frame in camera.capture_continuous(raw_capture, format="bgr", use_video_port=True):
@@ -584,13 +581,8 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                 cv2.waitKey(1)
                 f = cv2.resize(f, (640, 480))
                 encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 65]
-                man[0] = cv2.imencode('.jpg', f, encode_param)[1]# The function imencode compresses the image and stores it in the memory buffer that is resized to fit
-                if shutdown_button.is_pressed:
-                    time.sleep(3)
-                    if shutdown_button.is_pressed:
-                        printe('Me voy a apagar')
-                        logwriter("Recibi pedido de apagado", id=8)
-                        os.system("sudo shutdown now")
+                man[0] = cv2.imencode('.jpg', f, encode_param)[1]
+                
                 
                 if first_img:
                     image_to_compare0 = f
@@ -652,7 +644,6 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                                     json.dump(json_stuck_line, outfile)
                                 with open('stuck_count_backup.json', 'w') as outfile:
                                     json.dump(json_stuck_line, outfile)
-                                
                             else:
                                 if not log_cam_stuck:
                                     elapsed_cam_stuck = (time.perf_counter() - start_cam_stuck)/60.0
@@ -768,13 +759,16 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                         r = requests.post(url=url, data=json.dumps(day_info_to_send), headers=head)
                         printe(r)
                         if r.status_code == 200:
+                            printe("Antes de enviar:", day_info_list)
                             day_info_list.pop(0)
-                    else:
-                        # Borrar todo el contenido de la carpeta send queue
+                            printe("Queda para enviar:", day_info_list, "tipo", type(day_info_list), "largo", len(day_info_list))
+                            with open('send_queue/logs/logs_to_send.json', 'w') as outfile:
+                                    json.dump(day_info_list, outfile)
+                            with open('send_queue/logs/logs_to_send_backup.json', 'w') as outfile:
+                                    json.dump(day_info_list, outfile)
+
+                    if len(day_info_list) == 0:
                         printe("No hay mas logs que enviar")
-                        for file in os.listdir("send_queue/logs"):
-                            os.remove(os.path.join("send_queue/logs",file))
-                        # Ya no hay mas elementos para enviar, voy a esperar a que vuelva a entrar a descanso para entrar
                     if len(img_to_compress) > 0:
                         start_new_compress = True
                         printe("Hay imagenes para comprimir")
@@ -982,6 +976,8 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                     state_timer = time.perf_counter()
 
                     if current_date != datetime.now().strftime("%Y%m%d"):
+                        printe("Cambio de dia, voy a reiniciar")
+                        os.system("sudo pm2 restart shock_server -- -snw")
                         day_info_list.append("")
                         try:
                             measurements_list = []
@@ -1118,40 +1114,40 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                     day_info ={"day": {"breeding_day": breeding_day, "config": day_score_config, "total_time": t_total, "active_time": t_active, "rest_time": t_rest, "stuck_time": t_stuck, "date":current_date_server, "campaign_id": campaign_id, "measurements": measurements_list}}
                     
                     day_info_list[-1] = day_info
-                    with open('send_queue/logs/{}.json'.format(current_date), 'w') as outfile:
-                            json.dump(day_info, outfile)
-                    with open('send_queue/logs/{}_backup.json'.format(current_date), 'w') as outfile:
-                            json.dump(day_info, outfile)
+                    with open('send_queue/logs/logs_to_send.json', 'w') as outfile:
+                            json.dump(day_info_list, outfile)
+                    with open('send_queue/logs/logs_to_send_backup.json', 'w') as outfile:
+                            json.dump(day_info_list, outfile)
                     if not is_rest.value:
                         printe("Estado")
                         logwriter("Estado", id=14, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=t_bme_mean, t_bmp=t_bmp_mean,
-                            t_dht=t_dht_mean, t_laser_surf= t_mlx_surface_mean, t_laser_amb=t_mlx_amb_mean, h_dht=h_dht_mean, h_bme=h_bme_mean, p_bme=p_bme_mean, p_bmp=p_bmp_mean, thi=thi, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = t_total, t_active = t_active, t_rest = t_rest, t_stuck = t_stuck)
+                            t_dht=t_dht_mean, t_laser_surf= t_mlx_surface_mean, t_laser_amb=t_mlx_amb_mean, h_dht=h_dht_mean, h_bme=h_bme_mean, p_bme=p_bme_mean, p_bmp=p_bmp_mean, thi=thi, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = round(t_total,2), t_active = round(t_active,2), t_rest = round(t_rest,2), t_stuck = round(t_stuck,2))
                     else:
                         printe("Estado descansando")
                         logwriter("Estado, descansando", id=15, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=t_bme_mean, t_bmp=t_bmp_mean,
-                            t_dht=t_dht_mean, t_laser_surf= t_mlx_surface_mean, t_laser_amb=t_mlx_amb_mean, h_dht=h_dht_mean, h_bme=h_bme_mean, p_bme=p_bme_mean, p_bmp=p_bmp_mean, thi=thi, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = t_total, t_active = t_active, t_rest = t_rest, t_stuck = t_stuck)
+                            t_dht=t_dht_mean, t_laser_surf= t_mlx_surface_mean, t_laser_amb=t_mlx_amb_mean, h_dht=h_dht_mean, h_bme=h_bme_mean, p_bme=p_bme_mean, p_bmp=p_bmp_mean, thi=thi, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = round(t_total,2), t_active = round(t_active,2), t_rest = round(t_rest,2), t_stuck = round(t_stuck,2))
         except Exception as ex:
             printe("Error in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
             printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
             # errorwriter("Camara", "Fallo timeout")
             # printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
-            pass
+            
 
-def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, is_hot, rest_time, wake_time, time_backwards, crash_timeout, last_touch_window_timeout, last_touch_counter, last_touch_osc_counter, flash_req, vel_array, time_turn, x_com, z_com, is_rest, night_mode_enable, night_mode_start, night_mode_end, night_mode_rest_time, night_mode_wake_time, night_mode_vel_array, night_mode_reversed ):
+def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, is_hot, rest_time, wake_time, time_backwards, crash_timeout, last_touch_window_timeout, flash_req, vel_array, time_turn, x_com, z_com, is_rest, night_mode_enable, night_mode_start, night_mode_end, night_mode_rest_time, night_mode_wake_time, night_mode_vel_array, night_mode_reversed, bt_config_stop ):
     motor_1_pwm = PWMOutputDevice("BOARD35")
     motor_2_pwm = PWMOutputDevice("BOARD33")
-    motor_1_pwm.frequency = 20000
-    motor_2_pwm.frequency = 20000
-    
-    was_auto = False
     motor_1_dir = DigitalOutputDevice("BOARD31")
     motor_2_dir = DigitalOutputDevice("BOARD29")
     button_left = Button("BOARD40")
     button_middle = Button("BOARD38")
     button_right = Button("BOARD36")
+    shutdown_button = Button('BOARD5')
+    motor_1_pwm.frequency = 20000
+    motor_2_pwm.frequency = 20000
     motor_1_pwm.off()
     motor_2_pwm.off()
     printe("AUTO INIT")
+    was_auto = False
     first_auto = True
     led_on = True
     global move_status
@@ -1170,7 +1166,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
     night_mode_setted = False
 
     class Velocity:
-        def __init__(self, forward, backward, left, right):
+        def __init__(self, forward, backward):
             self.forward = self.VelocityData(forward)
             self.left = -1
             self.right = 1
@@ -1179,10 +1175,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             def __init__(self, velArray):
                 self.stuck = velArray[0]
                 self.normal = velArray[1]
-    vel = Velocity(vel_array[0], vel_array[1], vel_array[2], vel_array[3])
-
-
-    
+    vel = Velocity(vel_array[0], vel_array[1])
 
     def move(x = 0, z = 0, t = 0):
         global move_status
@@ -1320,6 +1313,12 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             move(vel.forward.normal, vel.left, time_turn_crash)
             
     while True:
+        if shutdown_button.is_pressed:
+            time.sleep(3)
+            if shutdown_button.is_pressed:
+                printe('Me voy a apagar')
+                logwriter("Recibi pedido de apagado", id=8)
+                os.system("sudo shutdown now")
         if is_rest.value:
             if led_on:
                 led_enable.off()
@@ -1353,31 +1352,53 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                 led_enable.on()
                 if flash_req.value == True:
                     flash_enable.on()
-            if not night_mode_setted and night_mode_enable and not night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start and datetime.time(datetime.now()) < night_mode_end):
-                night_mode_setted = True
-                wake_time_watch = night_mode_wake_time
-                rest_time_watch = night_mode_rest_time
-                vel = Velocity(night_mode_vel_array[0], night_mode_vel_array[1], night_mode_vel_array[2], night_mode_vel_array[3])
-            elif not night_mode_setted and night_mode_enable and night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start or datetime.time(datetime.now()) < night_mode_end):
-                night_mode_setted = True
-                wake_time_watch = night_mode_wake_time
-                rest_time_watch = night_mode_rest_time
-                vel = Velocity(night_mode_vel_array[0], night_mode_vel_array[1], night_mode_vel_array[2], night_mode_vel_array[3])
-            elif night_mode_setted and not(night_mode_enable and not night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start and datetime.time(datetime.now()) < night_mode_end)):
-                night_mode_setted = False
-                wake_time_watch = wake_time.value
-                rest_time_watch = rest_time.value
-                vel = Velocity(vel_array[0], vel_array[1], vel_array[2], vel_array[3])
-            elif night_mode_setted and not (night_mode_enable and not night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start and datetime.time(datetime.now()) < night_mode_end)):
-                night_mode_setted = False
-                wake_time_watch = wake_time.value
-                rest_time_watch = rest_time.value
-                vel = Velocity(vel_array[0], vel_array[1], vel_array[2], vel_array[3])
+            if night_mode_enable:
+                if not night_mode_setted:
+                    if not night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start and datetime.time(datetime.now()) < night_mode_end):
+                        printe("Night Mode enabled")
+                        night_mode_setted = True
+                        wake_time_watch = night_mode_wake_time
+                        rest_time_watch = night_mode_rest_time
+                        vel = Velocity(night_mode_vel_array[0], night_mode_vel_array[1])
+                    elif night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start or datetime.time(datetime.now()) < night_mode_end):
+                        printe("Night Mode enabled")
+                        night_mode_setted = True
+                        wake_time_watch = night_mode_wake_time
+                        rest_time_watch = night_mode_rest_time
+                        vel = Velocity(night_mode_vel_array[0], night_mode_vel_array[1])
+                else:
+                    if not night_mode_reversed and (datetime.time(datetime.now()) < night_mode_start or datetime.time(datetime.now()) > night_mode_end):
+                        printe("Night Mode disabled")
+                        night_mode_setted = False
+                        wake_time_watch = wake_time.value
+                        rest_time_watch = rest_time.value
+                        vel = Velocity(vel_array[0], vel_array[1])
+                    elif night_mode_reversed and (datetime.time(datetime.now()) < night_mode_start and datetime.time(datetime.now()) > night_mode_end):
+                        printe("Night Mode disabled")
+                        night_mode_setted = False
+                        wake_time_watch = wake_time.value
+                        rest_time_watch = rest_time.value
+                        vel = Velocity(vel_array[0], vel_array[1])
             was_auto = True
             timer = time.perf_counter()
             while auto_req.value == True and not is_rest.value:
+                while bt_config_stop.value:
+                    move(0, 0)
+                    time.sleep(1)
+                    printe("Estoy frenado esperando que se termine la configuracion", no_repeat=True)
+                if shutdown_button.is_pressed:
+                    move(0, 0)
+                    time.sleep(3)
+                    if shutdown_button.is_pressed:
+                        printe('Me voy a apagar')
+                        logwriter("Recibi pedido de apagado", id=8)
+                        os.system("sudo shutdown now")
+                    else:
+                        # Modo configuracion en un futuro
+                        pass
 
-                if ((time.perf_counter() - last_time_rest > wake_time_watch) or is_hot.value) and not is_rest.value:
+
+                if ((time.perf_counter() - last_time_rest > wake_time_watch) or is_hot.value):
                     is_rest.value = True
                     move(0, 0)
                     time.sleep(1)
@@ -1387,15 +1408,33 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                     flash_enable.off()
                     logwriter("Empece descanso", id=10)
                     break
-                if night_mode_enable and not night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start and datetime.time(datetime.now()) < night_mode_end):
-                    wake_time_watch = night_mode_wake_time
-                    rest_time_watch = night_mode_rest_time
-                elif night_mode_enable and night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start or datetime.time(datetime.now()) < night_mode_end):
-                    wake_time_watch = night_mode_wake_time
-                    rest_time_watch = night_mode_rest_time
-                else:
-                    wake_time_watch = wake_time.value
-                    rest_time_watch = rest_time.value
+                if night_mode_enable:
+                    if not night_mode_setted:
+                        if not night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start and datetime.time(datetime.now()) < night_mode_end):
+                            printe("Night Mode enabled")
+                            night_mode_setted = True
+                            wake_time_watch = night_mode_wake_time
+                            rest_time_watch = night_mode_rest_time
+                            vel = Velocity(night_mode_vel_array[0], night_mode_vel_array[1])
+                        elif night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start or datetime.time(datetime.now()) < night_mode_end):
+                            printe("Night Mode enabled")
+                            night_mode_setted = True
+                            wake_time_watch = night_mode_wake_time
+                            rest_time_watch = night_mode_rest_time
+                            vel = Velocity(night_mode_vel_array[0], night_mode_vel_array[1])
+                    else:
+                        if not night_mode_reversed and (datetime.time(datetime.now()) < night_mode_start or datetime.time(datetime.now()) > night_mode_end):
+                            printe("Night Mode disabled")
+                            night_mode_setted = False
+                            wake_time_watch = wake_time.value
+                            rest_time_watch = rest_time.value
+                            vel = Velocity(vel_array[0], vel_array[1])
+                        elif night_mode_reversed and (datetime.time(datetime.now()) < night_mode_start and datetime.time(datetime.now()) > night_mode_end):
+                            printe("Night Mode disabled")
+                            night_mode_setted = False
+                            wake_time_watch = wake_time.value
+                            rest_time_watch = rest_time.value
+                            vel = Velocity(vel_array[0], vel_array[1])
                 if time.perf_counter() - timer < timer_boring.value:
 
                     if imu_stuck_flag.value == True:
@@ -1419,7 +1458,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                         else:
                             printe('Antes de trabarme esta yendo recto, voy a elegir aleatorio')
                             move_sequence(random.choice(['DER_STUCK','IZQ_STUCK']), time_turn.value)
-                            if cam_stuck_flag.value == True:
+                            if imu_stuck_flag.value == True:
                                 printe('Sigo trabado, voy a reintentar')
                     elif cam_stuck_flag.value == True:
                         printe("Estoy trabado por camara", no_repeat = True)
@@ -1467,13 +1506,13 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
         time.sleep(1)
 
 
-def savior(flash_req, cam_req, imu_req, auto_req, camera_rate, timer_boring, pitch_flag, pitch_counter, window_stuck_pic, timer_temp, timer_log, rest_time, wake_time, time_backwards, day_crash_timeout , crash_timeout_before , crash_timeout_after, last_touch_window_timeout, last_touch_counter, last_touch_osc_counter, pic_sensibility, stucks_to_confirm, stuck_window, vel_array , time_turn, prints_enable):
+def savior(prints_enable, bt_config_stop):
 
     printe("Inicio BT Server")
     printe("savior",sys.argv)
     subprocess.Popen(['hciconfig', 'hci0', 'piscan'], stdout=subprocess.PIPE)
 
-    server_sock=BluetoothSocket( RFCOMM )
+    server_sock = BluetoothSocket( RFCOMM )
     server_sock.bind(("",1))
     server_sock.listen(1)
 
@@ -1482,30 +1521,28 @@ def savior(flash_req, cam_req, imu_req, auto_req, camera_rate, timer_boring, pit
 
     uuid = "94f39d29-7d6d-437d-973b-fba39e49d4ee"
 
-    advertise_service( server_sock, "SampleServer",
-                       service_id = uuid,
-                       service_classes = [ uuid, SERIAL_PORT_CLASS ],
-                       profiles = [ SERIAL_PORT_PROFILE ], 
-    #                   protocols = [ OBEX_UUID ] 
-                        )
+    advertise_service( server_sock, "SampleServer", service_id = uuid, service_classes = [ uuid, SERIAL_PORT_CLASS ], profiles = [ SERIAL_PORT_PROFILE ],) #protocols = [ OBEX_UUID ])
                        
-    printe("Waiting for connection on RFCOMM channel %d" % port)
+    printe("Esperando conexion en el puerto %d" % port)
 
     client_sock, client_info = server_sock.accept()
-    printe("Accepted connection from ", client_info)
+    printe("Conexion aceptada desde: ", client_info)
+    bt_config_stop.value = True
     first = True
     build_string = ''
     new_string_timer = time.perf_counter()
     while True:
         try:
             if not first:
-                printe("Waiting for connection")
+                printe("Esperando conexion")
                 client_sock, client_info = server_sock.accept()
-                printe("Accepted connection from ", client_info)
+                printe("Conexion aceptada desde: ", client_info)
+                bt_config_stop.value = True
             first = False    
             while True:
                 data_input = client_sock.recv(1024)
-                if len(data_input) == 0: break
+                if len(data_input) == 0: 
+                    break
                 # printe(data_input)
                 try:
                     if len(data_input) == 990:
@@ -1540,11 +1577,10 @@ def savior(flash_req, cam_req, imu_req, auto_req, camera_rate, timer_boring, pit
                                     campaign_status = json.load(campaign_status_file)
                                 campaign_status['zero_date'] = datetime.strptime(campaign_status['zero_date'], "%Y%m%d").strftime("%Y-%m-%d")
                             
-                                send_info = client_sock.send(str({"request": "GET_ROBOT_CONFIG", "data": {"behavior_config":{"default": default_behavior, "actual":actual_behavior}, "breeding_config": {"default": default_breeding_config, "actual": actual_breeding_config}, "campaign_config": campaign_status}, "hotspot": hotspot_status, "debug": prints_enable.value}))
-                                printe("send",send_info)
+                                client_sock.send(str({"request": "GET_ROBOT_CONFIG", "data": {"behavior_config":{"default": default_behavior, "actual":actual_behavior}, "breeding_config": {"default": default_breeding_config, "actual": actual_breeding_config}, "campaign_config": campaign_status, "hotspot": hotspot_status, "debug": prints_enable.value}}))
                             except Exception as ex:
                                 printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
-                                pass
+                                
                         elif (data_input["request"] == "SET_BEHAVIOR_CONFIG"):
                             try:
                                 printe(data_input["data"])
@@ -1561,35 +1597,9 @@ def savior(flash_req, cam_req, imu_req, auto_req, camera_rate, timer_boring, pit
                                     with open('/var/www/html/actual_behavior_backup.json',  'w') as json_file:
                                         json.dump(behavior,json_file)
                                     
-                                flash_req.value = behavior["flash_enable"]
-                                cam_req.value = behavior["camera_enable"]
-                                imu_req.value = behavior["imu_enable"]
-                                auto_req.value = behavior["auto_enable"]
-                                camera_rate.value = behavior["camera_rate"]
-                                timer_boring.value = behavior["timer_boring"]
-                                pitch_flag.value = behavior["pitch_flag"]
-                                pitch_counter.value = behavior["pitch_counter"]
-                                window_stuck_pic.value = behavior["window_stuck_pic"]
-                                timer_temp.value = behavior["timer_temp"]
-                                timer_log.value = behavior["timer_log"]
-                                rest_time.value = behavior["rest_time"]
-                                wake_time.value = behavior["wake_time"]
-                                time_backwards.value = behavior["time_backwards"]
-                                day_crash_timeout = behavior["day_crash_timeout"]
-                                crash_timeout_before = behavior["crash_timeout_before"]
-                                crash_timeout_after= behavior["crash_timeout_after"]
-                                last_touch_window_timeout.value = behavior["last_touch_window_timeout"]
-                                last_touch_counter.value = behavior["last_touch_counter"]
-                                last_touch_osc_counter.value = behavior["last_touch_osc_counter"]
-                                pic_sensibility.value = behavior["pic_sensibility"]
-                                stucks_to_confirm.value = behavior['stucks_to_confirm']
-                                stuck_window.value = behavior['stuck_window']
-                                vel_array = [[behavior["vel_forward_stuck"], behavior["vel_forward_normal"]], [-behavior["vel_backward_stuck"], -behavior["vel_backward_normal"]], [behavior["vel_turn_inner"], behavior["vel_turn_outter"]], ]
-                                time_turn.value = behavior["time_turn"]
-
-
                                 printe("Termino seteo de behavior")
                                 client_sock.send(str({"request": "SET_BEHAVIOR_CONFIG_STATUS", "data": 1}))
+                                os.system("sudo pm2 restart shock_server -- -snw")
                             except Exception as ex:
                                 printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
                                 client_sock.send(str({"request": "SET_BEHAVIOR_CONFIG_STATUS", "data": 0}))
@@ -1630,6 +1640,7 @@ def savior(flash_req, cam_req, imu_req, auto_req, camera_rate, timer_boring, pit
                                         with open ('/var/www/html/actual_config_scoring_backup.csv', 'w') as file:
                                             file.write(copy)
                                 client_sock.send(str({"request": "SET_NEW_CAMPAIGN_STATUS", "data": 1}))
+                                os.system("sudo pm2 restart shock_server -- -snw")
                             except Exception as ex:
                                 printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
                                 client_sock.send(str({"request": "SET_NEW_CAMPAIGN_STATUS", "data": 0}))
@@ -1642,6 +1653,7 @@ def savior(flash_req, cam_req, imu_req, auto_req, camera_rate, timer_boring, pit
                                 with open('/var/www/html/campaign_status_backup.json', 'w') as outfile:
                                     json.dump(campaign, outfile)
                                 client_sock.send(str({"request": "SET_END_CAMPAIGN_STATUS", "data": 1}))
+                                os.system("sudo pm2 restart shock_server -- -snw")
                             except Exception as ex:
                                 printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
                                 client_sock.send(str({"request": "SET_END_CAMPAIGN_STATUS", "data": 0}))
@@ -1675,10 +1687,8 @@ def savior(flash_req, cam_req, imu_req, auto_req, camera_rate, timer_boring, pit
                                         copy = f.read()
                                         with open ('/var/www/html/actual_config_scoring_backup.csv', 'w') as file:
                                             file.write(copy)
-
-
-
                                 client_sock.send(str({"request": "SET_BREEDING_CONFIG_STATUS", "data": 1}))
+                                os.system("sudo pm2 restart shock_server -- -snw")
                             except Exception as ex:
                                 printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
                                 client_sock.send(str({"request": "SET_BREEDING_CONFIG_STATUS", "data": 0}))
@@ -1738,15 +1748,8 @@ def savior(flash_req, cam_req, imu_req, auto_req, camera_rate, timer_boring, pit
                 
         except Exception as ex:
             printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, bcolors.ENDC)
-            printe("disconnected")
-            pass
-        
-
-    printe("disconnected")
-
-    client_sock.close()
-    server_sock.close()
-    printe("all done")
+            printe("Desconexion")
+            bt_config_stop.value = False
 
 def main():
 
@@ -1756,6 +1759,7 @@ def main():
     cam_req = multiprocessing.Value('b', False)
     camera_rate = multiprocessing.Value('i', 0)
     auto_req = multiprocessing.Value('b', False)
+    bt_config_stop = multiprocessing.Value('b', False)
     flash_req = multiprocessing.Value('b', False)
     timer_boring = multiprocessing.Value('i', 0)
     imu_req = multiprocessing.Value('b', False)
@@ -1781,8 +1785,6 @@ def main():
     time_backwards = multiprocessing.Value('d', 0)
     crash_timeout = multiprocessing.Value('d', 0)
     last_touch_window_timeout = multiprocessing.Value('i', 0)
-    last_touch_counter = multiprocessing.Value('i', 0)
-    last_touch_osc_counter = multiprocessing.Value('i', 0)
     pic_sensibility = multiprocessing.Value('d', 0)
     stucks_to_confirm = multiprocessing.Value('i', 0)
     stuck_window = multiprocessing.Value('d', 0)
@@ -1810,8 +1812,6 @@ def main():
     crash_timeout_before = behavior["crash_timeout_before"]
     crash_timeout_after = behavior["crash_timeout_after"]
     last_touch_window_timeout.value = behavior["last_touch_window_timeout"]
-    last_touch_counter.value = behavior["last_touch_counter"]
-    last_touch_osc_counter.value = behavior["last_touch_osc_counter"]
     pic_sensibility.value = behavior["pic_sensibility"]
     stucks_to_confirm.value = behavior['stucks_to_confirm']
     stuck_window.value = behavior['stuck_window']
@@ -1819,8 +1819,8 @@ def main():
     time_turn.value = behavior["time_turn"]
     teen_day = behavior["teen_day"]
     night_mode_enable = behavior["night_mode_enable"]
-    night_mode_start =  datetime.time(datetime.strptime.(behavior["night_mode_start"], "%H:%M"))
-    night_mode_end =  datetime.time(datetime.strptime.(behavior["night_mode_end"], "%H:%M"))
+    night_mode_start =  datetime.time(datetime.strptime(behavior["night_mode_start"], "%H:%M"))
+    night_mode_end =  datetime.time(datetime.strptime(behavior["night_mode_end"], "%H:%M"))
     night_mode_rest_time = behavior["night_mode_rest_time"]
     night_mode_wake_time = behavior["night_mode_wake_time"]
     night_mode_vel_array = [[behavior["night_mode_vel_forward_stuck"], behavior["night_mode_vel_forward_normal"]], [-behavior["night_mode_vel_backward_stuck"], -behavior["night_mode_vel_backward_normal"]], behavior["vel_turn_inner"], behavior["vel_turn_outter"]]
@@ -1846,8 +1846,8 @@ def main():
     command_handler = multiprocessing.Process(
         target=command, args=(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_flag, flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, rest_time, wake_time, time_backwards, timer_boring, crash_timeout, x_com, z_com,))
     # Set up our camera
-    savior_handler = multiprocessing.Process(target=savior, args=(flash_req, cam_req, imu_req, auto_req, camera_rate, timer_boring, pitch_flag, pitch_counter, window_stuck_pic, timer_temp, timer_log, rest_time, wake_time, time_backwards, day_crash_timeout , crash_timeout_before , crash_timeout_after, last_touch_window_timeout, last_touch_counter, last_touch_osc_counter, pic_sensibility, stucks_to_confirm, stuck_window, vel_array , time_turn, prints_enable,))
-    auto_handler = multiprocessing.Process(target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, is_hot, rest_time, wake_time, time_backwards, crash_timeout, last_touch_window_timeout,last_touch_counter, last_touch_osc_counter, flash_req, vel_array, time_turn, x_com, z_com, is_rest, night_mode_enable, night_mode_start, night_mode_end, night_mode_rest_time, night_mode_wake_time, night_mode_vel_array, night_mode_reversed,))
+    savior_handler = multiprocessing.Process(target=savior, args=(prints_enable, bt_config_stop,))
+    auto_handler = multiprocessing.Process(target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, is_hot, rest_time, wake_time, time_backwards, crash_timeout, last_touch_window_timeout, flash_req, vel_array, time_turn, x_com, z_com, is_rest, night_mode_enable, night_mode_start, night_mode_end, night_mode_rest_time, night_mode_wake_time, night_mode_vel_array, night_mode_reversed, bt_config_stop,))
     pitch_handler = multiprocessing.Process(target=pitch, args=(lst, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id,))
     # Add 'em to our list
     PROCESSES.append(savior_handler)
@@ -1867,6 +1867,10 @@ if __name__ == '__main__':
     prints_enable = multiprocessing.Value('b', False)
     prints_enable.value = True
     wait_to_run = False 
+    flash_enable = DigitalOutputDevice("BOARD12", active_high=True)
+    led_enable = DigitalOutputDevice("BOARD16", active_high=True)
+    global last_string
+    last_string = ''
     #region Compruebo los modos en los cuales inicia el programa
     if len(sys.argv) > 1:
         if sys.argv[1] == "-s":
@@ -1937,7 +1941,6 @@ if __name__ == '__main__':
         with open('log/error.log', 'w') as errlog:
             errlog.write("START ERROR LOG")
     #endregion
-    # Hacer funcion para poder levantar archivos de configuracion y backupearlos, si esta mal el archivo levantar el backup y sobreescribir el corrupto
 
     if os.path.exists("/var/www/html/actual_behavior.json"):
         behavior = open_json('/var/www/html/actual_behavior.json')
@@ -1945,11 +1948,6 @@ if __name__ == '__main__':
         behavior = open_json('/var/www/html/default_behavior.json')
 
     printe(behavior)
-    for i in range(3):
-        flash_enable.on()
-        time.sleep(0.5)
-        flash_enable.off()
-        time.sleep(0.5)
     
     try:
         printe("Enabling wifi")
@@ -1982,6 +1980,7 @@ if __name__ == '__main__':
     baby_origin = campaign_status["baby_origin"]
     batch = campaign_status["batch"]
     shed_number = campaign_status["shed_number"]
+
     #region Cargo breeding config
     try:
         day_list=[]
@@ -2076,6 +2075,11 @@ if __name__ == '__main__':
         json.dump(json_stuck_line, outfile)
     # logwriter("Me prendi con esta configuracion: " + str(config)+'/'+str(behavior), id=1)
     last_on()
+    for i in range(3):
+        flash_enable.on()
+        time.sleep(0.5)
+        flash_enable.off()
+        time.sleep(0.5)
     if behavior["flash_enable"] == True:
         flash_enable.on()
         logwriter("Prendi luces", id=12)
@@ -2088,9 +2092,10 @@ if __name__ == '__main__':
         led_enable.off()
         for p in PROCESSES:
             p.terminate()
-    except:
-        while True:
-            led_enable.on()
-            time.sleep(0.1)
-            led_enable.off()
-            time.sleep(0.1)
+    # except Exception as ex:
+    #     print(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, bcolors.ENDC)
+    #     # while True:
+    #     #     led_enable.on()
+    #     #     time.sleep(0.1)
+    #     #     led_enable.off()
+    #     #     time.sleep(0.1)
