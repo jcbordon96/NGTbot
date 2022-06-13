@@ -420,19 +420,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
     data_was_sended = False
     img_to_compress = []
     imu_debug = False
-    #region Constantes de address del IMU
-    PWR_MGMT_1 = 0x6B
-    SMPLRT_DIV = 0x19
-    CONFIG = 0x1A
-    GYRO_CONFIG = 0x1B
-    INT_ENABLE = 0x38
-    ACCEL_XOUT_H = 0x3B
-    ACCEL_YOUT_H = 0x3D
-    ACCEL_ZOUT_H = 0x3F
-    GYRO_XOUT_H = 0x43
-    GYRO_YOUT_H = 0x45
-    GYRO_ZOUT_H = 0x47
-    #endregion
+
     #endregion
     #region Levanto mediciones que han quedado sin enviar antes de apagarse
     try:
@@ -500,23 +488,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
         amin = arr.min()
         return (arr-amin)*255/rng
 
-    def MPU_Init():
-        bus.write_byte_data(Device_Address, SMPLRT_DIV, 7)# write to sample rate register
-        bus.write_byte_data(Device_Address, PWR_MGMT_1, 1) # Write to power management register
-        bus.write_byte_data(Device_Address, CONFIG, 0)# Write to Configuration register
-        bus.write_byte_data(Device_Address, GYRO_CONFIG, 24)# Write to Gyro configuration register
-        bus.write_byte_data(Device_Address, INT_ENABLE, 1)# Write to interrupt enable register
-
-    def read_raw_data(addr):
-        # Accelero and Gyro value are 16-bit
-        high = bus.read_byte_data(Device_Address, addr)
-        low = bus.read_byte_data(Device_Address, addr+1)
-        # concatenate higher and lower value
-        value = ((high << 8) | low)
-        # to get signed value from mpu6050
-        if(value > 32768):
-            value = value - 65536
-        return value
+    
     #endregion
     #region Inicio de sensores
     
@@ -551,15 +523,6 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
     except Exception as ex:
         errorwriter(ex, "Error al iniciar el DHT")
         printe("Error al iniciar el DHT")
-    try:
-        bus = smbus.SMBus(5) 	# or bus = smbus.SMBus(0) for older version boards
-        Device_Address = 0x68   # MPU6050 device address
-        MPU_Init()
-        printe("IMU INIT")
-        imu_ok = True
-    except Exception as ex:
-        errorwriter(ex, "Error al iniciar el IMU")
-        printe("El IMU no pudo iniciar")
     #endregion
 
     try:
@@ -844,67 +807,6 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                     except:
                         img_to_filter.pop(0)
                 #endregion
-                if imu_req.value == True and imu_ok == True and time.perf_counter()-last_imu > 0.5:
-                    try:
-                        last_imu = time.perf_counter()
-                        acc_y = read_raw_data(ACCEL_YOUT_H)
-                        acc_z = read_raw_data(ACCEL_ZOUT_H)
-                        
-                        
-                        Ay = acc_y/16384.0
-                        Az = acc_z/16384.0
-                        
-                        if imu_debug:
-                            
-                            gyro_x = read_raw_data(GYRO_XOUT_H)
-                            gyro_y = read_raw_data(GYRO_YOUT_H)
-                            gyro_z = read_raw_data(GYRO_ZOUT_H)
-                            acc_x = read_raw_data(ACCEL_XOUT_H)
-                            gyro_x = read_raw_data(GYRO_XOUT_H)
-                            gyro_y = read_raw_data(GYRO_YOUT_H)
-                            gyro_z = read_raw_data(GYRO_ZOUT_H)
-                            Ax = acc_x/16384.0
-                            Gx = gyro_x/131.0
-                            Gy = gyro_y/131.0
-                            Gz = gyro_z/131.0
-                            imu_array = [Ax, Ay, Az, Gx, Gy, Gz]
-                            imu_array_list = []
-                        pitch = math.atan2(Ay,  Az) * 57.3
-
-                        if pitch > pitch_flag.value:
-                            counter += 1
-                        else:
-                            counter = 0
-                            imu_stuck_flag.value = False
-                            if log_imu_stuck == False:
-                                elapsed_imu_stuck = round((time.perf_counter() - start_imu_stuck)/60.0, 2)
-                                total_elapsed_imu_stuck = last_total_elapsed_imu_stuck + elapsed_imu_stuck
-                                json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck, "CamConf": confirm_total_elapsed_cam_stuck}
-                                with open('stuck_count.json', 'w') as outfile:
-                                    json.dump(json_stuck_line, outfile)
-                                with open('stuck_count_backup.json', 'w') as outfile:
-                                    json.dump(json_stuck_line, outfile)
-                                printe("IMU destuck")
-                                logwriter("Me destrabe, IMU, minutos", minutos=elapsed_imu_stuck, id=19)
-                                log_imu_stuck = True
-                        if counter > pitch_counter.value:
-                            if log_imu_stuck:
-                                printe("Estoy trabado!!! Detecte inclinacion mayor a la safe")
-                                logwriter("Me trabe, IMU", id=18)
-                                log_imu_stuck = False
-                                start_imu_stuck = time.perf_counter()
-                                last_total_elapsed_imu_stuck = total_elapsed_imu_stuck
-                            elapsed_imu_stuck =  round((time.perf_counter() - start_imu_stuck)/60.0, 2)
-                            total_elapsed_imu_stuck = last_total_elapsed_imu_stuck + elapsed_imu_stuck
-                            json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck, "CamConf": confirm_total_elapsed_cam_stuck}
-                            with open('stuck_count.json', 'w') as outfile:
-                                json.dump(json_stuck_line, outfile)
-                            with open('stuck_count_backup.json', 'w') as outfile:
-                                    json.dump(json_stuck_line, outfile)
-                            imu_stuck_flag.value = True
-                    except Exception as ex:
-                        errorwriter(ex, "El IMU no pudo tomar lectura")
-                        printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, "Ups! El IMU no pudo tomar lectura"+ bcolors.ENDC)
                 if time.perf_counter() - temp_timer > timer_temp.value:
                     temp_timer = time.perf_counter()
                     last_on()
@@ -1132,8 +1034,164 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
             # errorwriter("Camara", "Fallo timeout")
             # printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
             
+def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stuck_flag):
+    # Vamos a obtener las mediciones de clearance y del imu
+    imu_debug = True
+    #region Constantes de address del IMU
+    PWR_MGMT_1 = 0x6B
+    SMPLRT_DIV = 0x19
+    CONFIG = 0x1A
+    GYRO_CONFIG = 0x1B
+    INT_ENABLE = 0x38
+    ACCEL_XOUT_H = 0x3B
+    ACCEL_YOUT_H = 0x3D
+    ACCEL_ZOUT_H = 0x3F
+    GYRO_XOUT_H = 0x43
+    GYRO_YOUT_H = 0x45
+    GYRO_ZOUT_H = 0x47
+    #endregion
+    #region Constantes relacionadas con el control de clearance
+    tof_ok = False
+    tof_offset = 78
+    min_tof_clearance = 20
+    sink_tof_clearance = 16
+    watch_tof_clearance = 30
+    max_tof_clearance = 25
+    clearance_array = []
+    time_clearance_array = []
+    clearance_window = 2
+    clearance_timer = time.perf_counter()
+    time_to_sink = 3
+    sink_slope = (sink_tof_clearance-max_tof_clearance)/time_to_sink
+    #endregion
+    #region Funciones relacionadas con el IMU
+    def MPU_Init():
+        bus.write_byte_data(Device_Address, SMPLRT_DIV, 7)# write to sample rate register
+        bus.write_byte_data(Device_Address, PWR_MGMT_1, 1) # Write to power management register
+        bus.write_byte_data(Device_Address, CONFIG, 0)# Write to Configuration register
+        bus.write_byte_data(Device_Address, GYRO_CONFIG, 24)# Write to Gyro configuration register
+        bus.write_byte_data(Device_Address, INT_ENABLE, 1)# Write to interrupt enable register
+    def read_raw_data(addr):
+        # Accelero and Gyro value are 16-bit
+        high = bus.read_byte_data(Device_Address, addr)
+        low = bus.read_byte_data(Device_Address, addr+1)
+        # concatenate higher and lower value
+        value = ((high << 8) | low)
+        # to get signed value from mpu6050
+        if(value > 32768):
+            value = value - 65536
+        return value
+    #endregion
+    #region Inicio IMU
+    try:
+        bus = smbus.SMBus(5) 	
+        Device_Address = 0x68   
+        MPU_Init()
+        printe("IMU INIT")
+        imu_ok = True
+    except Exception as ex:
+        errorwriter(ex, "Error al iniciar el IMU")
+        printe("El IMU no pudo iniciar")
+    #endregion
+    #region Inicio VL53
+    try:
+        tof = VL53L0X.VL53L0X(i2c_bus=4,i2c_address=0x29)
+        tof.open()
+        tof.start_ranging(VL53L0X.Vl53l0xAccuracyMode.BETTER)
+        tof_ok = True
+        printe("Tof inicio bien")
+    except Exception as ex:
+        errorwriter(ex, "Error al iniciar medidor tof")
+        printe("Error al inciar el medidor tof")
+        tof_ok = False
+    #endregion
+    if tof_ok:
+        while True:
+            clearance.value = tof.get_distance() - tof_offset
+            if not clearance_stuck_flag.value:
+                if clearance.value < min_tof_clearance:
+                    clearance_stuck_flag.value = True
+                    printe("Clearance menor a la minima, traba")
+                    time_clearance_array = []
+                    clearance_array = []
+                elif clearance.value < watch_tof_clearance:
+                    time_clearance_array.append(time.perf_counter())
+                    clearance_array.append(clearance.value)
+                    if (time_clearance_array[-1] - time_clearance_array[0]) > clearance_window:
+                        time_clearance_array.pop(0)
+                        clearance_array.pop(0)
+                    if len(clearance_array) > 5:
+                        y = np.array(clearance_array)
+                        x = np.array([count for count, i in enumerate(clearance_array)])
+                        A = np.stack([x, np.ones(len(x))]).T
+                        slope, point_zero = np.linalg.lstsq(A, y, rcond=None)[0]
+                        if slope < sink_slope:
+                            printe("La pendiente de clearance es mayor a la admisible, traba en accion")
+                            clearance_stuck_flag.value = True
+                            time_clearance_array = []
+                            clearance_array = []
+            else:
+                if clearance.value > max_tof_clearance:
+                    printe("Aumente el clearance, me destrabe")
+                    clearance_stuck_flag.value = False
 
-def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, is_hot, rest_time, wake_time, time_backwards, crash_timeout, last_touch_window_timeout, flash_req, vel_array, time_turn, x_com, z_com, is_rest, night_mode_enable, night_mode_start, night_mode_end, night_mode_rest_time, night_mode_wake_time, night_mode_vel_array, night_mode_reversed, bt_config_stop ):
+            if imu_req.value == True and imu_ok == True:
+                try:
+                    acc_y = read_raw_data(ACCEL_YOUT_H)
+                    acc_z = read_raw_data(ACCEL_ZOUT_H)
+                    gyro_x = read_raw_data(GYRO_XOUT_H)
+                    gyro_y = read_raw_data(GYRO_YOUT_H)
+                    gyro_z = read_raw_data(GYRO_ZOUT_H)
+                    acc_x = read_raw_data(ACCEL_XOUT_H)
+                    
+                    
+                    
+                    if imu_debug and not is_rest.value:
+                        Ax = acc_x/16384.0
+                        Ay = acc_y/16384.0
+                        Az = acc_z/16384.0
+                        Gx = gyro_x/131.0
+                        Gy = gyro_y/131.0
+                        Gz = gyro_z/131.0
+                        imu_array = [Ax, Ay, Az, Gx, Gy, Gz]
+                        imu_array_list = []
+                    pitch = math.atan2(Ay,  Az) * 57.3
+
+                    if pitch > pitch_flag.value:
+                        counter += 1
+                    else:
+                        counter = 0
+                        imu_stuck_flag.value = False
+                        if log_imu_stuck == False:
+                            elapsed_imu_stuck = round((time.perf_counter() - start_imu_stuck)/60.0, 2)
+                            total_elapsed_imu_stuck = last_total_elapsed_imu_stuck + elapsed_imu_stuck
+                            json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck, "CamConf": confirm_total_elapsed_cam_stuck}
+                            with open('stuck_count.json', 'w') as outfile:
+                                json.dump(json_stuck_line, outfile)
+                            with open('stuck_count_backup.json', 'w') as outfile:
+                                json.dump(json_stuck_line, outfile)
+                            printe("IMU destuck")
+                            logwriter("Me destrabe, IMU, minutos", minutos=elapsed_imu_stuck, id=19)
+                            log_imu_stuck = True
+                    if counter > pitch_counter.value:
+                        if log_imu_stuck:
+                            printe("Estoy trabado!!! Detecte inclinacion mayor a la safe")
+                            logwriter("Me trabe, IMU", id=18)
+                            log_imu_stuck = False
+                            start_imu_stuck = time.perf_counter()
+                            last_total_elapsed_imu_stuck = total_elapsed_imu_stuck
+                        elapsed_imu_stuck =  round((time.perf_counter() - start_imu_stuck)/60.0, 2)
+                        total_elapsed_imu_stuck = last_total_elapsed_imu_stuck + elapsed_imu_stuck
+                        json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck, "CamConf": confirm_total_elapsed_cam_stuck}
+                        with open('stuck_count.json', 'w') as outfile:
+                            json.dump(json_stuck_line, outfile)
+                        with open('stuck_count_backup.json', 'w') as outfile:
+                                json.dump(json_stuck_line, outfile)
+                        imu_stuck_flag.value = True
+                except Exception as ex:
+                    errorwriter(ex, "El IMU no pudo tomar lectura")
+                    printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, "Ups! El IMU no pudo tomar lectura"+ bcolors.ENDC)
+def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, is_hot, rest_time, wake_time, time_backwards, crash_timeout, last_touch_window_timeout, flash_req, vel_array, time_turn, x_com, z_com, is_rest, night_mode_enable, night_mode_start, night_mode_end, night_mode_rest_time, night_mode_wake_time, night_mode_vel_array, night_mode_reversed, prints_enable ):
     motor_1_pwm = PWMOutputDevice("BOARD35")
     motor_2_pwm = PWMOutputDevice("BOARD33")
     motor_1_dir = DigitalOutputDevice("BOARD31")
@@ -1164,6 +1222,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
     wake_time_watch = wake_time.value
     rest_time_watch = rest_time.value
     night_mode_setted = False
+    no_crash = False
 
     class Velocity:
         def __init__(self, forward, backward):
@@ -1176,370 +1235,30 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                 self.stuck = velArray[0]
                 self.normal = velArray[1]
     vel = Velocity(vel_array[0], vel_array[1])
+    
+    def bt_connection(prints_enable):
+        printe("Inicio BT Server")
+        subprocess.Popen(['hciconfig', 'hci0', 'piscan'], stdout=subprocess.PIPE)
 
-    def move(x = 0, z = 0, t = 0):
-        global move_status
-        if x < 0 and z == 0:
-            move_status = 'B'
-        elif x > 0 and z == 0:
-            move_status = 'F'
-        elif x > 0 and z > 0:
-            move_status = 'R'
-        elif x > 0 and z < 0:
-            move_status = 'L'
-        check_rate = 0.5
-        if abs(x) > 1:
-            x = x/abs(x)
-        if abs(z) > 1:
-            z = z/abs(z)
-        if(z == 0):
-            pwm1 = x 
-            pwm2 = pwm1
-        elif (x == 0):
-            pwm1 = z 
-            pwm2 = -pwm1
-        else:
-            if (x > 0):
-                if (z > 0):
-                    pwm1 = vel_array[3] 
-                    pwm2 = vel_array[2]
-                else:
-                    pwm2 = vel_array[3]
-                    pwm1 = vel_array[2]
-            else:
-                if (z > 0):
-                    pwm1 = vel_array[2]
-                    pwm2 = vel_array[3]
-                else:
-                    pwm2 = vel_array[3]
-                    pwm1 = vel_array[2]
+        server_sock = BluetoothSocket( RFCOMM )
+        server_sock.bind(("",1))
+        server_sock.listen(1)
 
-        if (pwm1 > 0):
-            motor_1_dir.off()
-        elif(pwm1 < 0):
-            motor_1_dir.on()
-        else:
-            motor_1_pwm.off()
-        if (pwm2 < 0):
-            motor_2_dir.off()
-        elif(pwm2 > 0):
-            motor_2_dir.on()
-        else:
-            motor_2_pwm.off()
-        if motor_1_pwm.value != abs(pwm1):
-            # printe(pwm1,pwm2)
-            motor_1_pwm.value = abs(pwm1)
-        if motor_2_pwm.value != abs(pwm2):
-            motor_2_pwm.value = abs(pwm2)
-        if t > 0:
-            number_check_rate = int(t / check_rate)
-            rest = t - number_check_rate * check_rate
-            counter_check_rate = 0
-            if x > 0:
-                while (counter_check_rate <= number_check_rate and auto_req.value == True and not taking_pics.value and not (button_left.is_pressed or button_right.is_pressed or button_middle.is_pressed)):
-                    time.sleep(check_rate)
-                    counter_check_rate += 1
-            else:
-                while (counter_check_rate <= number_check_rate and auto_req.value == True and not taking_pics.value):
-                    time.sleep(check_rate)
-                    counter_check_rate += 1
-            if counter_check_rate == number_check_rate and auto_req.value == True:
-                    time.sleep(rest)
-            motor_1_pwm.off()
-            motor_2_pwm.off()
-    def crash(crash_side):
-        global crash_counter
-        global timer
-        global crash_timer
-        global last_crash
-        printe('Toque de tipo :', crash_side)
-        if time.perf_counter() - crash_timer >= last_touch_window_timeout.value:
-            printe('Pasaron {} segundos desde el ultimo toque, el timeout esta en {} segundos, por lo que resetee variables'.format(int(time.perf_counter() - crash_timer), last_touch_window_timeout.value))
-            last_crash = ''
-            crash_counter = 0
-        crash_confirmed = False
-        crash_timer = time.perf_counter()
-        if crash_timeout.value > 0:
-            printe('Hay que esperar {} segundos para confirmar el choque'.format(crash_timeout.value))
-            while (time.perf_counter() - crash_timer) < crash_timeout.value:
-                time.sleep(0.25)
-                if crash_side == "FRO" and button_left.is_pressed and button_right.is_pressed:
-                    crash_confirmed = True
-                    if last_crash != '' and last_crash != 'FRO':
-                        crash_side = last_crash
-                    else:
-                        crash_side = random.choice(['IZQ', 'DER'])
-                elif (crash_side == "IZQ" or crash_side == "FRO") and button_left.is_pressed:
-                    crash_confirmed = True
-                    crash_side = 'IZQ'
-                elif (crash_side == "DER" or crash_side == "FRO") and button_right.is_pressed:
-                    crash_confirmed = True
-                    crash_side = 'DER'
-                else:
-                    printe('Se solto el toque antes, no hay choque confirmado')
-                    crash_confirmed = False
-                    break
-        else:
-            crash_confirmed = True
-            if crash_side == 'FRO' and last_crash != '' and last_crash != 'FRO':
-                crash_side = last_crash
-            elif crash_side == 'FRO':
-                crash_side = random.choice(['IZQ', 'DER'])
-        if crash_confirmed:
-            printe('Toque confirmado lado:', crash_side)
-            timer = time.perf_counter()
-            time_turn_crash = time_turn.value
-            crash_counter += 1
-            if crash_counter > 3:
-                printe('{} toques seguidos, vamor a dar un giro mas pronunciado'.format(crash_counter))
-                time_turn_crash = 2 * time_turn.value
-            elif (crash_side != last_crash and last_crash != "") or crash_counter == 3:
-                printe('Toques alternos seguidos, giro la mitad de tiempo')
-                time_turn_crash = 0.5 * time_turn.value
-            last_crash = crash_side
-            move_sequence(crash_side, time_turn_crash)
+        port = server_sock.getsockname()[1]
+        hotspot_status = 0
 
-        
-    def move_sequence(type, time_turn_crash):
-        if type == "IZQ_STUCK":
-            move(vel.forward.stuck, vel.left, time_turn.value)
-        elif type == "DER_STUCK":
-            move(vel.forward.stuck, vel.right, time_turn.value)
-        elif type == "IZQ":
-            move(vel.backward.normal, 0, time_backwards.value)
-            move(vel.forward.normal, vel.right, time_turn_crash)
-        elif type == "DER":
-            move(vel.backward.normal, 0, time_backwards.value)
-            move(vel.forward.normal, vel.left, time_turn_crash)
-            
-    while True:
-        if shutdown_button.is_pressed:
-            time.sleep(3)
-            if shutdown_button.is_pressed:
-                printe('Me voy a apagar')
-                logwriter("Recibi pedido de apagado", id=8)
-                os.system("sudo shutdown now")
-        if is_rest.value:
-            if led_on:
-                led_enable.off()
-                led_on = False
-            else:
-                led_enable.on()
-                led_on = True
-        if auto_req.value == False:
-            move(x_com.value, z_com.value)
-        if (auto_req.value == False and was_auto == True):
-            move(0, 0)
-            was_auto = False
-            printe("Stop auto")
-            is_stopped.value = True
-            first_auto = True
-            logwriter("Termine de andar autonomo", id=4)
-        elif(auto_req.value == True):
-            if first_auto:
-                last_time_rest = time.perf_counter()
-                logwriter("Empece a andar autonomo", id=2)
-                printe("first auto")
-                first_auto = False
-                is_stopped.value = False
-            if is_rest.value and (time.perf_counter()-last_time_on > rest_time_watch):
-                is_rest.value = False
-                last_time_rest = time.perf_counter()
-                is_stopped.value = False
-                is_hot.value = False
-                printe("Vuelvo a andar")
-                logwriter("Termine descanso", id=11)
-                led_enable.on()
-                if flash_req.value == True:
-                    flash_enable.on()
-            if night_mode_enable:
-                if not night_mode_setted:
-                    if not night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start and datetime.time(datetime.now()) < night_mode_end):
-                        printe("Night Mode enabled")
-                        night_mode_setted = True
-                        wake_time_watch = night_mode_wake_time
-                        rest_time_watch = night_mode_rest_time
-                        vel = Velocity(night_mode_vel_array[0], night_mode_vel_array[1])
-                    elif night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start or datetime.time(datetime.now()) < night_mode_end):
-                        printe("Night Mode enabled")
-                        night_mode_setted = True
-                        wake_time_watch = night_mode_wake_time
-                        rest_time_watch = night_mode_rest_time
-                        vel = Velocity(night_mode_vel_array[0], night_mode_vel_array[1])
-                else:
-                    if not night_mode_reversed and (datetime.time(datetime.now()) < night_mode_start or datetime.time(datetime.now()) > night_mode_end):
-                        printe("Night Mode disabled")
-                        night_mode_setted = False
-                        wake_time_watch = wake_time.value
-                        rest_time_watch = rest_time.value
-                        vel = Velocity(vel_array[0], vel_array[1])
-                    elif night_mode_reversed and (datetime.time(datetime.now()) < night_mode_start and datetime.time(datetime.now()) > night_mode_end):
-                        printe("Night Mode disabled")
-                        night_mode_setted = False
-                        wake_time_watch = wake_time.value
-                        rest_time_watch = rest_time.value
-                        vel = Velocity(vel_array[0], vel_array[1])
-            was_auto = True
-            timer = time.perf_counter()
-            while auto_req.value == True and not is_rest.value:
-                while bt_config_stop.value:
-                    move(0, 0)
-                    time.sleep(1)
-                    printe("Estoy frenado esperando que se termine la configuracion", no_repeat=True)
-                if shutdown_button.is_pressed:
-                    move(0, 0)
-                    time.sleep(3)
-                    if shutdown_button.is_pressed:
-                        printe('Me voy a apagar')
-                        logwriter("Recibi pedido de apagado", id=8)
-                        os.system("sudo shutdown now")
-                    else:
-                        # Modo configuracion en un futuro
-                        pass
+        uuid = "94f39d29-7d6d-437d-973b-fba39e49d4ee"
 
-
-                if ((time.perf_counter() - last_time_rest > wake_time_watch) or is_hot.value):
-                    is_rest.value = True
-                    move(0, 0)
-                    time.sleep(1)
-                    is_stopped.value = True
-                    last_time_on = time.perf_counter()
-                    printe("Voy a descansar")
-                    flash_enable.off()
-                    logwriter("Empece descanso", id=10)
-                    break
-                if night_mode_enable:
-                    if not night_mode_setted:
-                        if not night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start and datetime.time(datetime.now()) < night_mode_end):
-                            printe("Night Mode enabled")
-                            night_mode_setted = True
-                            wake_time_watch = night_mode_wake_time
-                            rest_time_watch = night_mode_rest_time
-                            vel = Velocity(night_mode_vel_array[0], night_mode_vel_array[1])
-                        elif night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start or datetime.time(datetime.now()) < night_mode_end):
-                            printe("Night Mode enabled")
-                            night_mode_setted = True
-                            wake_time_watch = night_mode_wake_time
-                            rest_time_watch = night_mode_rest_time
-                            vel = Velocity(night_mode_vel_array[0], night_mode_vel_array[1])
-                    else:
-                        if not night_mode_reversed and (datetime.time(datetime.now()) < night_mode_start or datetime.time(datetime.now()) > night_mode_end):
-                            printe("Night Mode disabled")
-                            night_mode_setted = False
-                            wake_time_watch = wake_time.value
-                            rest_time_watch = rest_time.value
-                            vel = Velocity(vel_array[0], vel_array[1])
-                        elif night_mode_reversed and (datetime.time(datetime.now()) < night_mode_start and datetime.time(datetime.now()) > night_mode_end):
-                            printe("Night Mode disabled")
-                            night_mode_setted = False
-                            wake_time_watch = wake_time.value
-                            rest_time_watch = rest_time.value
-                            vel = Velocity(vel_array[0], vel_array[1])
-                if time.perf_counter() - timer < timer_boring.value:
-
-                    if imu_stuck_flag.value == True:
-                        printe("Estoy trabado por IMU", no_repeat = True)
-                        printe('Voy a frenar')
-                        move(0, 0)
-                        time.sleep(1)
-                        move_status_before_destuck = move_status
-                        if move_status in ['R','L','F']:
-                            printe('Estaba yendo hacia delante, voy a retrocedecer a baja velocidad')
-                            move(vel.backward.stuck, 0, 5)
-                        else:
-                            printe('Estaba yendo hacia delante, voy a avanzar a baja velocidad')
-                            move(vel.forward.stuck, 0, 5)
-                        if move_status_before_destuck == 'R':
-                            printe('Antes de trabarme estaba yendo hacia la derecha, voy a girar a la izquierda')
-                            move_sequence('IZQ_STUCK', time_turn.value)
-                        elif move_status_before_destuck == 'L':
-                            printe('Antes de trabarme estaba yendo hacia la izquierda, voy a girar a la derecha')
-                            move_sequence('DER_STUCK', time_turn.value)
-                        else:
-                            printe('Antes de trabarme esta yendo recto, voy a elegir aleatorio')
-                            move_sequence(random.choice(['DER_STUCK','IZQ_STUCK']), time_turn.value)
-                            if imu_stuck_flag.value == True:
-                                printe('Sigo trabado, voy a reintentar')
-                    elif cam_stuck_flag.value == True:
-                        printe("Estoy trabado por camara", no_repeat = True)
-                        printe('Voy a frenar')
-                        move(0, 0)
-                        time.sleep(1)
-                        move_status_before_destuck = move_status
-                        printe('move_status', move_status)
-                        if move_status in ['R','L','F']:
-                            printe('Estaba yendo hacia delante, voy a retrocedecer a baja velocidad')
-                            move(vel.backward.stuck, 0, 5)
-                        else:
-                            printe('Estaba yendo hacia atras, voy a avanzar a baja velocidad')
-                            move(vel.forward.stuck, 0, 5)
-                        if move_status_before_destuck == 'R':
-                            printe('Antes de trabarme estaba yendo hacia la derecha, voy a girar a la izquierda')
-                            move_sequence('IZQ_STUCK', time_turn.value)
-                        elif move_status_before_destuck == 'L':
-                            printe('Antes de trabarme estaba yendo hacia la izquierda, voy a girar a la derecha')
-                            move_sequence('DER_STUCK', time_turn.value)
-                        else:
-                            printe('Antes de trabarme esta yendo recto, voy a elegir aleatorio')
-                            move_sequence(random.choice(['DER_STUCK','IZQ_STUCK']), time_turn.value)
-                            if cam_stuck_flag.value == True:
-                                printe('Sigo trabado, voy a reintentar')
-
-
-                    while taking_pics.value == True:
-                        move(0, 0)
-                        time.sleep(1)
-                        is_stopped.value = True
-                        printe("Stop esperando foto")
-                    is_stopped.value = False
-                    if button_left.is_pressed and not button_right.is_pressed: # Choque izquierdo
-                        crash("IZQ")
-                    elif button_right.is_pressed and not button_left.is_pressed: #Choque derecho
-                        crash("DER")
-                    elif (button_left.is_pressed and button_right.is_pressed): #Choque frontal
-                        crash('FRO')
-
-                else:
-                    printe('No detecte ningun crash, voy marcha atras por las dudas')
-                    timer = time.perf_counter()
-                    move_sequence(random.choice(['DER', 'IZQ']), time_turn.value)      
-        time.sleep(1)
-
-
-def savior(prints_enable, bt_config_stop):
-
-    printe("Inicio BT Server")
-    printe("savior",sys.argv)
-    subprocess.Popen(['hciconfig', 'hci0', 'piscan'], stdout=subprocess.PIPE)
-
-    server_sock = BluetoothSocket( RFCOMM )
-    server_sock.bind(("",1))
-    server_sock.listen(1)
-
-    port = server_sock.getsockname()[1]
-    hotspot_status = 0
-
-    uuid = "94f39d29-7d6d-437d-973b-fba39e49d4ee"
-
-    advertise_service( server_sock, "SampleServer", service_id = uuid, service_classes = [ uuid, SERIAL_PORT_CLASS ], profiles = [ SERIAL_PORT_PROFILE ],) #protocols = [ OBEX_UUID ])
-                       
-    printe("Esperando conexion en el puerto %d" % port)
-
-    client_sock, client_info = server_sock.accept()
-    printe("Conexion aceptada desde: ", client_info)
-    bt_config_stop.value = True
-    first = True
-    build_string = ''
-    new_string_timer = time.perf_counter()
-    while True:
-        try:
-            if not first:
-                printe("Esperando conexion")
-                client_sock, client_info = server_sock.accept()
-                printe("Conexion aceptada desde: ", client_info)
-                bt_config_stop.value = True
-            first = False    
-            while True:
+        advertise_service( server_sock, "SampleServer", service_id = uuid, service_classes = [ uuid, SERIAL_PORT_CLASS ], profiles = [ SERIAL_PORT_PROFILE ],) #protocols = [ OBEX_UUID ])
+                        
+        printe("Esperando conexion en el puerto %d" % port)
+        server_sock.settimeout(60)
+        client_sock, client_info = server_sock.accept()
+        printe("Conexion aceptada desde: ", client_info)
+        build_string = ''
+        new_string_timer = time.perf_counter()
+        while True:
+            try:
                 data_input = client_sock.recv(1024)
                 if len(data_input) == 0: 
                     break
@@ -1737,19 +1456,372 @@ def savior(prints_enable, bt_config_stop):
                                     printe(e, "No se pudo sacar debug")
                                     errorwriter(e,"No se pudo sacar debug")
                             client_sock.send(str({"request": "SET_ENABLED_DEBUG_STATUS", "data": set_enabled_debug_status}))
-
-                            
                 except Exception as ex:
                     printe("REQUEST_PARSING_ERROR")
                     printe("len:",len(data_input), "data_input:", data_input)
                     client_sock.send(str({"request": "REQUEST_PARSING_ERROR", "data": 1}))
-                # printe(data_input)
-               
-                
-        except Exception as ex:
-            printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, bcolors.ENDC)
-            printe("Desconexion")
-            bt_config_stop.value = False
+            except Exception as ex:
+                printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, bcolors.ENDC)
+                printe("Desconexion")
+
+    def move(x = 0, z = 0, t = 0):
+        global move_status
+        if x < 0 and z == 0:
+            move_status = 'B'
+        elif x > 0 and z == 0:
+            move_status = 'F'
+        elif x > 0 and z > 0:
+            move_status = 'R'
+        elif x > 0 and z < 0:
+            move_status = 'L'
+        check_rate = 0.5
+        if abs(x) > 1:
+            x = x/abs(x)
+        if abs(z) > 1:
+            z = z/abs(z)
+        if(z == 0):
+            pwm1 = x 
+            pwm2 = pwm1
+        elif (x == 0):
+            pwm1 = z 
+            pwm2 = -pwm1
+        else:
+            if (x > 0):
+                if (z > 0):
+                    pwm1 = vel_array[3] 
+                    pwm2 = vel_array[2]
+                else:
+                    pwm2 = vel_array[3]
+                    pwm1 = vel_array[2]
+            else:
+                if (z > 0):
+                    pwm1 = vel_array[2]
+                    pwm2 = vel_array[3]
+                else:
+                    pwm2 = vel_array[3]
+                    pwm1 = vel_array[2]
+
+        if (pwm1 > 0):
+            motor_1_dir.off()
+        elif(pwm1 < 0):
+            motor_1_dir.on()
+        else:
+            motor_1_pwm.off()
+        if (pwm2 < 0):
+            motor_2_dir.off()
+        elif(pwm2 > 0):
+            motor_2_dir.on()
+        else:
+            motor_2_pwm.off()
+        if motor_1_pwm.value != abs(pwm1):
+            # printe(pwm1,pwm2)
+            motor_1_pwm.value = abs(pwm1)
+        if motor_2_pwm.value != abs(pwm2):
+            motor_2_pwm.value = abs(pwm2)
+        if t > 0:
+            number_check_rate = int(t / check_rate)
+            rest = t - number_check_rate * check_rate
+            counter_check_rate = 0
+            if x > 0:
+                while (counter_check_rate <= number_check_rate and auto_req.value == True and not taking_pics.value and not (button_left.is_pressed or button_right.is_pressed or button_middle.is_pressed)):
+                    time.sleep(check_rate)
+                    counter_check_rate += 1
+            else:
+                while (counter_check_rate <= number_check_rate and auto_req.value == True and not taking_pics.value):
+                    time.sleep(check_rate)
+                    counter_check_rate += 1
+            if counter_check_rate == number_check_rate and auto_req.value == True:
+                    time.sleep(rest)
+            motor_1_pwm.off()
+            motor_2_pwm.off()
+    def crash(crash_side):
+        global crash_counter
+        global timer
+        global crash_timer
+        global last_crash
+        printe('Toque de tipo :', crash_side)
+        if time.perf_counter() - crash_timer >= last_touch_window_timeout.value:
+            printe('Pasaron {} segundos desde el ultimo toque, el timeout esta en {} segundos, por lo que resetee variables'.format(int(time.perf_counter() - crash_timer), last_touch_window_timeout.value))
+            last_crash = ''
+            crash_counter = 0
+        crash_confirmed = False
+        crash_timer = time.perf_counter()
+        if crash_timeout.value > 0:
+            printe('Hay que esperar {} segundos para confirmar el choque'.format(crash_timeout.value))
+            while (time.perf_counter() - crash_timer) < crash_timeout.value:
+                time.sleep(0.25)
+                if crash_side == "FRO" and button_left.is_pressed and button_right.is_pressed:
+                    crash_confirmed = True
+                    if last_crash != '' and last_crash != 'FRO':
+                        crash_side = last_crash
+                    else:
+                        crash_side = random.choice(['IZQ', 'DER'])
+                elif (crash_side == "IZQ" or crash_side == "FRO") and button_left.is_pressed:
+                    crash_confirmed = True
+                    crash_side = 'IZQ'
+                elif (crash_side == "DER" or crash_side == "FRO") and button_right.is_pressed:
+                    crash_confirmed = True
+                    crash_side = 'DER'
+                else:
+                    printe('Se solto el toque antes, no hay choque confirmado')
+                    crash_confirmed = False
+                    break
+        else:
+            crash_confirmed = True
+            if crash_side == 'FRO' and last_crash != '' and last_crash != 'FRO':
+                crash_side = last_crash
+            elif crash_side == 'FRO':
+                crash_side = random.choice(['IZQ', 'DER'])
+        if crash_confirmed:
+            printe('Toque confirmado lado:', crash_side)
+            timer = time.perf_counter()
+            time_turn_crash = time_turn.value
+            crash_counter += 1
+            if crash_counter > 3:
+                printe('{} toques seguidos, vamor a dar un giro mas pronunciado'.format(crash_counter))
+                time_turn_crash = 2 * time_turn.value
+            elif (crash_side != last_crash and last_crash != "") or crash_counter == 3:
+                printe('Toques alternos seguidos, giro la mitad de tiempo')
+                time_turn_crash = 0.5 * time_turn.value
+            last_crash = crash_side
+            move_sequence(crash_side, time_turn_crash)
+
+        
+    def move_sequence(type, time_turn_crash):
+        if type == "IZQ_STUCK":
+            move(vel.forward.stuck, vel.left, time_turn.value)
+        elif type == "DER_STUCK":
+            move(vel.forward.stuck, vel.right, time_turn.value)
+        elif type == "IZQ":
+            move(vel.backward.normal, 0, time_backwards.value)
+            move(vel.forward.normal, vel.right, time_turn_crash)
+        elif type == "DER":
+            move(vel.backward.normal, 0, time_backwards.value)
+            move(vel.forward.normal, vel.left, time_turn_crash)
+            
+    while True:
+        if shutdown_button.is_pressed:
+            time.sleep(3)
+            if shutdown_button.is_pressed:
+                printe('Me voy a apagar')
+                logwriter("Recibi pedido de apagado", id=8)
+                os.system("sudo shutdown now")
+            else:
+                bt_connection(prints_enable)
+        if is_rest.value:
+            if led_on:
+                led_enable.off()
+                led_on = False
+            else:
+                led_enable.on()
+                led_on = True
+        if auto_req.value == False:
+            move(x_com.value, z_com.value)
+        if (auto_req.value == False and was_auto == True):
+            move(0, 0)
+            was_auto = False
+            printe("Stop auto")
+            is_stopped.value = True
+            first_auto = True
+            logwriter("Termine de andar autonomo", id=4)
+        elif(auto_req.value == True):
+            if first_auto:
+                last_time_rest = time.perf_counter()
+                logwriter("Empece a andar autonomo", id=2)
+                printe("first auto")
+                first_auto = False
+                is_stopped.value = False
+            if is_rest.value and (time.perf_counter()-last_time_on > rest_time_watch):
+                is_rest.value = False
+                last_time_rest = time.perf_counter()
+                is_stopped.value = False
+                is_hot.value = False
+                printe("Vuelvo a andar")
+                logwriter("Termine descanso", id=11)
+                led_enable.on()
+                if flash_req.value == True:
+                    flash_enable.on()
+            if night_mode_enable:
+                if not night_mode_setted:
+                    if not night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start and datetime.time(datetime.now()) < night_mode_end):
+                        printe("Night Mode enabled")
+                        night_mode_setted = True
+                        wake_time_watch = night_mode_wake_time
+                        rest_time_watch = night_mode_rest_time
+                        vel = Velocity(night_mode_vel_array[0], night_mode_vel_array[1])
+                    elif night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start or datetime.time(datetime.now()) < night_mode_end):
+                        printe("Night Mode enabled")
+                        night_mode_setted = True
+                        wake_time_watch = night_mode_wake_time
+                        rest_time_watch = night_mode_rest_time
+                        vel = Velocity(night_mode_vel_array[0], night_mode_vel_array[1])
+                else:
+                    if not night_mode_reversed and (datetime.time(datetime.now()) < night_mode_start or datetime.time(datetime.now()) > night_mode_end):
+                        printe("Night Mode disabled")
+                        night_mode_setted = False
+                        wake_time_watch = wake_time.value
+                        rest_time_watch = rest_time.value
+                        vel = Velocity(vel_array[0], vel_array[1])
+                    elif night_mode_reversed and (datetime.time(datetime.now()) < night_mode_start and datetime.time(datetime.now()) > night_mode_end):
+                        printe("Night Mode disabled")
+                        night_mode_setted = False
+                        wake_time_watch = wake_time.value
+                        rest_time_watch = rest_time.value
+                        vel = Velocity(vel_array[0], vel_array[1])
+            was_auto = True
+            timer = time.perf_counter()
+            while auto_req.value == True and not is_rest.value:
+                if shutdown_button.is_pressed:
+                    move(0, 0)
+                    time.sleep(3)
+                    if shutdown_button.is_pressed:
+                        printe('Me voy a apagar')
+                        logwriter("Recibi pedido de apagado", id=8)
+                        os.system("sudo shutdown now")
+                    else:
+                        bt_connection(prints_enable)
+
+
+                if ((time.perf_counter() - last_time_rest > wake_time_watch) or is_hot.value):
+                    is_rest.value = True
+                    move(0, 0)
+                    time.sleep(1)
+                    is_stopped.value = True
+                    last_time_on = time.perf_counter()
+                    printe("Voy a descansar")
+                    flash_enable.off()
+                    logwriter("Empece descanso", id=10)
+                    break
+                if night_mode_enable:
+                    if not night_mode_setted:
+                        if not night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start and datetime.time(datetime.now()) < night_mode_end):
+                            printe("Night Mode enabled")
+                            night_mode_setted = True
+                            wake_time_watch = night_mode_wake_time
+                            rest_time_watch = night_mode_rest_time
+                            vel = Velocity(night_mode_vel_array[0], night_mode_vel_array[1])
+                        elif night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start or datetime.time(datetime.now()) < night_mode_end):
+                            printe("Night Mode enabled")
+                            night_mode_setted = True
+                            wake_time_watch = night_mode_wake_time
+                            rest_time_watch = night_mode_rest_time
+                            vel = Velocity(night_mode_vel_array[0], night_mode_vel_array[1])
+                    else:
+                        if not night_mode_reversed and (datetime.time(datetime.now()) < night_mode_start or datetime.time(datetime.now()) > night_mode_end):
+                            printe("Night Mode disabled")
+                            night_mode_setted = False
+                            wake_time_watch = wake_time.value
+                            rest_time_watch = rest_time.value
+                            vel = Velocity(vel_array[0], vel_array[1])
+                        elif night_mode_reversed and (datetime.time(datetime.now()) < night_mode_start and datetime.time(datetime.now()) > night_mode_end):
+                            printe("Night Mode disabled")
+                            night_mode_setted = False
+                            wake_time_watch = wake_time.value
+                            rest_time_watch = rest_time.value
+                            vel = Velocity(vel_array[0], vel_array[1])
+                if time.perf_counter() - timer < timer_boring.value:
+                    if clearance_stuck_flag.value == True:
+                        printe("Estoy trabado por clearance", no_repeat = True)
+                        printe('Voy a frenar')
+                        move(0, 0)
+                        time.sleep(1)
+                        move_status_before_destuck = move_status
+                        if move_status in ['R','L','F']:
+                            printe('Estaba yendo hacia delante, voy a retrocedecer a baja velocidad')
+                            move(vel.backward.stuck, 0, 5)
+                        else:
+                            printe('Estaba yendo hacia delante, voy a avanzar a baja velocidad')
+                            move(vel.forward.stuck, 0, 5)
+                        if move_status_before_destuck == 'R':
+                            printe('Antes de trabarme estaba yendo hacia la derecha, voy a girar a la izquierda')
+                            move_sequence('IZQ_STUCK', time_turn.value)
+                        elif move_status_before_destuck == 'L':
+                            printe('Antes de trabarme estaba yendo hacia la izquierda, voy a girar a la derecha')
+                            move_sequence('DER_STUCK', time_turn.value)
+                        else:
+                            printe('Antes de trabarme esta yendo recto, voy a elegir aleatorio')
+                            move_sequence(random.choice(['DER_STUCK','IZQ_STUCK']), time_turn.value)
+                            if clearance_stuck_flag.value == True:
+                                printe('Sigo trabado, voy a reintentar')
+                    elif imu_stuck_flag.value == True:
+                        printe("Estoy trabado por IMU", no_repeat = True)
+                        printe('Voy a frenar')
+                        move(0, 0)
+                        time.sleep(1)
+                        move_status_before_destuck = move_status
+                        if move_status in ['R','L','F']:
+                            printe('Estaba yendo hacia delante, voy a retrocedecer a baja velocidad')
+                            move(vel.backward.stuck, 0, 5)
+                        else:
+                            printe('Estaba yendo hacia delante, voy a avanzar a baja velocidad')
+                            move(vel.forward.stuck, 0, 5)
+                        if move_status_before_destuck == 'R':
+                            printe('Antes de trabarme estaba yendo hacia la derecha, voy a girar a la izquierda')
+                            move_sequence('IZQ_STUCK', time_turn.value)
+                        elif move_status_before_destuck == 'L':
+                            printe('Antes de trabarme estaba yendo hacia la izquierda, voy a girar a la derecha')
+                            move_sequence('DER_STUCK', time_turn.value)
+                        else:
+                            printe('Antes de trabarme esta yendo recto, voy a elegir aleatorio')
+                            move_sequence(random.choice(['DER_STUCK','IZQ_STUCK']), time_turn.value)
+                            if imu_stuck_flag.value == True:
+                                printe('Sigo trabado, voy a reintentar')
+                    elif cam_stuck_flag.value == True:
+                        printe("Estoy trabado por camara", no_repeat = True)
+                        printe('Voy a frenar')
+                        move(0, 0)
+                        time.sleep(1)
+                        move_status_before_destuck = move_status
+                        printe('move_status', move_status)
+                        if move_status in ['R','L','F']:
+                            printe('Estaba yendo hacia delante, voy a retrocedecer a baja velocidad')
+                            move(vel.backward.stuck, 0, 5)
+                        else:
+                            printe('Estaba yendo hacia atras, voy a avanzar a baja velocidad')
+                            move(vel.forward.stuck, 0, 5)
+                        if move_status_before_destuck == 'R':
+                            printe('Antes de trabarme estaba yendo hacia la derecha, voy a girar a la izquierda')
+                            move_sequence('IZQ_STUCK', time_turn.value)
+                        elif move_status_before_destuck == 'L':
+                            printe('Antes de trabarme estaba yendo hacia la izquierda, voy a girar a la derecha')
+                            move_sequence('DER_STUCK', time_turn.value)
+                        else:
+                            printe('Antes de trabarme esta yendo recto, voy a elegir aleatorio')
+                            move_sequence(random.choice(['DER_STUCK','IZQ_STUCK']), time_turn.value)
+                            if cam_stuck_flag.value == True:
+                                printe('Sigo trabado, voy a reintentar')
+
+
+                    while taking_pics.value == True:
+                        move(0, 0)
+                        time.sleep(1)
+                        is_stopped.value = True
+                        printe("Stop esperando foto")
+                    is_stopped.value = False
+                    if button_left.is_pressed and not button_right.is_pressed: # Choque izquierdo
+                        if no_crash:
+                            no_crash = False
+                            logwriter("Volvi a detectar una colision, pasaron {} segundos", id=25)
+                        crash("IZQ")
+                    elif button_right.is_pressed and not button_left.is_pressed: #Choque derecho
+                        if no_crash:
+                            no_crash = False
+                            logwriter("Volvi a detectar una colision, pasaron {} segundos", id=25)
+                        crash("DER")
+                    elif (button_left.is_pressed and button_right.is_pressed): #Choque frontal
+                        if no_crash:
+                            no_crash = False
+                            logwriter("Volvi a detectar una colision, pasaron {} segundos", id=25)
+                        crash('FRO')
+
+                else:
+                    if not no_crash:
+                        no_crash = True
+                        logwriter("Pasaron {} segundos sin detectar colisiones, atencion", id=24)
+                    printe('No detecte ningun crash, voy marcha atras por las dudas')
+                    timer = time.perf_counter()
+                    move_sequence(random.choice(['DER', 'IZQ']), time_turn.value)      
+        time.sleep(1)
 
 def main():
 
@@ -1759,7 +1831,6 @@ def main():
     cam_req = multiprocessing.Value('b', False)
     camera_rate = multiprocessing.Value('i', 0)
     auto_req = multiprocessing.Value('b', False)
-    bt_config_stop = multiprocessing.Value('b', False)
     flash_req = multiprocessing.Value('b', False)
     timer_boring = multiprocessing.Value('i', 0)
     imu_req = multiprocessing.Value('b', False)
@@ -1846,8 +1917,8 @@ def main():
     command_handler = multiprocessing.Process(
         target=command, args=(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_flag, flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, rest_time, wake_time, time_backwards, timer_boring, crash_timeout, x_com, z_com,))
     # Set up our camera
-    savior_handler = multiprocessing.Process(target=savior, args=(prints_enable, bt_config_stop,))
-    auto_handler = multiprocessing.Process(target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, is_hot, rest_time, wake_time, time_backwards, crash_timeout, last_touch_window_timeout, flash_req, vel_array, time_turn, x_com, z_com, is_rest, night_mode_enable, night_mode_start, night_mode_end, night_mode_rest_time, night_mode_wake_time, night_mode_vel_array, night_mode_reversed, bt_config_stop,))
+    savior_handler = multiprocessing.Process(target=savior, args=(prints_enable,))
+    auto_handler = multiprocessing.Process(target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, is_hot, rest_time, wake_time, time_backwards, crash_timeout, last_touch_window_timeout, flash_req, vel_array, time_turn, x_com, z_com, is_rest, night_mode_enable, night_mode_start, night_mode_end, night_mode_rest_time, night_mode_wake_time, night_mode_vel_array, night_mode_reversed, prints_enable,))
     pitch_handler = multiprocessing.Process(target=pitch, args=(lst, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id,))
     # Add 'em to our list
     PROCESSES.append(savior_handler)
