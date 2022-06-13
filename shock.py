@@ -1197,18 +1197,30 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
                     errorwriter(ex, "El IMU no pudo tomar lectura")
                     printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, "Ups! El IMU no pudo tomar lectura"+ bcolors.ENDC)
 def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, is_hot, rest_time, wake_time, time_backwards, crash_timeout, last_touch_window_timeout, flash_req, vel_array, time_turn, x_com, z_com, is_rest, night_mode_enable, night_mode_start, night_mode_end, night_mode_rest_time, night_mode_wake_time, night_mode_vel_array, night_mode_reversed, prints_enable ):
-    motor_1_pwm = PWMOutputDevice("BOARD35")
-    motor_2_pwm = PWMOutputDevice("BOARD33")
-    motor_1_dir = DigitalOutputDevice("BOARD31")
-    motor_2_dir = DigitalOutputDevice("BOARD29")
-    button_left = Button("BOARD40")
-    button_middle = Button("BOARD38")
-    button_right = Button("BOARD36")
-    shutdown_button = Button('BOARD5')
-    motor_1_pwm.frequency = 20000
-    motor_2_pwm.frequency = 20000
-    motor_1_pwm.off()
-    motor_2_pwm.off()
+    motor_stby = DigitalOutputDevice("BOARD40")
+    motor_rf_pwm = PWMOutputDevice("BOARD35")  #1 ES EL MOTOR DERECHO
+    motor_rb_pwm = PWMOutputDevice("BOARD33")  #1 ES EL MOTOR DERECHO
+    motor_lf_pwm = PWMOutputDevice("BOARD32")  #1 ES EL MOTOR DERECHO
+    motor_lb_pwm = PWMOutputDevice("BOARD12")
+    motor_rf_cw_dir = DigitalOutputDevice("BOARD37")   #AIN1
+    motor_rf_ccw_dir = DigitalOutputDevice("BOARD31")  #AIN2
+    motor_rb_cw_dir = DigitalOutputDevice("BOARD38")   #BIN1
+    motor_rb_ccw_dir = DigitalOutputDevice("BOARD36")  #BIN2
+    motor_lf_cw_dir = DigitalOutputDevice("BOARD29")
+    motor_lf_ccw_dir = DigitalOutputDevice("BOARD22")
+    motor_lb_cw_dir = DigitalOutputDevice("BOARD18")
+    motor_lb_ccw_dir = DigitalOutputDevice("BOARD16")
+    bumper_l = Button("BOARD19")
+    bumper_r = Button("BOARD21")
+    shutdown_button = Button("BOARD15")
+    motor_rf_pwm.frequency = 1000
+    motor_rb_pwm.frequency = 1000
+    motor_lf_pwm.frequency = 1000
+    motor_lb_pwm.frequency = 1000
+    motor_rf_pwm.off()
+    motor_rb_pwm.off()
+    motor_lf_pwm.off()
+    motor_lb_pwm.off()
     printe("AUTO INIT")
     was_auto = False
     first_auto = True
@@ -1471,6 +1483,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
 
     def move(x = 0, z = 0, t = 0):
         global move_status
+        motor_stby.off()
         if x < 0 and z == 0:
             move_status = 'B'
         elif x > 0 and z == 0:
@@ -1505,7 +1518,6 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                 else:
                     pwm2 = vel_array[3]
                     pwm1 = vel_array[2]
-
         if (pwm1 > 0):
             motor_1_dir.off()
         elif(pwm1 < 0):
@@ -1528,7 +1540,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             rest = t - number_check_rate * check_rate
             counter_check_rate = 0
             if x > 0:
-                while (counter_check_rate <= number_check_rate and auto_req.value == True and not taking_pics.value and not (button_left.is_pressed or button_right.is_pressed or button_middle.is_pressed)):
+                while (counter_check_rate <= number_check_rate and auto_req.value == True and not taking_pics.value and not (bumper_l.is_pressed or bumper_r.is_pressed or button_middle.is_pressed)):
                     time.sleep(check_rate)
                     counter_check_rate += 1
             else:
@@ -1555,16 +1567,16 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             printe('Hay que esperar {} segundos para confirmar el choque'.format(crash_timeout.value))
             while (time.perf_counter() - crash_timer) < crash_timeout.value:
                 time.sleep(0.25)
-                if crash_side == "FRO" and button_left.is_pressed and button_right.is_pressed:
+                if crash_side == "FRO" and bumper_l.is_pressed and bumper_r.is_pressed:
                     crash_confirmed = True
                     if last_crash != '' and last_crash != 'FRO':
                         crash_side = last_crash
                     else:
                         crash_side = random.choice(['IZQ', 'DER'])
-                elif (crash_side == "IZQ" or crash_side == "FRO") and button_left.is_pressed:
+                elif (crash_side == "IZQ" or crash_side == "FRO") and bumper_l.is_pressed:
                     crash_confirmed = True
                     crash_side = 'IZQ'
-                elif (crash_side == "DER" or crash_side == "FRO") and button_right.is_pressed:
+                elif (crash_side == "DER" or crash_side == "FRO") and bumper_r.is_pressed:
                     crash_confirmed = True
                     crash_side = 'DER'
                 else:
@@ -1803,17 +1815,17 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                         is_stopped.value = True
                         printe("Stop esperando foto")
                     is_stopped.value = False
-                    if button_left.is_pressed and not button_right.is_pressed: # Choque izquierdo
+                    if bumper_l.is_pressed and not bumper_r.is_pressed: # Choque izquierdo
                         if no_crash:
                             no_crash = False
                             logwriter("Volvi a detectar una colision, pasaron {} segundos", id=25)
                         crash("IZQ")
-                    elif button_right.is_pressed and not button_left.is_pressed: #Choque derecho
+                    elif bumper_r.is_pressed and not bumper_l.is_pressed: #Choque derecho
                         if no_crash:
                             no_crash = False
                             logwriter("Volvi a detectar una colision, pasaron {} segundos", id=25)
                         crash("DER")
-                    elif (button_left.is_pressed and button_right.is_pressed): #Choque frontal
+                    elif (bumper_l.is_pressed and bumper_r.is_pressed): #Choque frontal
                         if no_crash:
                             no_crash = False
                             logwriter("Volvi a detectar una colision, pasaron {} segundos", id=25)
