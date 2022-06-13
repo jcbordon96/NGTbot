@@ -1034,7 +1034,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
             # errorwriter("Camara", "Fallo timeout")
             # printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
             
-def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stuck_flag):
+def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stuck_flag, imu_stuck_flag):
     # Vamos a obtener las mediciones de clearance y del imu
     imu_debug = True
     #region Constantes de address del IMU
@@ -1064,6 +1064,7 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
     time_to_sink = 3
     sink_slope = (sink_tof_clearance-max_tof_clearance)/time_to_sink
     #endregion
+    imu_array_list = []
     #region Funciones relacionadas con el IMU
     def MPU_Init():
         bus.write_byte_data(Device_Address, SMPLRT_DIV, 7)# write to sample rate register
@@ -1089,6 +1090,7 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
         MPU_Init()
         printe("IMU INIT")
         imu_ok = True
+        last_imu_measure = time.perf_counter()
     except Exception as ex:
         errorwriter(ex, "Error al iniciar el IMU")
         printe("El IMU no pudo iniciar")
@@ -1134,27 +1136,30 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
                 if clearance.value > max_tof_clearance:
                     printe("Aumente el clearance, me destrabe")
                     clearance_stuck_flag.value = False
-
-            if imu_req.value == True and imu_ok == True:
+            if imu_ok and imu_debug and not is_rest.value:
                 try:
+                    acc_x = read_raw_data(ACCEL_XOUT_H)
                     acc_y = read_raw_data(ACCEL_YOUT_H)
                     acc_z = read_raw_data(ACCEL_ZOUT_H)
                     gyro_x = read_raw_data(GYRO_XOUT_H)
                     gyro_y = read_raw_data(GYRO_YOUT_H)
                     gyro_z = read_raw_data(GYRO_ZOUT_H)
-                    acc_x = read_raw_data(ACCEL_XOUT_H)
-                    
-                    
-                    
-                    if imu_debug and not is_rest.value:
-                        Ax = acc_x/16384.0
-                        Ay = acc_y/16384.0
-                        Az = acc_z/16384.0
-                        Gx = gyro_x/131.0
-                        Gy = gyro_y/131.0
-                        Gz = gyro_z/131.0
-                        imu_array = [Ax, Ay, Az, Gx, Gy, Gz]
-                        imu_array_list = []
+                    imu_array = [datetime.now().strftime("%H:%M:%S"), acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z]
+                    with open(datetime.now().strftime("%Y%m%d"), 'a', newline='') as imu_logfile:
+                        wr = csv.writer(imu_logfile)
+                        wr.writerow(imu_array)
+                except:
+                    pass
+            elif not imu_debug and imu_req.value and time.perf_counter() - last_imu_measure > 1:
+                last_imu_measure = time.perf_counter()
+                try:
+                    acc_y = read_raw_data(ACCEL_YOUT_H)
+                    acc_z = read_raw_data(ACCEL_ZOUT_H)
+
+                    Ay = acc_y/16384.0
+                    Az = acc_z/16384.0
+
+                        
                     pitch = math.atan2(Ay,  Az) * 57.3
 
                     if pitch > pitch_flag.value:
