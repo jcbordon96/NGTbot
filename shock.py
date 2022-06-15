@@ -1085,7 +1085,7 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
     #endregion
     #region Inicio IMU
     try:
-        bus = smbus.SMBus(5) 	
+        bus = smbus.SMBus(4) 	
         Device_Address = 0x68   
         MPU_Init()
         printe("IMU INIT")
@@ -1519,22 +1519,59 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                     pwm2 = vel_array[3]
                     pwm1 = vel_array[2]
         if (pwm1 > 0):
-            motor_1_dir.off()
+            motor_rf_cw_dir.off()
+            motor_rb_cw_dir.off()
+            if not motor_rf_cw_dir.is_active:
+                motor_rf_ccw_dir.on()
+            if not motor_rb_cw_dir.is_active:
+                motor_rb_ccw_dir.on()
         elif(pwm1 < 0):
-            motor_1_dir.on()
+            motor_rf_ccw_dir.off()
+            motor_rb_ccw_dir.off()
+            if not motor_rf_ccw_dir.is_active:
+                motor_rf_cw_dir.on()
+            if not motor_rb_ccw_dir.is_active:
+                motor_rb_cw_dir.on()
         else:
-            motor_1_pwm.off()
-        if (pwm2 < 0):
-            motor_2_dir.off()
-        elif(pwm2 > 0):
-            motor_2_dir.on()
+            motor_rf_cw_dir.off()
+            motor_rf_ccw_dir.off()
+            motor_rf_pwm.off()
+            motor_rb_cw_dir.off()
+            motor_rb_ccw_dir.off()
+            motor_rb_pwm.off()
+        if (pwm2 > 0):
+            motor_lf_ccw_dir.off()
+            motor_lb_ccw_dir.off()
+            if not motor_lf_ccw_dir.is_active:
+                motor_lf_cw_dir.on()
+            if not motor_lb_ccw_dir.is_active:
+                motor_lb_cw_dir.on()
+        elif(pwm2 < 0):
+            motor_lf_cw_dir.off()
+            motor_lb_cw_dir.off()
+            if not motor_lf_cw_dir.is_active:
+                motor_lf_ccw_dir.on()
+            if not motor_lb_cw_dir.is_active:
+                motor_lb_ccw_dir.on()
         else:
-            motor_2_pwm.off()
-        if motor_1_pwm.value != abs(pwm1):
-            # printe(pwm1,pwm2)
-            motor_1_pwm.value = abs(pwm1)
-        if motor_2_pwm.value != abs(pwm2):
-            motor_2_pwm.value = abs(pwm2)
+            motor_lf_cw_dir.off()
+            motor_lf_ccw_dir.off()
+            motor_lf_pwm.off()
+            motor_lb_cw_dir.off()
+            motor_lb_ccw_dir.off()
+            motor_lb_pwm.off()
+        if motor_rf_pwm.value != abs(pwm1):
+            motor_rf_pwm.value = abs(pwm1)
+        if motor_rb_pwm.value != abs(pwm1):
+            motor_rb_pwm.value = abs(pwm1)
+        if motor_lf_pwm.value != abs(pwm2):
+            motor_lf_pwm.value = abs(pwm2)
+        if motor_lb_pwm.value != abs(pwm2):
+            motor_lb_pwm.value = abs(pwm2)
+        if motor_rf_cw_dir.is_active != motor_rf_ccw_dir.is_active and motor_rb_cw_dir.is_active != motor_rb_ccw_dir.is_active and motor_lf_cw_dir.is_active != motor_lf_ccw_dir.is_active and motor_lb_cw_dir.is_active != motor_lb_ccw_dir.is_active:
+            motor_stby.on()
+        else:
+            printe("ERROR, va a quemarse el driver porque hay dos pines de direccion HIGH")
         if t > 0:
             number_check_rate = int(t / check_rate)
             rest = t - number_check_rate * check_rate
@@ -1549,8 +1586,18 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                     counter_check_rate += 1
             if counter_check_rate == number_check_rate and auto_req.value == True:
                     time.sleep(rest)
-            motor_1_pwm.off()
-            motor_2_pwm.off()
+            motor_rf_pwm.off()
+            motor_rb_pwm.off()
+            motor_lf_pwm.off()
+            motor_lb_pwm.off()
+            motor_rf_cw_dir.off()
+            motor_rf_ccw_dir.off()
+            motor_rb_cw_dir.off()
+            motor_rb_ccw_dir.off()
+            motor_lf_cw_dir.off()
+            motor_lf_ccw_dir.off()
+            motor_lb_cw_dir.off()
+            motor_lb_ccw_dir.off()
     def crash(crash_side):
         global crash_counter
         global timer
