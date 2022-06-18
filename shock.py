@@ -305,12 +305,13 @@ def command(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_f
     asyncio.get_event_loop().run_until_complete(start_server2)
     asyncio.get_event_loop().run_forever()
 
-def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id):
+def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility_in, pic_sensibility_out, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id):
     #region Iniciar Variables
     camera = PiCamera()
     camera.resolution = (640, 480)
     camera.framerate = 32
     raw_capture = PiRGBArray(camera, size=(640, 480))
+    pic_sensibility = pic_sensibility_in.value
     is_stuck_confirm = False
     last_pic = 0
     was_taking = False
@@ -481,26 +482,28 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
     
     #endregion
     #region Inicio de sensores
-    if mlx90614_detected:
-        try:
-            mlxbus = smbus.SMBus(4)
-            mlx = MLX90614(mlxbus, address=mlx90614_address)
-            printe("Inicio MLX90614")
-            mlx90614_connected = True
-        except Exception as ex:
-            errorwriter(ex, "Error al iniciar MLX90614")
-            printe("Error al iniciar MLX90614")
-            mlx90614_connected = False
+
     if bme_detected:
         try:
-            calibration_params = bme280.load_calibration_params(mlxbus,bme_address)
-            bme = bme280.sample(mlxbus, bme_address, calibration_params)
-            printe("Inicio BME")
+            bmebus = smbus.SMBus(4)
+            calibration_params = bme280.load_calibration_params(bmebus,bme_address)
+            bme = bme280.sample(bmebus, bme_address, calibration_params)
+            printe(bcolors.OKGREEN + "BME iniciado" + bcolors.ENDC)
             bme_connected = True
         except Exception as ex:
             errorwriter(ex, "Error al iniciar BME")
             printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, "Error al iniciar el BME" + bcolors.ENDC)
             bme_connected = False
+    if mlx90614_detected:
+        try:
+            mlxbus = smbus2.SMBus(4)
+            mlx = MLX90614(mlxbus, address=mlx90614_address)
+            printe(bcolors.OKGREEN + "MLX90614 iniciado" + bcolors.ENDC)
+            mlx90614_connected = True
+        except Exception as ex:
+            errorwriter(ex, "Error al iniciar MLX90614")
+            printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, "Error al iniciar el MLX90614" + bcolors.ENDC)
+            mlx90614_connected = False
     for i in range(10):
         try:
             dhtDevice = adafruit_dht.DHT22(board.D4, use_pulseio=False)
@@ -581,11 +584,12 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                         img1 = to_grayscale(f.astype(float))
                         n_m = compare_images(img0, img1)
                         if not math.isnan(n_m):
-                            if ((n_m/img0.size) < pic_sensibility.value):
+                            if ((n_m/img0.size) < pic_sensibility):
                             # if False:
                                 stuck_count += 1
                                 if log_cam_stuck:
-                                    printe("Me trabe, camara")
+                                    pic_sensibility = pic_sensibility_out.value
+                                    printe("Me trabe, camara. Valor:", n_m/img0.size)
                                     logwriter("Me trabe, camara", id=16)
                                     log_cam_stuck = False
                                     start_cam_stuck = time.perf_counter()
@@ -600,6 +604,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                                     json.dump(json_stuck_line_cam, outfile)
                             else:
                                 if not log_cam_stuck:
+                                    pic_sensibility = pic_sensibility_in.value
                                     elapsed_cam_stuck = (time.perf_counter() - start_cam_stuck)/60.0
                                     total_elapsed_cam_stuck = last_total_elapsed_cam_stuck + elapsed_cam_stuck
                                     json_stuck_line_cam = {"Cam": total_elapsed_cam_stuck}
@@ -607,7 +612,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                                         json.dump(json_stuck_line_cam, outfile)
                                     with open('stuck_count_backup_cam.json', 'w') as outfile:
                                         json.dump(json_stuck_line_cam, outfile)
-                                    printe("Me destrabe, camara")
+                                    printe("Me destrabe, camara. Valor:", n_m/img0.size)
                                     logwriter("Me destrabe, camara, minutos:", minutos=round(elapsed_cam_stuck,2), id=17)
                                     log_cam_stuck = True
                                 cam_stuck_flag.value = False
@@ -622,7 +627,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                                 json.dump(json_stuck_line_cam, outfile)
                             with open('stuck_count_cam_backup.json', 'w') as outfile:
                                 json.dump(json_stuck_line_cam, outfile)
-                            printe("Me destrabe, camara")
+                            printe("Me destrabe, camara. Valor:",n_m/img0.size)
                             logwriter("Me destrabe, camara, minutos:", minutos=round(elapsed_cam_stuck,2), id=17)
                             log_cam_stuck = True
                         cam_stuck_flag.value = False
@@ -824,18 +829,22 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                     
                     if mlx90614_connected:
                         try:
-                            t_mlx_surface = round(mlx.get_obj_temp(),2)
-                            t_mlx_amb = round(mlx.get_amb_temp(),2)
-                            if t_mlx_surface < 80:
-                                t_mlx_surface_list.append(t_mlx_surface)
-                            if t_mlx_amb < 80:
-                                t_mlx_amb_list.append(t_mlx_amb)
+                            while True:
+                                t_mlx_surface = round(mlx.get_obj_temp(),2)
+                                t_mlx_amb = round(mlx.get_amb_temp(),2)
+                                printe(t_mlx_surface)
+                                time.sleep(0.1)
+                                if t_mlx_surface < 80:
+                                    t_mlx_surface_list.append(t_mlx_surface)
+                                    break
+                                if t_mlx_amb < 80:
+                                    t_mlx_amb_list.append(t_mlx_amb)
                         except Exception as ex:
                             errorwriter(ex, "No se pudo tomar mediciones MLX90614")
                             printe("Algo salio mal con el medidor MLX90614")
                             printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
                     if bme_connected:
-                        bme = bme280.sample(mlxbus, bme_address, calibration_params)
+                        bme = bme280.sample(bmebus, bme_address, calibration_params)
                         t_bme = round(bme.temperature,2)
                         p_bme = round(bme.pressure,2)
                         h_bme = round(bme.humidity,2)
@@ -1003,11 +1012,11 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                     with open('send_queue/logs/logs_to_send_backup.json', 'w') as outfile:
                             json.dump(day_info_list, outfile)
                     if not is_rest.value:
-                        printe("Estado")
+                        printe("Estado: BME: T:{}/H:{}/P:{}  DHT: T:{}/H:{}  MLX90614: T:{}".format(round(t_bme_mean,2), round(h_bme_mean,2), round(p_bme_mean,2), round(t_dht_mean,2), round(h_dht_mean,2), round(t_mlx_surface_mean,2)))
                         logwriter("Estado", id=14, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=t_bme_mean,
                             t_dht=t_dht_mean, t_laser_surf= t_mlx_surface_mean, t_laser_amb=t_mlx_amb_mean, h_dht=h_dht_mean, h_bme=h_bme_mean, p_bme=p_bme_mean, thi=thi, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = round(t_total,2), t_active = round(t_active,2), t_rest = round(t_rest,2), t_stuck = round(t_stuck,2))
                     else:
-                        printe("Estado descansando")
+                        printe("Estado descansando : BME: T:{}/H:{}/P:{}  DHT: T:{}/H:{}  MLX90614: T:{}".format(round(t_bme_mean,2), round(h_bme_mean,2), round(p_bme_mean,2), round(t_dht_mean,2), round(h_dht_mean,2), round(t_mlx_surface_mean,2)))
                         logwriter("Estado, descansando", id=15, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=t_bme_mean,
                             t_dht=t_dht_mean, t_laser_surf= t_mlx_surface_mean, t_laser_amb=t_mlx_amb_mean, h_dht=h_dht_mean, h_bme=h_bme_mean, p_bme=p_bme_mean, thi=thi, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = round(t_total,2), t_active = round(t_active,2), t_rest = round(t_rest,2), t_stuck = round(t_stuck,2))
         except Exception as ex:
@@ -1742,6 +1751,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                 if move_status != 'F':
                     move(vel.forward.normal)
                 if shutdown_button.is_pressed:
+                    printe("Boton apretado")
                     move(0, 0)
                     time.sleep(3)
                     if shutdown_button.is_pressed:
@@ -1799,10 +1809,10 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                         move_status_before_destuck = move_status
                         if move_status in ['R','L','F']:
                             printe('Estaba yendo hacia delante, voy a retrocedecer a baja velocidad')
-                            move(vel.backward.stuck, 0, 5)
+                            move(vel.backward.stuck, 0, time_backwards.value)
                         else:
                             printe('Estaba yendo hacia delante, voy a avanzar a baja velocidad')
-                            move(vel.forward.stuck, 0, 5)
+                            move(vel.forward.stuck, 0, time_backwards.value)
                         if move_status_before_destuck == 'R':
                             printe('Antes de trabarme estaba yendo hacia la derecha, voy a girar a la izquierda')
                             move_sequence('IZQ_STUCK', time_turn.value)
@@ -1822,10 +1832,10 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                         move_status_before_destuck = move_status
                         if move_status in ['R','L','F']:
                             printe('Estaba yendo hacia delante, voy a retrocedecer a baja velocidad')
-                            move(vel.backward.stuck, 0, 5)
+                            move(vel.backward.stuck, 0, time_backwards.value)
                         else:
                             printe('Estaba yendo hacia delante, voy a avanzar a baja velocidad')
-                            move(vel.forward.stuck, 0, 5)
+                            move(vel.forward.stuck, 0, time_backwards.value)
                         if move_status_before_destuck == 'R':
                             printe('Antes de trabarme estaba yendo hacia la derecha, voy a girar a la izquierda')
                             move_sequence('IZQ_STUCK', time_turn.value)
@@ -1846,10 +1856,10 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                         printe('move_status', move_status)
                         if move_status in ['R','L','F']:
                             printe('Estaba yendo hacia delante, voy a retrocedecer a baja velocidad')
-                            move(vel.backward.stuck, 0, 5)
+                            move(vel.backward.stuck, 0, time_backwards.value)
                         else:
                             printe('Estaba yendo hacia atras, voy a avanzar a baja velocidad')
-                            move(vel.forward.stuck, 0, 5)
+                            move(vel.forward.stuck, 0, time_backwards.value)
                         if move_status_before_destuck == 'R':
                             printe('Antes de trabarme estaba yendo hacia la derecha, voy a girar a la izquierda')
                             move_sequence('IZQ_STUCK', time_turn.value)
@@ -1888,7 +1898,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                 else:
                     if not no_crash:
                         no_crash = True
-                        logwriter("Pasaron {} segundos sin detectar colisiones, atencion", id=24)
+                        logwriter("Pasaron {} segundos sin detectar colisiones, atencion".format(timer_boring.value), id=24)
                     printe('No detecte ningun crash, voy marcha atras por las dudas')
                     timer = time.perf_counter()
                     move_sequence(random.choice(['DER', 'IZQ']), time_turn.value)      
@@ -1927,7 +1937,8 @@ def main():
     time_backwards = multiprocessing.Value('d', 0)
     crash_timeout = multiprocessing.Value('d', 0)
     last_touch_window_timeout = multiprocessing.Value('i', 0)
-    pic_sensibility = multiprocessing.Value('d', 0)
+    pic_sensibility_in = multiprocessing.Value('d', 0)
+    pic_sensibility_out = multiprocessing.Value('d', 0)
     stucks_to_confirm = multiprocessing.Value('i', 0)
     stuck_window = multiprocessing.Value('d', 0)
     x_com = multiprocessing.Value('d', 0)
@@ -1954,7 +1965,8 @@ def main():
     crash_timeout_before = behavior["crash_timeout_before"]
     crash_timeout_after = behavior["crash_timeout_after"]
     last_touch_window_timeout.value = behavior["last_touch_window_timeout"]
-    pic_sensibility.value = behavior["pic_sensibility"]
+    pic_sensibility_in.value = behavior["pic_sensibility_in"]
+    pic_sensibility_out.value = behavior["pic_sensibility_out"]
     stucks_to_confirm.value = behavior['stucks_to_confirm']
     stuck_window.value = behavior['stuck_window']
     vel_array = [[behavior["vel_forward_stuck"], behavior["vel_forward_normal"]], [-behavior["vel_backward_stuck"], -behavior["vel_backward_normal"]], behavior["vel_turn_inner"], behavior["vel_turn_outter"]]
@@ -1990,7 +2002,7 @@ def main():
     # Set up our camera
     savior_handler = multiprocessing.Process(target=savior, args=(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stuck_flag, imu_stuck_flag,))
     auto_handler = multiprocessing.Process(target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, is_hot, rest_time, wake_time, time_backwards, crash_timeout, last_touch_window_timeout, flash_req, vel_array, time_turn, x_com, z_com, is_rest, night_mode_enable, night_mode_start, night_mode_end, night_mode_rest_time, night_mode_wake_time, night_mode_vel_array, night_mode_reversed, prints_enable,))
-    pitch_handler = multiprocessing.Process(target=pitch, args=(lst, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id,))
+    pitch_handler = multiprocessing.Process(target=pitch, args=(lst, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility_in, pic_sensibility_out, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id,))
     # Add 'em to our list
     PROCESSES.append(savior_handler)
     if campaign_is_active:
