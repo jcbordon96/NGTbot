@@ -29,7 +29,6 @@ import board
 import adafruit_dht
 from mlx90614 import MLX90614
 import psutil
-from bmp280 import BMP280
 import bme280
 import requests
 import subprocess
@@ -37,6 +36,7 @@ from zipfile import ZipFile
 import VL53L0X
 import sys
 from bluetooth import *
+import adafruit_extended_bus
 #endregion
 
 
@@ -88,7 +88,7 @@ def errorwriter(error, comentario = ""): #Funcion que escribe logs de errores
     with open("log/error/{}.log".format(error_date),'a', newline='') as logerror:
         logerror.write(errlog)
 # Funcion que escribe los logs
-def logwriter(event, id,  minutos =0, t_cpu=0, t_clock=0, t_dht=0, t_bme=0, t_bmp=0, t_laser_surf = 0, t_laser_amb = 0, h_dht=0, h_bme=0, p_bme=0, p_bmp=0, thi = 0, score_temp_amb_rt = 0, score_temp_bed_rt = 0, score_hum_rt = 0, score_thi_rt = 0, score_general_rt = 0, score_temp_amb_prom = 0, score_temp_bed_prom = 0, score_hum_prom = 0, score_thi_prom = 0, score_general_prom = 0, t_total= 0, t_active = 0, t_rest = 0, t_stuck = 0, watch_dog=False, last_date=-1, last_hour=-1, last_name=-1):
+def logwriter(event, id,  minutos =0, t_cpu=0, t_clock=0, t_dht=0, t_bme=0, t_laser_surf = 0, t_laser_amb = 0, h_dht=0, h_bme=0, p_bme=0, thi = 0, score_temp_amb_rt = 0, score_temp_bed_rt = 0, score_hum_rt = 0, score_thi_rt = 0, score_general_rt = 0, score_temp_amb_prom = 0, score_temp_bed_prom = 0, score_hum_prom = 0, score_thi_prom = 0, score_general_prom = 0, t_total= 0, t_active = 0, t_rest = 0, t_stuck = 0, watch_dog=False, last_date=-1, last_hour=-1, last_name=-1):
     nowlogdate = datetime.now()
     if watch_dog:
         logdate = last_date
@@ -105,7 +105,7 @@ def logwriter(event, id,  minutos =0, t_cpu=0, t_clock=0, t_dht=0, t_bme=0, t_bm
     if not os.path.exists(stringdatelog):
         printe("No existe el logfile diario")
         header = ["#", "Fecha", "Hora", "Evento", "Minutos", "CPU", "RAM" ,"T. CPU",
-                  "T. Clock", "T. DHT", "T. BME", "T. BMP", 'T. Ambiente Laser', "T. Laser", "H. DHT", "H. BME", "P. BME", "P. BMP", "THI", "Score Temp. Amb. RT", "Score Temp. Cama RT", "Score Hum. RT", "Score THI RT", "Score General RT", "Score Temp. Amb. PROM", "Score Temp. Cama PROM", "Score Hum. PROM", "Score THI PROM", "Score General PROM", "Tiempo Total", "Tiempo Activo", "Tiempo Descansando", "Tiempo Trabado", "ID"]
+                  "T. Clock", "T. DHT", "T. BME", 'T. Ambiente Laser', "T. Laser", "H. DHT", "H. BME", "P. BME", "THI", "Score Temp. Amb. RT", "Score Temp. Cama RT", "Score Hum. RT", "Score THI RT", "Score General RT", "Score Temp. Amb. PROM", "Score Temp. Cama PROM", "Score Hum. PROM", "Score THI PROM", "Score General PROM", "Tiempo Total", "Tiempo Activo", "Tiempo Descansando", "Tiempo Trabado", "ID"]
         with open(stringdatelog, 'w') as logfile:
             wr = csv.writer(logfile)
             wr.writerow(header)
@@ -113,24 +113,24 @@ def logwriter(event, id,  minutos =0, t_cpu=0, t_clock=0, t_dht=0, t_bme=0, t_bm
         wr = csv.writer(logfile)
         psutil.cpu_percent(percpu = True)
         wr.writerow(["", logdate, loghour, event, minutos,str(os.getloadavg()[0]), str(psutil.virtual_memory().percent), t_cpu,
-                    t_clock, t_dht, t_bme, t_bmp, t_laser_amb, t_laser_surf, h_dht, h_bme, p_bme, p_bmp, thi, score_temp_amb_rt, score_temp_bed_rt, score_hum_rt, score_thi_rt, score_general_rt, score_temp_amb_prom, score_temp_bed_prom, score_hum_prom, score_thi_prom, score_general_prom, t_total, t_active, t_rest, t_stuck, id])
+                    t_clock, t_dht, t_bme, t_laser_amb, t_laser_surf, h_dht, h_bme, p_bme, thi, score_temp_amb_rt, score_temp_bed_rt, score_hum_rt, score_thi_rt, score_general_rt, score_temp_amb_prom, score_temp_bed_prom, score_hum_prom, score_thi_prom, score_general_prom, t_total, t_active, t_rest, t_stuck, id])
 
     if not os.path.exists(stringdatelogbackup):
         printe("No existe el logfile diario de backup")
         header = ["#", "Fecha", "Hora", "Evento", "Minutos", "CPU", "RAM" ,"T. CPU",
-                  "T. Clock", "T. DHT", "T. BME", "T. BMP", 'T. Ambiente Laser', "T. Laser", "H. DHT", "H. BME", "P. BME", "P. BMP", "THI", "Score Temp. Amb. RT", "Score Temp. Cama RT", "Score Hum. RT", "Score THI RT", "Score General RT", "Score Temp. Amb. PROM", "Score Temp. Cama PROM", "Score Hum. PROM", "Score THI PROM", "Score General PROM", "Tiempo Total", "Tiempo Activo", "Tiempo Descansando", "Tiempo Trabado", "ID"]
+                  "T. Clock", "T. DHT", "T. BME", 'T. Ambiente Laser', "T. Laser", "H. DHT", "H. BME", "P. BME", "THI", "Score Temp. Amb. RT", "Score Temp. Cama RT", "Score Hum. RT", "Score THI RT", "Score General RT", "Score Temp. Amb. PROM", "Score Temp. Cama PROM", "Score Hum. PROM", "Score THI PROM", "Score General PROM", "Tiempo Total", "Tiempo Activo", "Tiempo Descansando", "Tiempo Trabado", "ID"]
         with open(stringdatelogbackup, 'w') as logfile:
             wr = csv.writer(logfile)
             wr.writerow(header)
     with open(stringdatelogbackup, 'a', newline='') as logfile:
         wr = csv.writer(logfile)
         wr.writerow(["", logdate, loghour, event, minutos,str(os.getloadavg()[0]), str(psutil.virtual_memory().percent), t_cpu,
-                    t_clock, t_dht, t_bme, t_bmp, t_laser_amb, t_laser_surf, h_dht, h_bme, p_bme, p_bmp, thi, score_temp_amb_rt, score_temp_bed_rt, score_hum_rt, score_thi_rt, score_general_rt, score_temp_amb_prom, score_temp_bed_prom, score_hum_prom, score_thi_prom, score_general_prom, t_total, t_active, t_rest, t_stuck, id])
+                    t_clock, t_dht, t_bme, t_laser_amb, t_laser_surf, h_dht, h_bme, p_bme, thi, score_temp_amb_rt, score_temp_bed_rt, score_hum_rt, score_thi_rt, score_general_rt, score_temp_amb_prom, score_temp_bed_prom, score_hum_prom, score_thi_prom, score_general_prom, t_total, t_active, t_rest, t_stuck, id])
 
     with open('log/log.csv', 'a', newline='') as logfile:
         wr = csv.writer(logfile)
         wr.writerow(["", logdate, loghour, event, minutos,str(os.getloadavg()[0]), str(psutil.virtual_memory().percent), t_cpu,
-                    t_clock, t_dht, t_bme, t_bmp, t_laser_amb, t_laser_surf, h_dht, h_bme, p_bme, p_bmp, thi, score_temp_amb_rt, score_temp_bed_rt, score_hum_rt, score_thi_rt, score_general_rt, score_temp_amb_prom, score_temp_bed_prom, score_hum_prom, score_thi_prom, score_general_prom, t_total, t_active, t_rest, t_stuck, id])
+                    t_clock, t_dht, t_bme, t_laser_amb, t_laser_surf, h_dht, h_bme, p_bme, thi, score_temp_amb_rt, score_temp_bed_rt, score_hum_rt, score_thi_rt, score_general_rt, score_temp_amb_prom, score_temp_bed_prom, score_hum_prom, score_thi_prom, score_general_prom, t_total, t_active, t_rest, t_stuck, id])
 # Clase que permite logear con color
 class bcolors:
     HEADER = '\033[95m'
@@ -307,30 +307,23 @@ def command(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_f
 
 def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id):
     #region Iniciar Variables
-    printe("CAMERA INIT")
     camera = PiCamera()
     camera.resolution = (640, 480)
     camera.framerate = 32
     raw_capture = PiRGBArray(camera, size=(640, 480))
     is_stuck_confirm = False
     last_pic = 0
-    last_imu = 0
     was_taking = False
     first_img = True
-    log_imu_stuck = True
     log_cam_stuck = True
     log_cam = False
     temp_timer = 0
     state_timer = time.perf_counter()
     is_hot.value = False
     start_cam_stuck = 0
-    start_imu_stuck = 0
     elapsed_cam_stuck = 0
-    elapsed_imu_stuck = 0
     total_elapsed_cam_stuck = 0
-    total_elapsed_imu_stuck = 0
     last_total_elapsed_cam_stuck = 0
-    last_total_elapsed_imu_stuck = 0
     confirm_elapsed_cam_stuck = 0
     confirm_total_elapsed_cam_stuck = 0
     confirm_last_total_elapsed_cam_stuck = 0
@@ -385,8 +378,8 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
     t_rest_sec = 0
     counter = 0
     dht_ok = False
-    imu_ok = False
-    dht_init = False
+    imu_connected = False
+    dht_connected = False
     dht_fail_counter = 0
     moving_img = False
     t_mlx_amb = 0 
@@ -396,8 +389,6 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
     t_bme_list = []
     h_bme_list = []
     p_bme_list = []
-    t_bmp_list = []
-    p_bmp_list = []
     t_dht_list = []
     h_dht_list = []
     t_mlx_amb_list = []
@@ -405,8 +396,6 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
     t_bme_mean = 0
     h_bme_mean = 0
     p_bme_mean = 0
-    t_bmp_mean = 0
-    p_bmp_mean = 0
     t_dht_mean = 0
     h_dht_mean = 0
     t_mlx_amb_mean = 0
@@ -419,14 +408,15 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
     url_img = "http://192.168.150.102:4000/loadImages"
     data_was_sended = False
     img_to_compress = []
-    imu_debug = False
+    mlx90614_connected = False
+    bme_connected = False
 
     #endregion
     #region Levanto mediciones que han quedado sin enviar antes de apagarse
     try:
         with open('send_queue/logs/logs_to_send.json') as send_file:
             day_info_list = json.load(send_file)
-        printe("La lista de logs tiene un largo de: ", len(day_info_list),"de tipo: ",type(day_info_list), "y es:", day_info_list)
+        printe("Quedaron {} logs para enviar".format(len(day_info_list)))
     except Exception as ex:
         printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, bcolors.ENDC)
         try:
@@ -450,14 +440,14 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
 
     #endregion
     #region Funciones
-    def mean_check(value_list): #Funcion que 
+    def mean_check(value_list, who_called =''): #Funcion que 
         try:
             if len(value_list) > 0:
                 return np.mean(value_list)
             else:
                 return 0
         except:
-            printe("Error mean check")
+            printe("Error mean check, quien llamo fue" , who_called)
             return 0
 
     def thi_calc(temperatura, humedad):
@@ -491,38 +481,39 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
     
     #endregion
     #region Inicio de sensores
-    
-    try:
-        mlxbus = smbus.SMBus(4)
-        mlx = MLX90614(mlxbus, address=0x5A)
-        printe("Laser inicio bien")
-        mlx_ok = True
-    except Exception as ex:
-        errorwriter(ex, "Error al iniciar medidor laser")
-        printe("Error al inciar el medidor laser")
-        mlx_ok = False
-    try:
-        bmp280 = BMP280(i2c_dev=mlxbus, i2c_addr = 0x77)
-        bmp280.setup(mode="forced")
-        bmp_ok = True
-    except Exception as ex:
-        errorwriter(ex, "Error al iniciar el BMP")
-        printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, "Error al iniciar el BMP" + bcolors.ENDC)
-        bmp_ok = False
-    try:
-        calibration_params = bme280.load_calibration_params(mlxbus,0x76)
-        bme = bme280.sample(mlxbus, 0x76, calibration_params)
-        bme_ok = True
-    except Exception as ex:
-        errorwriter(ex, "Error al iniciar el BME")
-        printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, "Error al iniciar el BME" + bcolors.ENDC)
-        bme_ok = False
-    try:
-        dhtDevice = adafruit_dht.DHT22(board.D26, use_pulseio=False)
-        dht_init = True
-    except Exception as ex:
-        errorwriter(ex, "Error al iniciar el DHT")
-        printe("Error al iniciar el DHT")
+    if mlx90614_detected:
+        try:
+            mlxbus = smbus.SMBus(4)
+            mlx = MLX90614(mlxbus, address=mlx90614_address)
+            printe("Inicio MLX90614")
+            mlx90614_connected = True
+        except Exception as ex:
+            errorwriter(ex, "Error al iniciar MLX90614")
+            printe("Error al iniciar MLX90614")
+            mlx90614_connected = False
+    if bme_detected:
+        try:
+            calibration_params = bme280.load_calibration_params(mlxbus,bme_address)
+            bme = bme280.sample(mlxbus, bme_address, calibration_params)
+            printe("Inicio BME")
+            bme_connected = True
+        except Exception as ex:
+            errorwriter(ex, "Error al iniciar BME")
+            printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, "Error al iniciar el BME" + bcolors.ENDC)
+            bme_connected = False
+    for i in range(10):
+        try:
+            dhtDevice = adafruit_dht.DHT22(board.D4, use_pulseio=False)
+            dhtDevice.temperature
+            dht_connected = True
+            printe("Inicio DHT en el intento: ", i+1)
+            break
+        except Exception as ex:
+            printe(bcolors.WARNING + "Fallo inicio DHT, intento {} de 10".format(i+1) + bcolors.ENDC)
+            time.sleep(1)
+            if i == 9:
+                errorwriter(ex, "Error al iniciar el DHT")
+                printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, "Error al iniciar el DHT" + bcolors.ENDC)
     #endregion
 
     try:
@@ -563,19 +554,19 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                             confirm_last_total_elapsed_cam_stuck = confirm_total_elapsed_cam_stuck
                         confirm_elapsed_cam_stuck = (time.perf_counter() - confirm_start_cam_stuck)/60.0
                         confirm_total_elapsed_cam_stuck = confirm_last_total_elapsed_cam_stuck + confirm_elapsed_cam_stuck
-                        json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck, "CamConf": confirm_total_elapsed_cam_stuck}
-                        with open('stuck_count.json', 'w') as outfile:
-                            json.dump(json_stuck_line, outfile)
-                        with open('stuck_count_backup.json', 'w') as outfile:
-                            json.dump(json_stuck_line, outfile)
+                        json_stuck_line_camconf = {"CamConf": confirm_total_elapsed_cam_stuck}
+                        with open('stuck_count_camconf.json', 'w') as outfile:
+                            json.dump(json_stuck_line_camconf, outfile)
+                        with open('stuck_count_camconf_backup.json', 'w') as outfile:
+                            json.dump(json_stuck_line_camconf, outfile)
                     elif not confirm_log_cam_stuck and stuck_count < stucks_to_confirm.value:
                         confirm_elapsed_cam_stuck = (time.perf_counter() - confirm_start_cam_stuck)/60.0
                         confirm_total_elapsed_cam_stuck = confirm_last_total_elapsed_cam_stuck + confirm_elapsed_cam_stuck
-                        json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck, "CamConf": confirm_total_elapsed_cam_stuck}
-                        with open('stuck_count.json', 'w') as outfile:
-                            json.dump(json_stuck_line, outfile)
-                        with open('stuck_count_backup.json', 'w') as outfile:
-                            json.dump(json_stuck_line, outfile)
+                        json_stuck_line_camconf = {"CamConf": confirm_total_elapsed_cam_stuck}
+                        with open('stuck_count_camconf.json', 'w') as outfile:
+                            json.dump(json_stuck_line_camconf, outfile)
+                        with open('stuck_count_backup_camconf.json', 'w') as outfile:
+                            json.dump(json_stuck_line_camconf, outfile)
                         confirm_log_cam_stuck = True
                         is_stuck_confirm = False
                         logwriter("Me destrabe, camara CONFIRMADO, minutos:", minutos=round(confirm_elapsed_cam_stuck,2), id=21)
@@ -602,20 +593,20 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                                 cam_stuck_flag.value = True
                                 elapsed_cam_stuck = (time.perf_counter() - start_cam_stuck)/60.0
                                 total_elapsed_cam_stuck = last_total_elapsed_cam_stuck + elapsed_cam_stuck
-                                json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck, "CamConf": confirm_total_elapsed_cam_stuck}
-                                with open('stuck_count.json', 'w') as outfile:
-                                    json.dump(json_stuck_line, outfile)
-                                with open('stuck_count_backup.json', 'w') as outfile:
-                                    json.dump(json_stuck_line, outfile)
+                                json_stuck_line_cam = {"Cam": total_elapsed_cam_stuck,}
+                                with open('stuck_count_cam.json', 'w') as outfile:
+                                    json.dump(json_stuck_line_cam, outfile)
+                                with open('stuck_count_cam_backup.json', 'w') as outfile:
+                                    json.dump(json_stuck_line_cam, outfile)
                             else:
                                 if not log_cam_stuck:
                                     elapsed_cam_stuck = (time.perf_counter() - start_cam_stuck)/60.0
                                     total_elapsed_cam_stuck = last_total_elapsed_cam_stuck + elapsed_cam_stuck
-                                    json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck, "CamConf": confirm_total_elapsed_cam_stuck}
-                                    with open('stuck_count.json', 'w') as outfile:
-                                        json.dump(json_stuck_line, outfile)
-                                    with open('stuck_count_backup.json', 'w') as outfile:
-                                        json.dump(json_stuck_line, outfile)
+                                    json_stuck_line_cam = {"Cam": total_elapsed_cam_stuck}
+                                    with open('stuck_count_cam.json', 'w') as outfile:
+                                        json.dump(json_stuck_line_cam, outfile)
+                                    with open('stuck_count_backup_cam.json', 'w') as outfile:
+                                        json.dump(json_stuck_line_cam, outfile)
                                     printe("Me destrabe, camara")
                                     logwriter("Me destrabe, camara, minutos:", minutos=round(elapsed_cam_stuck,2), id=17)
                                     log_cam_stuck = True
@@ -626,11 +617,11 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                         if not log_cam_stuck:
                             elapsed_cam_stuck = (time.perf_counter() - start_cam_stuck)/60.0
                             total_elapsed_cam_stuck = last_total_elapsed_cam_stuck + elapsed_cam_stuck
-                            json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck, "CamConf": confirm_total_elapsed_cam_stuck}
-                            with open('stuck_count.json', 'w') as outfile:
-                                json.dump(json_stuck_line, outfile)
-                            with open('stuck_count_backup.json', 'w') as outfile:
-                                json.dump(json_stuck_line, outfile)
+                            json_stuck_line_cam = {"Cam": total_elapsed_cam_stuck}
+                            with open('stuck_count_cam.json', 'w') as outfile:
+                                json.dump(json_stuck_line_cam, outfile)
+                            with open('stuck_count_cam_backup.json', 'w') as outfile:
+                                json.dump(json_stuck_line_cam, outfile)
                             printe("Me destrabe, camara")
                             logwriter("Me destrabe, camara, minutos:", minutos=round(elapsed_cam_stuck,2), id=17)
                             log_cam_stuck = True
@@ -831,7 +822,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                 if time.perf_counter()-last_measure > measure_rate:
                     last_measure = time.perf_counter()
                     
-                    if mlx_ok:
+                    if mlx90614_connected:
                         try:
                             t_mlx_surface = round(mlx.get_obj_temp(),2)
                             t_mlx_amb = round(mlx.get_amb_temp(),2)
@@ -840,23 +831,18 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                             if t_mlx_amb < 80:
                                 t_mlx_amb_list.append(t_mlx_amb)
                         except Exception as ex:
-                            errorwriter(ex, "No se pudo tomar mediciones laser")
-                            printe("Algo salio mal con el medidor laser")
+                            errorwriter(ex, "No se pudo tomar mediciones MLX90614")
+                            printe("Algo salio mal con el medidor MLX90614")
                             printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
-                    if bmp_ok:
-                        t_bmp = round(bmp280.get_temperature(),2)
-                        p_bmp = round(bmp280.get_pressure(),2)
-                        t_bmp_list.append(t_bmp)
-                        p_bmp_list.append(p_bmp)
-                    if bme_ok:
-                        bme = bme280.sample(mlxbus, 0x76, calibration_params)
+                    if bme_connected:
+                        bme = bme280.sample(mlxbus, bme_address, calibration_params)
                         t_bme = round(bme.temperature,2)
                         p_bme = round(bme.pressure,2)
                         h_bme = round(bme.humidity,2)
                         t_bme_list.append(t_bme)
                         p_bme_list.append(p_bme)
                         h_bme_list.append(h_bme)
-                    if dht_init:
+                    if dht_connected:
                         dht_fail_counter = 0
                         dht_ok = False
                         while not dht_ok:
@@ -910,20 +896,16 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                         except:
                             printe("Fallo la carga de configuracion scoring")
 
-                    t_bme_mean = mean_check(t_bme_list)
-                    h_bme_mean = mean_check(h_bme_list)
-                    p_bme_mean = mean_check(p_bme_list)
-                    t_bmp_mean = mean_check(t_bmp_list)
-                    p_bmp_mean = mean_check(p_bmp_list)
-                    t_dht_mean = mean_check(t_dht_list)
-                    h_dht_mean = mean_check(h_dht_list)
-                    t_mlx_amb_mean = mean_check(t_mlx_amb_list)
-                    t_mlx_surface_mean = mean_check(t_mlx_surface_list)
+                    t_bme_mean = mean_check(t_bme_list, who_called = "BME")
+                    h_bme_mean = mean_check(h_bme_list, who_called = "BME")
+                    p_bme_mean = mean_check(p_bme_list, who_called = "BME")
+                    t_dht_mean = mean_check(t_dht_list, who_called = "DHT")
+                    h_dht_mean = mean_check(h_dht_list, who_called = "DHT")
+                    t_mlx_amb_mean = mean_check(t_mlx_amb_list, who_called = "MLX90614")
+                    t_mlx_surface_mean = mean_check(t_mlx_surface_list, who_called = "MLX90614")
                     t_bme_list = []
                     h_bme_list = []
                     p_bme_list = []
-                    t_bmp_list = []
-                    p_bmp_list = []
                     t_dht_list = []
                     h_dht_list = []
                     t_mlx_amb_list = []
@@ -948,9 +930,9 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                         else:
                             score_hum_rt = max(10+h_delta/2 - abs(h_bme_mean - h_optimum), 0)
                         score_thi_rt = max(10 - abs(thi-thi_optimum),0)
-                        t_amb_prom = mean_check(t_amb_list)
-                        h_prom = mean_check(h_list)
-                        thi_prom = mean_check(thi_list)
+                        t_amb_prom = mean_check(t_amb_list, who_called = "Temperatura promedio")
+                        h_prom = mean_check(h_list, who_called = "Humedad promedio")
+                        thi_prom = mean_check(thi_list, who_called = "THI promedio")
                         if abs(t_amb_prom-t_amb_optimum) < t_amb_delta/2:
                             score_temp_amb_prom = 10
                         else:
@@ -967,7 +949,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                                 score_temp_bed_rt = 10
                             else:
                                 score_temp_bed_rt = max(10+t_bed_delta/2 - abs(t_mlx_surface_mean - t_bed_optimum), 0)
-                            temp_bed_prom = mean_check(t_bed_list)
+                            temp_bed_prom = mean_check(t_bed_list, who_called = "Temperatura de cama promedio")
                             if abs(temp_bed_prom-t_bed_optimum) < t_bed_delta/2:
                                 score_temp_bed_prom = 10
                             else:
@@ -1022,12 +1004,12 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                             json.dump(day_info_list, outfile)
                     if not is_rest.value:
                         printe("Estado")
-                        logwriter("Estado", id=14, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=t_bme_mean, t_bmp=t_bmp_mean,
-                            t_dht=t_dht_mean, t_laser_surf= t_mlx_surface_mean, t_laser_amb=t_mlx_amb_mean, h_dht=h_dht_mean, h_bme=h_bme_mean, p_bme=p_bme_mean, p_bmp=p_bmp_mean, thi=thi, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = round(t_total,2), t_active = round(t_active,2), t_rest = round(t_rest,2), t_stuck = round(t_stuck,2))
+                        logwriter("Estado", id=14, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=t_bme_mean,
+                            t_dht=t_dht_mean, t_laser_surf= t_mlx_surface_mean, t_laser_amb=t_mlx_amb_mean, h_dht=h_dht_mean, h_bme=h_bme_mean, p_bme=p_bme_mean, thi=thi, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = round(t_total,2), t_active = round(t_active,2), t_rest = round(t_rest,2), t_stuck = round(t_stuck,2))
                     else:
                         printe("Estado descansando")
-                        logwriter("Estado, descansando", id=15, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=t_bme_mean, t_bmp=t_bmp_mean,
-                            t_dht=t_dht_mean, t_laser_surf= t_mlx_surface_mean, t_laser_amb=t_mlx_amb_mean, h_dht=h_dht_mean, h_bme=h_bme_mean, p_bme=p_bme_mean, p_bmp=p_bmp_mean, thi=thi, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = round(t_total,2), t_active = round(t_active,2), t_rest = round(t_rest,2), t_stuck = round(t_stuck,2))
+                        logwriter("Estado, descansando", id=15, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=t_bme_mean,
+                            t_dht=t_dht_mean, t_laser_surf= t_mlx_surface_mean, t_laser_amb=t_mlx_amb_mean, h_dht=h_dht_mean, h_bme=h_bme_mean, p_bme=p_bme_mean, thi=thi, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = round(t_total,2), t_active = round(t_active,2), t_rest = round(t_rest,2), t_stuck = round(t_stuck,2))
         except Exception as ex:
             printe("Error in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
             printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
@@ -1036,7 +1018,14 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
             
 def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stuck_flag, imu_stuck_flag):
     # Vamos a obtener las mediciones de clearance y del imu
-    imu_debug = True
+    imu_debug = False
+    clearance_control = False
+    log_imu_stuck = True
+    last_imu = 0
+    start_imu_stuck = 0
+    total_elapsed_imu_stuck = 0
+    last_total_elapsed_imu_stuck = 0
+    elapsed_imu_stuck = 0
     #region Constantes de address del IMU
     PWR_MGMT_1 = 0x6B
     SMPLRT_DIV = 0x19
@@ -1051,7 +1040,7 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
     GYRO_ZOUT_H = 0x47
     #endregion
     #region Constantes relacionadas con el control de clearance
-    tof_ok = False
+    vl53l0x_connected = False
     tof_offset = 78
     min_tof_clearance = 20
     sink_tof_clearance = 16
@@ -1064,7 +1053,6 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
     time_to_sink = 3
     sink_slope = (sink_tof_clearance-max_tof_clearance)/time_to_sink
     #endregion
-    imu_array_list = []
     #region Funciones relacionadas con el IMU
     def MPU_Init():
         bus.write_byte_data(Device_Address, SMPLRT_DIV, 7)# write to sample rate register
@@ -1084,59 +1072,63 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
         return value
     #endregion
     #region Inicio IMU
-    try:
-        bus = smbus.SMBus(4) 	
-        Device_Address = 0x68   
-        MPU_Init()
-        printe("IMU INIT")
-        imu_ok = True
-        last_imu_measure = time.perf_counter()
-    except Exception as ex:
-        errorwriter(ex, "Error al iniciar el IMU")
-        printe("El IMU no pudo iniciar")
+    if imu_detected:
+        try:
+            bus = smbus.SMBus(4) 	
+            Device_Address = imu_address   
+            MPU_Init()
+            printe(bcolors.OKGREEN + "IMU iniciado" + bcolors.ENDC)
+            imu_connected = True
+            last_imu_measure = time.perf_counter()
+        except Exception as ex:
+            errorwriter(ex, "Error al iniciar el IMU")
+            printe(bcolors.FAIL + "El IMU no pudo iniciar" + bcolors.ENDC)
     #endregion
     #region Inicio VL53
-    try:
-        tof = VL53L0X.VL53L0X(i2c_bus=4,i2c_address=0x29)
-        tof.open()
-        tof.start_ranging(VL53L0X.Vl53l0xAccuracyMode.BETTER)
-        tof_ok = True
-        printe("Tof inicio bien")
-    except Exception as ex:
-        errorwriter(ex, "Error al iniciar medidor tof")
-        printe("Error al inciar el medidor tof")
-        tof_ok = False
+    if vl53l0x_detected:
+        try:
+            tof = VL53L0X.VL53L0X(i2c_bus=4,i2c_address=0x29)
+            tof.open()
+            tof.start_ranging(VL53L0X.Vl53l0xAccuracyMode.BETTER)
+            vl53l0x_connected = True
+            printe(bcolors.OKGREEN + "VL53L0X iniciado" + bcolors.ENDC)
+        except Exception as ex:
+            errorwriter(ex, "Error al iniciar el VL53L0X")
+            printe(bcolors.FAIL + "Error al inciar el VL53L0X" + bcolors.ENDC)
+            vl53l0x_connected = False
     #endregion
-    if tof_ok:
-        while True:
-            clearance.value = tof.get_distance() - tof_offset
-            if not clearance_stuck_flag.value:
-                if clearance.value < min_tof_clearance:
-                    clearance_stuck_flag.value = True
-                    printe("Clearance menor a la minima, traba")
-                    time_clearance_array = []
-                    clearance_array = []
-                elif clearance.value < watch_tof_clearance:
-                    time_clearance_array.append(time.perf_counter())
-                    clearance_array.append(clearance.value)
-                    if (time_clearance_array[-1] - time_clearance_array[0]) > clearance_window:
-                        time_clearance_array.pop(0)
-                        clearance_array.pop(0)
-                    if len(clearance_array) > 5:
-                        y = np.array(clearance_array)
-                        x = np.array([count for count, i in enumerate(clearance_array)])
-                        A = np.stack([x, np.ones(len(x))]).T
-                        slope, point_zero = np.linalg.lstsq(A, y, rcond=None)[0]
-                        if slope < sink_slope:
-                            printe("La pendiente de clearance es mayor a la admisible, traba en accion")
-                            clearance_stuck_flag.value = True
-                            time_clearance_array = []
-                            clearance_array = []
-            else:
-                if clearance.value > max_tof_clearance:
-                    printe("Aumente el clearance, me destrabe")
-                    clearance_stuck_flag.value = False
-            if imu_ok and imu_debug and not is_rest.value:
+    
+    while True:
+        if vl53l0x_connected:
+            if clearance_control:
+                clearance.value = tof.get_distance() - tof_offset
+                if not clearance_stuck_flag.value:
+                    if clearance.value < min_tof_clearance:
+                        clearance_stuck_flag.value = True
+                        printe("Clearance menor a la minima, traba")
+                        time_clearance_array = []
+                        clearance_array = []
+                    elif clearance.value < watch_tof_clearance:
+                        time_clearance_array.append(time.perf_counter())
+                        clearance_array.append(clearance.value)
+                        if (time_clearance_array[-1] - time_clearance_array[0]) > clearance_window:
+                            time_clearance_array.pop(0)
+                            clearance_array.pop(0)
+                        if len(clearance_array) > 5:
+                            y = np.array(clearance_array)
+                            x = np.array([count for count, i in enumerate(clearance_array)])
+                            A = np.stack([x, np.ones(len(x))]).T
+                            slope, point_zero = np.linalg.lstsq(A, y, rcond=None)[0]
+                            if slope < sink_slope:
+                                printe("La pendiente de clearance es mayor a la admisible, traba en accion")
+                                clearance_stuck_flag.value = True
+                                time_clearance_array = []
+                                clearance_array = []
+                else:
+                    if clearance.value > max_tof_clearance:
+                        printe("Aumente el clearance, me destrabe")
+                        clearance_stuck_flag.value = False
+            if imu_connected and imu_debug and not is_rest.value:
                 try:
                     acc_x = read_raw_data(ACCEL_XOUT_H)
                     acc_y = read_raw_data(ACCEL_YOUT_H)
@@ -1170,11 +1162,11 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
                         if log_imu_stuck == False:
                             elapsed_imu_stuck = round((time.perf_counter() - start_imu_stuck)/60.0, 2)
                             total_elapsed_imu_stuck = last_total_elapsed_imu_stuck + elapsed_imu_stuck
-                            json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck, "CamConf": confirm_total_elapsed_cam_stuck}
-                            with open('stuck_count.json', 'w') as outfile:
-                                json.dump(json_stuck_line, outfile)
+                            json_stuck_line_imu = {"IMU": total_elapsed_imu_stuck}
+                            with open('stuck_count_imu.json', 'w') as outfile:
+                                json.dump(json_stuck_line_imu, outfile)
                             with open('stuck_count_backup.json', 'w') as outfile:
-                                json.dump(json_stuck_line, outfile)
+                                json.dump(json_stuck_line_imu, outfile)
                             printe("IMU destuck")
                             logwriter("Me destrabe, IMU, minutos", minutos=elapsed_imu_stuck, id=19)
                             log_imu_stuck = True
@@ -1187,10 +1179,10 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
                             last_total_elapsed_imu_stuck = total_elapsed_imu_stuck
                         elapsed_imu_stuck =  round((time.perf_counter() - start_imu_stuck)/60.0, 2)
                         total_elapsed_imu_stuck = last_total_elapsed_imu_stuck + elapsed_imu_stuck
-                        json_stuck_line = {"IMU": total_elapsed_imu_stuck, "Cam": total_elapsed_cam_stuck, "CamConf": confirm_total_elapsed_cam_stuck}
-                        with open('stuck_count.json', 'w') as outfile:
+                        json_stuck_line = {"IMU": total_elapsed_imu_stuck}
+                        with open('stuck_count_imu.json', 'w') as outfile:
                             json.dump(json_stuck_line, outfile)
-                        with open('stuck_count_backup.json', 'w') as outfile:
+                        with open('stuck_count_imu_backup.json', 'w') as outfile:
                                 json.dump(json_stuck_line, outfile)
                         imu_stuck_flag.value = True
                 except Exception as ex:
@@ -1210,8 +1202,8 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
     motor_lf_ccw_dir = DigitalOutputDevice("BOARD22")
     motor_lb_cw_dir = DigitalOutputDevice("BOARD18")
     motor_lb_ccw_dir = DigitalOutputDevice("BOARD16")
-    bumper_l = Button("BOARD19")
-    bumper_r = Button("BOARD21")
+    bumper_l = Button("BOARD19", pull_up= False)
+    bumper_r = Button("BOARD21", pull_up= False)
     shutdown_button = Button("BOARD15")
     motor_rf_pwm.frequency = 1000
     motor_rb_pwm.frequency = 1000
@@ -1221,13 +1213,11 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
     motor_rb_pwm.off()
     motor_lf_pwm.off()
     motor_lb_pwm.off()
-    printe("AUTO INIT")
     was_auto = False
     first_auto = True
     led_on = True
     global move_status
     move_status = ''
-    sinking = False
     global crash_counter
     crash_counter = 0
     global crash_timer
@@ -1270,7 +1260,11 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                         
         printe("Esperando conexion en el puerto %d" % port)
         server_sock.settimeout(60)
-        client_sock, client_info = server_sock.accept()
+        try:
+            client_sock, client_info = server_sock.accept()
+        except:
+            printe("Conexion Bluetooth timeout")
+            return
         printe("Conexion aceptada desde: ", client_info)
         build_string = ''
         new_string_timer = time.perf_counter()
@@ -1480,6 +1474,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             except Exception as ex:
                 printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, bcolors.ENDC)
                 printe("Desconexion")
+                break
 
     def move(x = 0, z = 0, t = 0):
         global move_status
@@ -1568,16 +1563,17 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             motor_lf_pwm.value = abs(pwm2)
         if motor_lb_pwm.value != abs(pwm2):
             motor_lb_pwm.value = abs(pwm2)
-        if motor_rf_cw_dir.is_active != motor_rf_ccw_dir.is_active and motor_rb_cw_dir.is_active != motor_rb_ccw_dir.is_active and motor_lf_cw_dir.is_active != motor_lf_ccw_dir.is_active and motor_lb_cw_dir.is_active != motor_lb_ccw_dir.is_active:
-            motor_stby.on()
-        else:
-            printe("ERROR, va a quemarse el driver porque hay dos pines de direccion HIGH")
+        if pwm1 != 0 and pwm2 != 0:
+            if motor_rf_cw_dir.is_active != motor_rf_ccw_dir.is_active and motor_rb_cw_dir.is_active != motor_rb_ccw_dir.is_active and motor_lf_cw_dir.is_active != motor_lf_ccw_dir.is_active and motor_lb_cw_dir.is_active != motor_lb_ccw_dir.is_active:
+                motor_stby.on()
+            else:
+                printe(bcolors.FAIL + "ERROR, va a quemarse el driver porque hay dos pines de direccion HIGH" + bcolors.ENDC)
         if t > 0:
             number_check_rate = int(t / check_rate)
             rest = t - number_check_rate * check_rate
             counter_check_rate = 0
             if x > 0:
-                while (counter_check_rate <= number_check_rate and auto_req.value == True and not taking_pics.value and not (bumper_l.is_pressed or bumper_r.is_pressed or button_middle.is_pressed)):
+                while (counter_check_rate <= number_check_rate and auto_req.value == True and not taking_pics.value and not (bumper_l.is_pressed or bumper_r.is_pressed)):
                     time.sleep(check_rate)
                     counter_check_rate += 1
             else:
@@ -1662,7 +1658,16 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
         elif type == "DER":
             move(vel.backward.normal, 0, time_backwards.value)
             move(vel.forward.normal, vel.left, time_turn_crash)
-            
+    #region Cheque que los botones del bumper no esten apretados
+    if bumper_l.is_pressed:
+        printe(bcolors.FAIL + "Error, bumper izquierdo trabado al inciar" + bcolors.ENDC)
+        errorwriter(error= "Error, bumper izquierdo trabado al inciar")
+    if bumper_r.is_pressed:
+        printe(bcolors.FAIL + "Error, bumper derecho trabado al inciar" + bcolors.ENDC)
+        errorwriter(error= "Error, bumper derecho trabado al inciar")
+    while bumper_r.is_pressed or bumper_l.is_pressed:
+        time.sleep(1)
+    #endregion
     while True:
         if shutdown_button.is_pressed:
             time.sleep(3)
@@ -1692,7 +1697,6 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             if first_auto:
                 last_time_rest = time.perf_counter()
                 logwriter("Empece a andar autonomo", id=2)
-                printe("first auto")
                 first_auto = False
                 is_stopped.value = False
             if is_rest.value and (time.perf_counter()-last_time_on > rest_time_watch):
@@ -1708,26 +1712,26 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             if night_mode_enable:
                 if not night_mode_setted:
                     if not night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start and datetime.time(datetime.now()) < night_mode_end):
-                        printe("Night Mode enabled")
+                        printe(bcolors.OKBLUE + "Habilitado Night Mode" + bcolors.ENDC)
                         night_mode_setted = True
                         wake_time_watch = night_mode_wake_time
                         rest_time_watch = night_mode_rest_time
                         vel = Velocity(night_mode_vel_array[0], night_mode_vel_array[1])
                     elif night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start or datetime.time(datetime.now()) < night_mode_end):
-                        printe("Night Mode enabled")
+                        printe(bcolors.OKBLUE + "Habilitado Night Mode" + bcolors.ENDC)
                         night_mode_setted = True
                         wake_time_watch = night_mode_wake_time
                         rest_time_watch = night_mode_rest_time
                         vel = Velocity(night_mode_vel_array[0], night_mode_vel_array[1])
                 else:
                     if not night_mode_reversed and (datetime.time(datetime.now()) < night_mode_start or datetime.time(datetime.now()) > night_mode_end):
-                        printe("Night Mode disabled")
+                        printe(bcolors.OKBLUE + "Deshabilitado Night Mode" + bcolors.ENDC)
                         night_mode_setted = False
                         wake_time_watch = wake_time.value
                         rest_time_watch = rest_time.value
                         vel = Velocity(vel_array[0], vel_array[1])
                     elif night_mode_reversed and (datetime.time(datetime.now()) < night_mode_start and datetime.time(datetime.now()) > night_mode_end):
-                        printe("Night Mode disabled")
+                        printe(bcolors.OKBLUE + "Deshabilitado Night Mode" + bcolors.ENDC)
                         night_mode_setted = False
                         wake_time_watch = wake_time.value
                         rest_time_watch = rest_time.value
@@ -1735,6 +1739,8 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             was_auto = True
             timer = time.perf_counter()
             while auto_req.value == True and not is_rest.value:
+                if move_status != 'F':
+                    move(vel.forward.normal)
                 if shutdown_button.is_pressed:
                     move(0, 0)
                     time.sleep(3)
@@ -1744,6 +1750,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                         os.system("sudo shutdown now")
                     else:
                         bt_connection(prints_enable)
+                        printe("Sali de la conexion Bluetooth")
 
 
                 if ((time.perf_counter() - last_time_rest > wake_time_watch) or is_hot.value):
@@ -1759,26 +1766,26 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                 if night_mode_enable:
                     if not night_mode_setted:
                         if not night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start and datetime.time(datetime.now()) < night_mode_end):
-                            printe("Night Mode enabled")
+                            printe(bcolors.OKBLUE + "Habilitado Night Mode" + bcolors.ENDC)
                             night_mode_setted = True
                             wake_time_watch = night_mode_wake_time
                             rest_time_watch = night_mode_rest_time
                             vel = Velocity(night_mode_vel_array[0], night_mode_vel_array[1])
                         elif night_mode_reversed and (datetime.time(datetime.now()) > night_mode_start or datetime.time(datetime.now()) < night_mode_end):
-                            printe("Night Mode enabled")
+                            printe(bcolors.OKBLUE + "Habilitado Night Mode" + bcolors.ENDC)
                             night_mode_setted = True
                             wake_time_watch = night_mode_wake_time
                             rest_time_watch = night_mode_rest_time
                             vel = Velocity(night_mode_vel_array[0], night_mode_vel_array[1])
                     else:
                         if not night_mode_reversed and (datetime.time(datetime.now()) < night_mode_start or datetime.time(datetime.now()) > night_mode_end):
-                            printe("Night Mode disabled")
+                            printe(bcolors.OKBLUE + "Deshabilitado Night Mode" + bcolors.ENDC)
                             night_mode_setted = False
                             wake_time_watch = wake_time.value
                             rest_time_watch = rest_time.value
                             vel = Velocity(vel_array[0], vel_array[1])
                         elif night_mode_reversed and (datetime.time(datetime.now()) < night_mode_start and datetime.time(datetime.now()) > night_mode_end):
-                            printe("Night Mode disabled")
+                            printe(bcolors.OKBLUE + "Deshabilitado Night Mode" + bcolors.ENC)
                             night_mode_setted = False
                             wake_time_watch = wake_time.value
                             rest_time_watch = rest_time.value
@@ -1962,10 +1969,10 @@ def main():
     night_mode_reversed = night_mode_start > night_mode_end
     if breeding_day >= day_crash_timeout:
         crash_timeout.value = crash_timeout_after
-        printe("SENSIBILIDAD BAJA")
+        printe("Sensibilidad baja del bumper")
         logwriter("Sensibilidad baja", id=23)
     else:
-        printe("SENSIBILIDAD ALTA")
+        printe("Sensibilidad alta del bumper")
         crash_timeout.value = crash_timeout_before
         logwriter("Sensibilidad alta", id=23)
     if breeding_day < teen_day:
@@ -1981,7 +1988,7 @@ def main():
     command_handler = multiprocessing.Process(
         target=command, args=(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_flag, flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, rest_time, wake_time, time_backwards, timer_boring, crash_timeout, x_com, z_com,))
     # Set up our camera
-    savior_handler = multiprocessing.Process(target=savior, args=(prints_enable,))
+    savior_handler = multiprocessing.Process(target=savior, args=(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stuck_flag, imu_stuck_flag,))
     auto_handler = multiprocessing.Process(target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, is_hot, rest_time, wake_time, time_backwards, crash_timeout, last_touch_window_timeout, flash_req, vel_array, time_turn, x_com, z_com, is_rest, night_mode_enable, night_mode_start, night_mode_end, night_mode_rest_time, night_mode_wake_time, night_mode_vel_array, night_mode_reversed, prints_enable,))
     pitch_handler = multiprocessing.Process(target=pitch, args=(lst, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id,))
     # Add 'em to our list
@@ -1999,11 +2006,22 @@ def main():
 
 
 if __name__ == '__main__':
+    ssid= "AVISenseNetwork"
     prints_enable = multiprocessing.Value('b', False)
     prints_enable.value = True
     wait_to_run = False 
-    flash_enable = DigitalOutputDevice("BOARD12", active_high=True)
-    led_enable = DigitalOutputDevice("BOARD16", active_high=True)
+    flash_enable = DigitalOutputDevice("BOARD23", active_high=True)
+    led_enable = DigitalOutputDevice("BOARD13", active_high=True)
+    enable_peripheral = DigitalOutputDevice("BOARD11", active_high=True)
+    enable_peripheral.on()
+    #region Address de los dispositivos I2C
+    imu_address = 0x68
+    bme_address = 0x76
+    mlx90614_address = 0x5A
+    vl53l0x_address = 0x29
+    time.sleep(1)
+    #endregion
+
     global last_string
     last_string = ''
     #region Compruebo los modos en los cuales inicia el programa
@@ -2063,6 +2081,38 @@ if __name__ == '__main__':
         led_enable.off()
         time.sleep(0.5)
     printe(bcolors.OKGREEN + "AVI-Sense 1.0 APELIE ROBOTICS - 2022" + bcolors.ENDC)
+    #region Chequeo los dispositivos I2C
+    printe("Comprobando si los dispositivos I2C estan conectados")
+    i2c_dev_list = adafruit_extended_bus.ExtendedI2C(4).scan()
+    if imu_address in i2c_dev_list:
+        printe(bcolors.OKGREEN + "El IMU fue detectado" + bcolors.ENDC)
+        imu_detected = True
+    else:
+        printe(bcolors.FAIL + "El IMU no fue detectado" + bcolors.ENDC)
+        errorwriter(error="IMU no detectado", comentario="El IMU no fue detectado en el arranque")
+        imu_detected = False
+    if bme_address in i2c_dev_list:
+        printe(bcolors.OKGREEN + "El BME fue detectado" + bcolors.ENDC)
+        bme_detected = True
+    else:
+        printe(bcolors.FAIL + "El BME no fue detectado" + bcolors.ENDC)
+        errorwriter(error="BME no detectado", comentario="El BME no fue detectado en el arranque")
+        bme_detected = False
+    if mlx90614_address in i2c_dev_list:
+        printe(bcolors.OKGREEN + "El MLX90614 fue detectado" + bcolors.ENDC)
+        mlx90614_detected = True
+    else:
+        printe(bcolors.FAIL + "El MLX90614 no fue detectado" + bcolors.ENDC)
+        errorwriter(error="MLX90614 no detectado", comentario="El MLX90614 no fue detectado en el arranque")
+        mlx90614_detected = False
+    if vl53l0x_address in i2c_dev_list:
+        printe(bcolors.OKGREEN + "El VL53L0X fue detectado" + bcolors.ENDC)
+        vl53l0x_detected = True
+    else:
+        printe(bcolors.FAIL + "El VL53L0X no fue detectado" + bcolors.ENDC)
+        errorwriter(error="VL53L0X no detectado", comentario="El VL53L0X no fue detectado en el arranque")
+        vl53l0x_detected = False
+    #endregion
     flash_enable.off()
     #region Si no existe el log master lo creo
     if not os.path.exists("log/log.csv"):
@@ -2082,28 +2132,48 @@ if __name__ == '__main__':
     else:
         behavior = open_json('/var/www/html/default_behavior.json')
 
-    printe(behavior)
     
     try:
-        printe("Enabling wifi")
+        printe("Iniciando wifi")
+        try:
+            ssid_grep = "'SSID: " + ssid + "'"
+            subprocess.check_output('sudo iw dev "wlan0" scan | grep {}'.format(ssid_grep), shell=True)
+            printe("Se encontro la red", ssid)  
+        except subprocess.CalledProcessError:
+            printe(bcolors.FAIL + "No se encontro la red {}".format(ssid) + bcolors.ENDC)
         subprocess.call("./enablewifi_silent", timeout=40)
+        try:
+            subprocess.check_output('sudo iw dev "wlan0" scan | grep associated', shell=True)
+            printe(bcolors.OKGREEN + "Conectado a la red {}".format(ssid) + bcolors.ENDC)
+        except subprocess.CalledProcessError:
+            printe(bcolors.FAIL + "No se pudo conectar a la red {}".format(ssid) + bcolors.ENDC)
     except Exception as e:
         printe(e, "No se pudo iniciar wifi")
         errorwriter(e,"No inicio el wifi")
 
     
-    if not os.path.exists("stuck_count.json"):
-        json_stuck_line = {"IMU": 0, "Cam": 0, "CamConf": 0}
-        with open('stuck_count.json', 'w') as outfile:
-            json.dump(json_stuck_line, outfile)
-    last_stuck = open_json('stuck_count.json')
+    if not os.path.exists("stuck_count_imu.json"):
+        json_stuck_line_imu = {"IMU": 0}
+        with open('stuck_count_imu.json', 'w') as outfile:
+            json.dump(json_stuck_line_imu, outfile)
+    if not os.path.exists("stuck_count_cam.json"):
+        json_stuck_line_cam = {"Cam": 0}
+        with open('stuck_count_cam.json', 'w') as outfile:
+            json.dump(json_stuck_line_cam, outfile)
+    if not os.path.exists("stuck_count_camconf.json"):
+        json_stuck_line_camconf = {"CamConf": 0}
+        with open('stuck_count_camconf.json', 'w') as outfile:
+            json.dump(json_stuck_line_camconf, outfile)
+    last_stuck_imu = open_json('stuck_count_imu.json')
+    last_stuck_cam = open_json('stuck_count_cam.json')
+    last_stuck_camconf = open_json('stuck_count_camconf.json')
     last_watch = open_json('last_on.json')
 
     start_log = "Me apague, minutos trabado camara / IMU " 
-    minutos_start = str(last_stuck["Cam"]) + "/" + str(last_stuck["IMU"])
+    minutos_start = str(last_stuck_cam["Cam"]) + "/" + str(last_stuck_imu["IMU"])
     logwriter(start_log, id=6, watch_dog=True, minutos= minutos_start, 
                 last_date=last_watch["Fecha"], last_hour=last_watch["Hora"], last_name=last_watch["Name"])
-    logwriter("Me apague, minutos trabado camara confirmados", id=22, watch_dog=True, minutos= str(last_stuck["CamConf"]), 
+    logwriter("Me apague, minutos trabado camara confirmados", id=22, watch_dog=True, minutos= str(last_stuck_camconf["CamConf"]), 
                 last_date=last_watch["Fecha"], last_hour=last_watch["Hora"], last_name=last_watch["Name"])
     # Vamos a tomar la configuracion de camapaña
     campaign_status = open_json('/var/www/html/campaign_status.json')
@@ -2183,15 +2253,13 @@ if __name__ == '__main__':
                     with open ('/var/www/html/default_config_scoring.csv', 'w') as file:
                         file.write(copy)   
         breeding_day = (datetime.now() - datetime.strptime(zero_date, "%Y%m%d")).days
-        printe("breeding_day:", breeding_day)
+        printe("Breeding day:", breeding_day)
         if breeding_day > 60 or breeding_day < 0:
             printe("Fecha invalida")
             raise Exception
         if breeding_day in day_list:
-            printe("si esta en la lista")
             breeding_day_index = day_list.index(breeding_day)
         else:
-            printe("no esta en la lista")
             day_list.append(breeding_day)
             day_list.sort()
             breeding_day_index = day_list.index(breeding_day) - 1
@@ -2205,9 +2273,7 @@ if __name__ == '__main__':
     #endregion
     
     current_date = datetime.now().strftime("%Y%m%d")
-    json_stuck_line = {"IMU": 0, "Cam": 0, "CamConf": 0}
-    with open('stuck_count.json', 'w') as outfile:
-        json.dump(json_stuck_line, outfile)
+
     # logwriter("Me prendi con esta configuracion: " + str(config)+'/'+str(behavior), id=1)
     last_on()
     for i in range(3):
@@ -2220,6 +2286,7 @@ if __name__ == '__main__':
         logwriter("Prendi luces", id=12)
     # motors_enable.on()
     try:
+        led_enable.on()
         main()
     except KeyboardInterrupt:
         # motor_1_pwm.off()
