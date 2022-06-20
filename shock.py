@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 #region Importacion de librerias
+from turtle import clear
 from picamera.array import PiRGBArray
 from picamera import PiCamera
 import asyncio
@@ -28,6 +29,7 @@ import Adafruit_ADS1x15
 import board
 import adafruit_dht
 from mlx90614 import MLX90614
+import adafruit_mlx90614
 import psutil
 import bme280
 import requests
@@ -131,6 +133,37 @@ def logwriter(event, id,  minutos =0, t_cpu=0, t_clock=0, t_dht=0, t_bme=0, t_la
         wr = csv.writer(logfile)
         wr.writerow(["", logdate, loghour, event, minutos,str(os.getloadavg()[0]), str(psutil.virtual_memory().percent), t_cpu,
                     t_clock, t_dht, t_bme, t_laser_amb, t_laser_surf, h_dht, h_bme, p_bme, thi, score_temp_amb_rt, score_temp_bed_rt, score_hum_rt, score_thi_rt, score_general_rt, score_temp_amb_prom, score_temp_bed_prom, score_hum_prom, score_thi_prom, score_general_prom, t_total, t_active, t_rest, t_stuck, id])
+def init_wifi():
+    wifi_found = False
+    try:
+        printe("Iniciando wifi")
+        try:
+            ssid_grep = "'SSID: " + ssid + "'"
+            subprocess.check_output('sudo iw dev "wlan0" scan | grep {}'.format(ssid_grep), shell=True)
+            wifi_found = True
+        except subprocess.CalledProcessError:
+            printe(bcolors.FAIL + "No se encontro la red {}".format(ssid) + bcolors.ENDC)
+        try:
+            subprocess.check_output('sudo iw dev "wlan0" scan | grep associated', shell=True)
+            printe(bcolors.OKGREEN + "Ya conectado a la red {}".format(ssid) + bcolors.ENDC)
+            return True
+        except subprocess.CalledProcessError:
+            pass
+        if wifi_found:
+            printe("Se encontro la red", ssid)  
+        subprocess.call("./enablewifi_silent", timeout=40)
+        try:
+            subprocess.check_output('sudo iw dev "wlan0" scan | grep associated', shell=True)
+            printe(bcolors.OKGREEN + "Conectado a la red {}".format(ssid) + bcolors.ENDC)
+            return True
+        except subprocess.CalledProcessError:
+            printe(bcolors.FAIL + "No se pudo conectar a la red {}".format(ssid) + bcolors.ENDC)
+            return False
+
+
+    except Exception as e:
+        printe(e, "No se pudo iniciar wifi")
+        errorwriter(e,"No inicio el wifi")
 # Clase que permite logear con color
 class bcolors:
     HEADER = '\033[95m'
@@ -305,14 +338,14 @@ def command(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_f
     asyncio.get_event_loop().run_until_complete(start_server2)
     asyncio.get_event_loop().run_forever()
 
-def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility_in, pic_sensibility_out, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id):
+def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, timer_temp, timer_log, pic_sensibility_in, pic_sensibility_out, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id, is_stuck_confirm):
     #region Iniciar Variables
     camera = PiCamera()
     camera.resolution = (640, 480)
-    camera.framerate = 32
+    camera.framerate = 4
     raw_capture = PiRGBArray(camera, size=(640, 480))
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')
     pic_sensibility = pic_sensibility_in.value
-    is_stuck_confirm = False
     last_pic = 0
     was_taking = False
     first_img = True
@@ -377,9 +410,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
     t_stuck_sec = 0
     t_active_sec = 0
     t_rest_sec = 0
-    counter = 0
     dht_ok = False
-    imu_connected = False
     dht_connected = False
     dht_fail_counter = 0
     moving_img = False
@@ -411,13 +442,19 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
     img_to_compress = []
     mlx90614_connected = False
     bme_connected = False
+    wifi_ok = False
+    last_wifi = time.perf_counter()
+    send_data_was_called = False
+    stuck_watchdog_cam = []
+    stuck_watchdog_time = 5*60
+    cam_debug = True
 
     #endregion
     #region Levanto mediciones que han quedado sin enviar antes de apagarse
     try:
         with open('send_queue/logs/logs_to_send.json') as send_file:
             day_info_list = json.load(send_file)
-        printe("Quedaron {} logs para enviar".format(len(day_info_list)))
+        printe("Quedo {} logs para enviar".format(len(day_info_list)))
     except Exception as ex:
         printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, bcolors.ENDC)
         try:
@@ -462,7 +499,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
             img2 = normalize(img2)
             diff = img1 - img2  # elementwise for scipy arrays
             m_norm = np.sum(abs(diff))  # Manhattan norm
-            return (m_norm)
+            return m_norm
         except:
             return math.nan
 
@@ -473,6 +510,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
             return np.average(arr, -1)
         else:
             return arr
+
 
     def normalize(arr):
         rng = arr.max()-arr.min()
@@ -496,8 +534,10 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
             bme_connected = False
     if mlx90614_detected:
         try:
-            mlxbus = smbus2.SMBus(4)
-            mlx = MLX90614(mlxbus, address=mlx90614_address)
+            # mlxbus = smbus2.SMBus(4)
+            # mlx = MLX90614(mlxbus, address=mlx90614_address)
+            mlx_i2c = adafruit_extended_bus.ExtendedI2C(4)
+            mlx = adafruit_mlx90614.MLX90614(mlx_i2c)
             printe(bcolors.OKGREEN + "MLX90614 iniciado" + bcolors.ENDC)
             mlx90614_connected = True
         except Exception as ex:
@@ -534,13 +574,59 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
     while True:
         try:
             for frame in camera.capture_continuous(raw_capture, format="bgr", use_video_port=True):
+                #region Tomo mediciones del ambiente
+                if time.perf_counter()-last_measure > measure_rate:
+                    last_measure = time.perf_counter() 
+                    if mlx90614_connected:
+                        try:
+                            # t_mlx_surface = round(mlx.get_obj_temp(),2)
+                            # t_mlx_amb = round(mlx.get_amb_temp(),2)
+                            t_mlx_surface = round(mlx.object_temperature,2)
+                            t_mlx_amb = round(mlx.ambient_temperature,2)
+                            if t_mlx_surface < 80:
+                                t_mlx_surface_list.append(t_mlx_surface)
+                            if t_mlx_amb < 80:
+                                t_mlx_amb_list.append(t_mlx_amb)
+                        except Exception as ex:
+                            errorwriter(ex, "No se pudo tomar mediciones MLX90614")
+                            printe("Algo salio mal con el medidor MLX90614")
+                            printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
+                    if bme_connected:
+                        bme = bme280.sample(bmebus, bme_address, calibration_params)
+                        t_bme = round(bme.temperature,2)
+                        p_bme = round(bme.pressure,2)
+                        h_bme = round(bme.humidity,2)
+                        t_bme_list.append(t_bme)
+                        p_bme_list.append(p_bme)
+                        h_bme_list.append(h_bme)
+                    if dht_connected:
+                        dht_fail_counter = 0
+                        dht_ok = False
+                        while not dht_ok:
+                            dht_ok = True
+                            try:
+                                t_dht = dhtDevice.temperature
+                                h_dht = dhtDevice.humidity
+                            except:
+                                dht_ok = False
+                                dht_fail_counter += 1
+                            if dht_fail_counter > 10:
+                                printe("No pude sacar medicion del DHT")
+                                errorwriter("DHT", "No se pudo tomar medicion de Humedad y Temperatura")
+                                break
+                        if dht_ok:
+                            t_dht_list.append(t_dht)
+                            h_dht_list.append(h_dht)
+                #endregion
                 f = frame.array
                 cv2.waitKey(1)
                 f = cv2.resize(f, (640, 480))
                 encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 65]
                 man[0] = cv2.imencode('.jpg', f, encode_param)[1]
-                
-                
+                if cam_debug:
+                    stuck_watchdog_cam.append((time.perf_counter(),f))
+                    if stuck_watchdog_cam[-1][0] - stuck_watchdog_cam[0][0] > stuck_watchdog_time:
+                        stuck_watchdog_cam.pop(0)
                 if first_img:
                     image_to_compare0 = f
                     first_img = False
@@ -550,11 +636,19 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                     if stuck_count >= stucks_to_confirm.value:
                         if confirm_log_cam_stuck:
                             logwriter("Me trabe, camara CONFIRMADO", id=20)
-                            printe("Me trabe confirmado")
-                            is_stuck_confirm = True
+                            printe(bcolors.FAIL + "Me trabe confirmado" + bcolors.ENDC)
+                            is_stuck_confirm.value = True
                             confirm_log_cam_stuck = False
                             confirm_start_cam_stuck = time.perf_counter() 
                             confirm_last_total_elapsed_cam_stuck = confirm_total_elapsed_cam_stuck
+                            if cam_debug:
+                                if not os.path.exists("cam_debug/{}".format(datetime.now().strftime("%Y%m%d"))):
+                                    os.mkdir("cam_debug/{}".format(datetime.now().strftime("%Y%m%d")))
+                                out = cv2.VideoWriter('cam_debug/{}/{}.avi'.format(datetime.now().strftime("%Y%m%d"),datetime.now().strftime("%H:%M:%S")),fourcc,4.0, (640,480))
+                                for fr in stuck_watchdog_cam:
+                                    out.write(fr[1])
+                                out.release()
+                                stuck_watchdog_cam = []
                         confirm_elapsed_cam_stuck = (time.perf_counter() - confirm_start_cam_stuck)/60.0
                         confirm_total_elapsed_cam_stuck = confirm_last_total_elapsed_cam_stuck + confirm_elapsed_cam_stuck
                         json_stuck_line_camconf = {"CamConf": confirm_total_elapsed_cam_stuck}
@@ -571,7 +665,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                         with open('stuck_count_backup_camconf.json', 'w') as outfile:
                             json.dump(json_stuck_line_camconf, outfile)
                         confirm_log_cam_stuck = True
-                        is_stuck_confirm = False
+                        is_stuck_confirm.value = False
                         logwriter("Me destrabe, camara CONFIRMADO, minutos:", minutos=round(confirm_elapsed_cam_stuck,2), id=21)
                     reference_stuck = time.perf_counter()
                     stuck_count = 0
@@ -580,10 +674,12 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                     # Si no esta frenado vamos a comparar las imagenes para ver si esta trabado
                     #region Comparacion de imagenes
                     if not is_stopped.value:
+                        
                         img0 = to_grayscale(image_to_compare0.astype(float))
                         img1 = to_grayscale(f.astype(float))
                         n_m = compare_images(img0, img1)
                         if not math.isnan(n_m):
+                        
                             if ((n_m/img0.size) < pic_sensibility):
                             # if False:
                                 stuck_count += 1
@@ -667,7 +763,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                             with open('send_queue/imgs/list/img_to_compress_backup.json', 'w') as outfile:
                                 json.dump( img_to_compress, outfile)
                         taking_pics.value = True      
-                        if is_stopped.value == True:
+                        if is_stopped.value:
                             last_pic = time.perf_counter()
                             printe("Voy a sacar foto detenida")
                             moving_img = False
@@ -675,7 +771,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                             d1 = now.strftime("%Y%m%d_%H%M%S")
                             if is_rest.value:
                                 img_type = "R"
-                            elif is_stuck_confirm:
+                            elif is_stuck_confirm.value:
                                 img_type = "S"
                             else:
                                 img_type = "P"
@@ -702,32 +798,12 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                 #endregion 
                 
                 #region Esta va a ser la rutina de envio de data cuando esta descansado
+                if not is_rest.value and send_data_was_called and not data_was_sended:
+                    printe(bcolors.WARNING + "No se pudo enviar la data al servidor en este descanso" + bcolors.ENDC)
+                    logwriter("No se pudo enviar la data al servidor en este descanso", id= 25)
+                    send_data_was_called = False
                 if is_rest.value and not data_was_sended:
-                    
-                    try:
-                        printe("Enabling wifi")
-                        subprocess.call("./enablewifi_silent", timeout=40)
-                    except Exception as e:
-                        printe(e, "No me pude conectar para mandar data")
-                        errorwriter(e, "No me pude conectar para mandar data")
-                    
-                    if len(day_info_list)>0:
-                        day_info_to_send = day_info_list[0]
-                        head = {u'content-type': u'application/json'}
-                        printe("Envio esta data", day_info_to_send)
-                        r = requests.post(url=url, data=json.dumps(day_info_to_send), headers=head)
-                        printe(r)
-                        if r.status_code == 200:
-                            printe("Antes de enviar:", day_info_list)
-                            day_info_list.pop(0)
-                            printe("Queda para enviar:", day_info_list, "tipo", type(day_info_list), "largo", len(day_info_list))
-                            with open('send_queue/logs/logs_to_send.json', 'w') as outfile:
-                                    json.dump(day_info_list, outfile)
-                            with open('send_queue/logs/logs_to_send_backup.json', 'w') as outfile:
-                                    json.dump(day_info_list, outfile)
-
-                    if len(day_info_list) == 0:
-                        printe("No hay mas logs que enviar")
+                    send_data_was_called = True
                     if len(img_to_compress) > 0:
                         start_new_compress = True
                         printe("Hay imagenes para comprimir")
@@ -750,34 +826,60 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                                     with open('send_queue/imgs/list/img_to_compress_backup.json', 'w') as outfile:
                                         json.dump( img_to_compress, outfile)
                             printe("Acabo de crear zip:", "{}_{}.zip".format(last_zip_name,zip_name))
-                    else:
-                        printe("No hay mas imagenes para comprimir")
-                    if os.path.exists("send_queue/imgs/zipfiles"):
-                        if len(os.listdir("send_queue/imgs/zipfiles")) > 0:
-                            for zipfile in os.listdir("send_queue/imgs/zipfiles"):
-                                delete_zip = False
-                                date_zip_file = datetime.strptime(zipfile.split('_')[0], "%Y%m%d").strftime("%Y-%m-%d")
-                                with open("send_queue/imgs/zipfiles/"+ zipfile, 'rb') as file:
-                                    fileobj = [('zip', (zipfile, file, 'zip'))]
-                                    head = {u'content-type': u'multipart/form-data'}
-                                    printe("Voy a enviar imagenes, zipfile:", zipfile)
-                                    r = requests.post(url=url_img, data={"robot_identifier": robot_id, "campaign_id": campaign_id, "date":date_zip_file}, files = fileobj)
-                                    printe(r)
+                        if len(img_to_compress) == 0:
+                            printe("No hay mas imagenes para comprimir")
+                    if wifi_ok or time.perf_counter()-last_wifi > 60:
+                        wifi_ok = init_wifi()
+                        last_wifi = time.perf_counter()
+                        if wifi_ok:
+                            if len(day_info_list)>0:
+                                day_info_to_send = day_info_list[0]
+                                head = {u'content-type': u'application/json'}
+                                printe("Envio data")
+                                try:
+                                    r = requests.post(url=url, data=json.dumps(day_info_to_send), headers=head, timeout=30)
                                     if r.status_code == 200:
-                                        delete_zip = True
-                                if delete_zip:
-                                    printe("Borre zip: ", zipfile)
-                                    os.remove("send_queue/imgs/zipfiles/"+ zipfile)
-                        else:
-                            printe('No hay mas imagenes que mandar')
-                    if len(os.listdir("send_queue/imgs/zipfiles")) == 0 and len(img_to_compress) == 0 and len(day_info_list) == 0:
-                        data_was_sended = True
-                        printe("No queda mas para hacer en reposo")
+                                        day_info_list.pop(0)
+                                        printe("Quedan para enviar:",len(day_info_list), "logs")
+                                        with open('send_queue/logs/logs_to_send.json', 'w') as outfile:
+                                                json.dump(day_info_list, outfile)
+                                        with open('send_queue/logs/logs_to_send_backup.json', 'w') as outfile:
+                                                json.dump(day_info_list, outfile)
+                                except Exception as ex:
+                                    printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
+                            if len(day_info_list) == 0:
+                                printe("No hay mas logs que enviar")
+                            
+                            if os.path.exists("send_queue/imgs/zipfiles"):
+                                if len(os.listdir("send_queue/imgs/zipfiles")) > 0:
+                                    for zipfile in os.listdir("send_queue/imgs/zipfiles"):
+                                        delete_zip = False
+                                        date_zip_file = datetime.strptime(zipfile.split('_')[0], "%Y%m%d").strftime("%Y-%m-%d")
+                                        with open("send_queue/imgs/zipfiles/"+ zipfile, 'rb') as file:
+                                            fileobj = [('zip', (zipfile, file, 'zip'))]
+                                            head = {u'content-type': u'multipart/form-data'}
+                                            printe("Voy a enviar imagenes, zipfile:", zipfile)
+                                            try:
+                                                r = requests.post(url=url_img, data={"robot_identifier": robot_id, "campaign_id": campaign_id, "date":date_zip_file}, files = fileobj, timeout=30)
+                                                printe(r)
+                                                if r.status_code == 200:
+                                                    delete_zip = True
+                                            except Exception as ex:
+                                                printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
 
+                                        if delete_zip:
+                                            printe("Borre zip: ", zipfile)
+                                            os.remove("send_queue/imgs/zipfiles/"+ zipfile)
+                                else:
+                                    printe('No hay mas imagenes que mandar')
+                            if len(os.listdir("send_queue/imgs/zipfiles")) == 0 and len(img_to_compress) == 0 and len(day_info_list) == 0:
+                                data_was_sended = True
+                                printe("No queda mas para hacer en reposo")
+                        else:
+                            printe(bcolors.WARNING + "No fue posible conectarse a la red, se reintentara en 1 minuto" + bcolors.ENDC)
                 elif not is_rest.value and data_was_sended:
+                    printe(bcolors.OKGREEN + "La data fue enviada correctamente en este descanso" + bcolors.ENDC)
                     data_was_sended = False
-                    # printe("Enabling hotspot")
-                    # subprocess.call("./enablehotspot_silent", timeout=40)
                 #endregion
                 #region Rutina de filtrado de imagenes
                 if is_rest.value and len(img_to_filter) > 0:
@@ -824,51 +926,6 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                             is_hot.value = True
                             logwriter("Alta temperatura", id=9, t_cpu=temp_cpu.value, t_clock=temp_clock.value)
                         sensors.cleanup()
-                if time.perf_counter()-last_measure > measure_rate:
-                    last_measure = time.perf_counter()
-                    
-                    if mlx90614_connected:
-                        try:
-                            while True:
-                                t_mlx_surface = round(mlx.get_obj_temp(),2)
-                                t_mlx_amb = round(mlx.get_amb_temp(),2)
-                                printe(t_mlx_surface)
-                                time.sleep(0.1)
-                                if t_mlx_surface < 80:
-                                    t_mlx_surface_list.append(t_mlx_surface)
-                                    break
-                                if t_mlx_amb < 80:
-                                    t_mlx_amb_list.append(t_mlx_amb)
-                        except Exception as ex:
-                            errorwriter(ex, "No se pudo tomar mediciones MLX90614")
-                            printe("Algo salio mal con el medidor MLX90614")
-                            printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
-                    if bme_connected:
-                        bme = bme280.sample(bmebus, bme_address, calibration_params)
-                        t_bme = round(bme.temperature,2)
-                        p_bme = round(bme.pressure,2)
-                        h_bme = round(bme.humidity,2)
-                        t_bme_list.append(t_bme)
-                        p_bme_list.append(p_bme)
-                        h_bme_list.append(h_bme)
-                    if dht_connected:
-                        dht_fail_counter = 0
-                        dht_ok = False
-                        while not dht_ok:
-                            dht_ok = True
-                            try:
-                                t_dht = dhtDevice.temperature
-                                h_dht = dhtDevice.humidity
-                            except:
-                                dht_ok = False
-                                dht_fail_counter += 1
-                            if dht_fail_counter > 10:
-                                printe("No pude sacar medicion del DHT")
-                                errorwriter("DHT", "No se pudo tomar medicion de Humedad y Temperatura")
-                                break
-                        if dht_ok:
-                            t_dht_list.append(t_dht)
-                            h_dht_list.append(h_dht)
                 if time.perf_counter() - state_timer > timer_log.value:
                     state_timer = time.perf_counter()
 
@@ -968,7 +1025,7 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                     else:
                         score_general_rt = score_temp_amb_rt * 0.4 + score_hum_rt * 0.4 + score_thi_rt * 0.2
                         score_general_prom = score_temp_amb_prom * 0.4 + score_hum_prom * 0.4 + score_thi_prom * 0.2
-                    if is_stuck_confirm:
+                    if is_stuck_confirm.value:
                         if last_t_stuck != 0:
                             t_stuck_sec += time.perf_counter()-last_t_stuck
                             t_stuck = t_stuck_sec/3600
@@ -1020,15 +1077,20 @@ def pitch(man, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_st
                         logwriter("Estado, descansando", id=15, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=t_bme_mean,
                             t_dht=t_dht_mean, t_laser_surf= t_mlx_surface_mean, t_laser_amb=t_mlx_amb_mean, h_dht=h_dht_mean, h_bme=h_bme_mean, p_bme=p_bme_mean, thi=thi, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = round(t_total,2), t_active = round(t_active,2), t_rest = round(t_rest,2), t_stuck = round(t_stuck,2))
         except Exception as ex:
-            printe("Error in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
             printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
             # errorwriter("Camara", "Fallo timeout")
             # printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
             
-def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stuck_flag, imu_stuck_flag):
+def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stuck_flag, imu_stuck_flag, is_stuck_confirm):
     # Vamos a obtener las mediciones de clearance y del imu
-    imu_debug = False
+    stuck_watchdog_time = 5*60
+    stuck_watchdog_clearance = []
+    stuck_watchdog_clearance_saved = False
+    imu_debug = True
+    stuck_watchdog_imu = []
+    stuck_watchdog_imu_saved = False
     clearance_control = False
+    clearance_debug = True
     log_imu_stuck = True
     last_imu = 0
     start_imu_stuck = 0
@@ -1092,6 +1154,7 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
         except Exception as ex:
             errorwriter(ex, "Error al iniciar el IMU")
             printe(bcolors.FAIL + "El IMU no pudo iniciar" + bcolors.ENDC)
+            imu_connected = False
     #endregion
     #region Inicio VL53
     if vl53l0x_detected:
@@ -1108,9 +1171,26 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
     #endregion
     
     while True:
+        time.sleep(0.05)
         if vl53l0x_connected:
+            clearance.value = tof.get_distance() - tof_offset
+            if clearance_debug:
+                stuck_watchdog_clearance.append((datetime.now().strftime("%H:%M:%S"),clearance.value))
+                if (datetime.strptime(stuck_watchdog_clearance[-1][0], "%H:%M:%S") - datetime.strptime(stuck_watchdog_clearance[0][0], "%H:%M:%S")).seconds > stuck_watchdog_time:
+                    stuck_watchdog_clearance.pop(0)
+                print(is_stuck_confirm.value)
+                if is_stuck_confirm.value and not stuck_watchdog_clearance_saved:
+                    printe("Traba detectada, guardando la data de clearance")
+                    stuck_watchdog_clearance_saved = True
+                    if not os.path.exists("clearance_debug/{}".format(datetime.now().strftime("%Y%m%d"))):
+                        os.mkdir("clearance_debug/{}".format(datetime.now().strftime("%Y%m%d")))
+                    with open("clearance_debug/{}/{}.csv".format(datetime.now().strftime("%Y%m%d"),datetime.now().strftime("%H%M%S")), "w", newline="") as f:
+                        writer = csv.writer(f)
+                        writer.writerows(stuck_watchdog_clearance)
+                    stuck_watchdog_clearance = []
+                if not is_stuck_confirm.value and stuck_watchdog_clearance_saved:
+                    stuck_watchdog_clearance_saved = False
             if clearance_control:
-                clearance.value = tof.get_distance() - tof_offset
                 if not clearance_stuck_flag.value:
                     if clearance.value < min_tof_clearance:
                         clearance_stuck_flag.value = True
@@ -1137,67 +1217,79 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
                     if clearance.value > max_tof_clearance:
                         printe("Aumente el clearance, me destrabe")
                         clearance_stuck_flag.value = False
-            if imu_connected and imu_debug and not is_rest.value:
-                try:
-                    acc_x = read_raw_data(ACCEL_XOUT_H)
-                    acc_y = read_raw_data(ACCEL_YOUT_H)
-                    acc_z = read_raw_data(ACCEL_ZOUT_H)
-                    gyro_x = read_raw_data(GYRO_XOUT_H)
-                    gyro_y = read_raw_data(GYRO_YOUT_H)
-                    gyro_z = read_raw_data(GYRO_ZOUT_H)
-                    imu_array = [datetime.now().strftime("%H:%M:%S"), acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z]
-                    with open(datetime.now().strftime("%Y%m%d"), 'a', newline='') as imu_logfile:
-                        wr = csv.writer(imu_logfile)
-                        wr.writerow(imu_array)
-                except:
-                    pass
-            elif not imu_debug and imu_req.value and time.perf_counter() - last_imu_measure > 1:
-                last_imu_measure = time.perf_counter()
-                try:
-                    acc_y = read_raw_data(ACCEL_YOUT_H)
-                    acc_z = read_raw_data(ACCEL_ZOUT_H)
+        if imu_connected and imu_debug and not is_rest.value:
+            try:
+                acc_x = read_raw_data(ACCEL_XOUT_H)
+                acc_y = read_raw_data(ACCEL_YOUT_H)
+                acc_z = read_raw_data(ACCEL_ZOUT_H)
+                gyro_x = read_raw_data(GYRO_XOUT_H)
+                gyro_y = read_raw_data(GYRO_YOUT_H)
+                gyro_z = read_raw_data(GYRO_ZOUT_H)
+                stuck_watchdog_imu.append((datetime.now().strftime("%H:%M:%S"), acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z))
+                if (datetime.strptime(stuck_watchdog_imu[-1][0], "%H:%M:%S") - datetime.strptime(stuck_watchdog_imu[0][0], "%H:%M:%S")).seconds > stuck_watchdog_time:
+                    stuck_watchdog_imu.pop(0)
+                if is_stuck_confirm.value and not stuck_watchdog_imu_saved:
+                    printe("Traba detectada, guardando la data de IMU")
+                    stuck_watchdog_imu_saved = True
+                    if not os.path.exists("imu_debug/{}".format(datetime.now().strftime("%Y%m%d"))):
+                        os.mkdir("imu_debug/{}".format(datetime.now().strftime("%Y%m%d")))
+                    with open("imu_debug/{}/{}.csv".format(datetime.now().strftime("%Y%m%d"),datetime.now().strftime("%H%M%S")), "w", newline="") as f:
+                        writer = csv.writer(f)
+                        writer.writerows(stuck_watchdog_imu)
+                    stuck_watchdog_imu = []
+                if not is_stuck_confirm.value and stuck_watchdog_imu_saved:
+                    stuck_watchdog_imu_saved = False
+            except:
+                pass
+        elif not imu_debug and imu_req.value and time.perf_counter() - last_imu_measure > 1:
+            last_imu_measure = time.perf_counter()
+            try:
+                acc_y = read_raw_data(ACCEL_YOUT_H)
+                acc_z = read_raw_data(ACCEL_ZOUT_H)
 
-                    Ay = acc_y/16384.0
-                    Az = acc_z/16384.0
+                Ay = acc_y/16384.0
+                Az = acc_z/16384.0
 
-                        
-                    pitch = math.atan2(Ay,  Az) * 57.3
+                    
+                pitch = math.atan2(Ay,  Az) * 57.3
 
-                    if pitch > pitch_flag.value:
-                        counter += 1
-                    else:
-                        counter = 0
-                        imu_stuck_flag.value = False
-                        if log_imu_stuck == False:
-                            elapsed_imu_stuck = round((time.perf_counter() - start_imu_stuck)/60.0, 2)
-                            total_elapsed_imu_stuck = last_total_elapsed_imu_stuck + elapsed_imu_stuck
-                            json_stuck_line_imu = {"IMU": total_elapsed_imu_stuck}
-                            with open('stuck_count_imu.json', 'w') as outfile:
-                                json.dump(json_stuck_line_imu, outfile)
-                            with open('stuck_count_backup.json', 'w') as outfile:
-                                json.dump(json_stuck_line_imu, outfile)
-                            printe("IMU destuck")
-                            logwriter("Me destrabe, IMU, minutos", minutos=elapsed_imu_stuck, id=19)
-                            log_imu_stuck = True
-                    if counter > pitch_counter.value:
-                        if log_imu_stuck:
-                            printe("Estoy trabado!!! Detecte inclinacion mayor a la safe")
-                            logwriter("Me trabe, IMU", id=18)
-                            log_imu_stuck = False
-                            start_imu_stuck = time.perf_counter()
-                            last_total_elapsed_imu_stuck = total_elapsed_imu_stuck
-                        elapsed_imu_stuck =  round((time.perf_counter() - start_imu_stuck)/60.0, 2)
+                if pitch > pitch_flag.value:
+                    counter += 1
+                else:
+                    counter = 0
+                    imu_stuck_flag.value = False
+                    if log_imu_stuck == False:
+                        elapsed_imu_stuck = round((time.perf_counter() - start_imu_stuck)/60.0, 2)
                         total_elapsed_imu_stuck = last_total_elapsed_imu_stuck + elapsed_imu_stuck
-                        json_stuck_line = {"IMU": total_elapsed_imu_stuck}
+                        json_stuck_line_imu = {"IMU": total_elapsed_imu_stuck}
                         with open('stuck_count_imu.json', 'w') as outfile:
+                            json.dump(json_stuck_line_imu, outfile)
+                        with open('stuck_count_backup.json', 'w') as outfile:
+                            json.dump(json_stuck_line_imu, outfile)
+                        printe("Me destrabe IMU, inclinacion {}°".format(pitch))
+                        logwriter("Me destrabe, IMU, minutos", minutos=elapsed_imu_stuck, id=19)
+                        log_imu_stuck = True
+                if counter > pitch_counter.value:
+                    if log_imu_stuck:
+                        printe("Me trabe IMU, inclinacion {}°".format(pitch))
+                        logwriter("Me trabe, IMU", id=18)
+                        log_imu_stuck = False
+                        start_imu_stuck = time.perf_counter()
+                        last_total_elapsed_imu_stuck = total_elapsed_imu_stuck
+                    elapsed_imu_stuck =  round((time.perf_counter() - start_imu_stuck)/60.0, 2)
+                    total_elapsed_imu_stuck = last_total_elapsed_imu_stuck + elapsed_imu_stuck
+                    json_stuck_line = {"IMU": total_elapsed_imu_stuck}
+                    with open('stuck_count_imu.json', 'w') as outfile:
+                        json.dump(json_stuck_line, outfile)
+                    with open('stuck_count_imu_backup.json', 'w') as outfile:
                             json.dump(json_stuck_line, outfile)
-                        with open('stuck_count_imu_backup.json', 'w') as outfile:
-                                json.dump(json_stuck_line, outfile)
-                        imu_stuck_flag.value = True
-                except Exception as ex:
-                    errorwriter(ex, "El IMU no pudo tomar lectura")
-                    printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, "Ups! El IMU no pudo tomar lectura"+ bcolors.ENDC)
-def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, is_hot, rest_time, wake_time, time_backwards, crash_timeout, last_touch_window_timeout, flash_req, vel_array, time_turn, x_com, z_com, is_rest, night_mode_enable, night_mode_start, night_mode_end, night_mode_rest_time, night_mode_wake_time, night_mode_vel_array, night_mode_reversed, prints_enable ):
+                    imu_stuck_flag.value = True
+            except Exception as ex:
+                errorwriter(ex, "El IMU no pudo tomar lectura")
+                printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, "Ups! El IMU no pudo tomar lectura"+ bcolors.ENDC)
+def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, is_hot, rest_time, wake_time, time_backwards, crash_timeout, last_touch_window_timeout, flash_req, vel_array, time_turn, x_com, z_com, is_rest, night_mode_enable, night_mode_start, night_mode_end, night_mode_rest_time, night_mode_wake_time, night_mode_vel_array, night_mode_reversed, prints_enable ):
+    
+    
     motor_stby = DigitalOutputDevice("BOARD40")
     motor_rf_pwm = PWMOutputDevice("BOARD35")  #1 ES EL MOTOR DERECHO
     motor_rb_pwm = PWMOutputDevice("BOARD33")  #1 ES EL MOTOR DERECHO
@@ -1574,7 +1666,8 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             motor_lb_pwm.value = abs(pwm2)
         if pwm1 != 0 and pwm2 != 0:
             if motor_rf_cw_dir.is_active != motor_rf_ccw_dir.is_active and motor_rb_cw_dir.is_active != motor_rb_ccw_dir.is_active and motor_lf_cw_dir.is_active != motor_lf_ccw_dir.is_active and motor_lb_cw_dir.is_active != motor_lb_ccw_dir.is_active:
-                motor_stby.on()
+                # motor_stby.on()
+                pass
             else:
                 printe(bcolors.FAIL + "ERROR, va a quemarse el driver porque hay dos pines de direccion HIGH" + bcolors.ENDC)
         if t > 0:
@@ -1748,6 +1841,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             was_auto = True
             timer = time.perf_counter()
             while auto_req.value == True and not is_rest.value:
+                time.sleep(0.1)
                 if move_status != 'F':
                     move(vel.forward.normal)
                 if shutdown_button.is_pressed:
@@ -1901,7 +1995,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                         logwriter("Pasaron {} segundos sin detectar colisiones, atencion".format(timer_boring.value), id=24)
                     printe('No detecte ningun crash, voy marcha atras por las dudas')
                     timer = time.perf_counter()
-                    move_sequence(random.choice(['DER', 'IZQ']), time_turn.value)      
+                    move_sequence(random.choice(['DER', 'IZQ']), time_turn.value)
         time.sleep(1)
 
 def main():
@@ -1944,6 +2038,7 @@ def main():
     x_com = multiprocessing.Value('d', 0)
     z_com = multiprocessing.Value('d', 0)
     is_rest = multiprocessing.Value('b', False)
+    is_stuck_confirm = multiprocessing.Value('b', False)
     manager = multiprocessing.Manager()
     lst = manager.list()
     lst.append(None)
@@ -2000,9 +2095,9 @@ def main():
     command_handler = multiprocessing.Process(
         target=command, args=(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_flag, flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, rest_time, wake_time, time_backwards, timer_boring, crash_timeout, x_com, z_com,))
     # Set up our camera
-    savior_handler = multiprocessing.Process(target=savior, args=(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stuck_flag, imu_stuck_flag,))
-    auto_handler = multiprocessing.Process(target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, is_hot, rest_time, wake_time, time_backwards, crash_timeout, last_touch_window_timeout, flash_req, vel_array, time_turn, x_com, z_com, is_rest, night_mode_enable, night_mode_start, night_mode_end, night_mode_rest_time, night_mode_wake_time, night_mode_vel_array, night_mode_reversed, prints_enable,))
-    pitch_handler = multiprocessing.Process(target=pitch, args=(lst, imu_req, pitch_flag, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, pitch_counter, timer_temp, timer_log, pic_sensibility_in, pic_sensibility_out, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id,))
+    savior_handler = multiprocessing.Process(target=savior, args=(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stuck_flag, imu_stuck_flag, is_stuck_confirm,))
+    auto_handler = multiprocessing.Process(target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, is_hot, rest_time, wake_time, time_backwards, crash_timeout, last_touch_window_timeout, flash_req, vel_array, time_turn, x_com, z_com, is_rest, night_mode_enable, night_mode_start, night_mode_end, night_mode_rest_time, night_mode_wake_time, night_mode_vel_array, night_mode_reversed, prints_enable,))
+    pitch_handler = multiprocessing.Process(target=pitch, args=(lst, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, timer_temp, timer_log, pic_sensibility_in, pic_sensibility_out, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id, is_stuck_confirm,))
     # Add 'em to our list
     PROCESSES.append(savior_handler)
     if campaign_is_active:
@@ -2144,25 +2239,8 @@ if __name__ == '__main__':
     else:
         behavior = open_json('/var/www/html/default_behavior.json')
 
-    
-    try:
-        printe("Iniciando wifi")
-        try:
-            ssid_grep = "'SSID: " + ssid + "'"
-            subprocess.check_output('sudo iw dev "wlan0" scan | grep {}'.format(ssid_grep), shell=True)
-            printe("Se encontro la red", ssid)  
-        except subprocess.CalledProcessError:
-            printe(bcolors.FAIL + "No se encontro la red {}".format(ssid) + bcolors.ENDC)
-        subprocess.call("./enablewifi_silent", timeout=40)
-        try:
-            subprocess.check_output('sudo iw dev "wlan0" scan | grep associated', shell=True)
-            printe(bcolors.OKGREEN + "Conectado a la red {}".format(ssid) + bcolors.ENDC)
-        except subprocess.CalledProcessError:
-            printe(bcolors.FAIL + "No se pudo conectar a la red {}".format(ssid) + bcolors.ENDC)
-    except Exception as e:
-        printe(e, "No se pudo iniciar wifi")
-        errorwriter(e,"No inicio el wifi")
 
+    init_wifi()
     
     if not os.path.exists("stuck_count_imu.json"):
         json_stuck_line_imu = {"IMU": 0}
