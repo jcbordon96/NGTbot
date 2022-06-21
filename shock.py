@@ -667,6 +667,7 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
                         confirm_log_cam_stuck = True
                         is_stuck_confirm.value = False
                         logwriter("Me destrabe, camara CONFIRMADO, minutos:", minutos=round(confirm_elapsed_cam_stuck,2), id=21)
+                        printe(bcolors.OKGREEN + "Me destrabe confirmado" + bcolors.ENDC)
                     reference_stuck = time.perf_counter()
                     stuck_count = 0
                 # Comparo imagenes
@@ -1178,7 +1179,6 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
                 stuck_watchdog_clearance.append((datetime.now().strftime("%H:%M:%S"),clearance.value))
                 if (datetime.strptime(stuck_watchdog_clearance[-1][0], "%H:%M:%S") - datetime.strptime(stuck_watchdog_clearance[0][0], "%H:%M:%S")).seconds > stuck_watchdog_time:
                     stuck_watchdog_clearance.pop(0)
-                print(is_stuck_confirm.value)
                 if is_stuck_confirm.value and not stuck_watchdog_clearance_saved:
                     printe("Traba detectada, guardando la data de clearance")
                     stuck_watchdog_clearance_saved = True
