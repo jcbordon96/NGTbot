@@ -39,7 +39,13 @@ from bluetooth import *
 import adafruit_extended_bus
 #endregion
 
-
+def buzzer(state = "off"):
+    if state == "rand":
+        state = random.choice(["on", "off"])
+    if state == "off":
+        buzz.off()
+    elif state == "on":
+        buzz.on()
 
 
 
@@ -336,7 +342,7 @@ def command(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_f
     asyncio.get_event_loop().run_until_complete(start_server2)
     asyncio.get_event_loop().run_forever()
 
-def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, timer_temp, timer_log, pic_sensibility_in, pic_sensibility_out, stucks_to_confirm, stuck_window, stuck_watchdog_time, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id, is_stuck_confirm):
+def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, timer_temp, timer_log, pic_sensibility_in, pic_sensibility_out, stucks_to_confirm, stuck_window, stuck_watchdog_time, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id, is_stuck_confirm, camera_state, mlx_state, bme_state, vl53_state, imu_state):
     #region Iniciar Variables
     camera = PiCamera()
     camera.resolution = (640, 480)
@@ -438,12 +444,27 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
     send_data_was_called = False
     stuck_watchdog_cam = []
     cam_debug = True
-    bme_state = {"bme_status": False, "bme_status_str": "No detectado"}
-    camera_state = {"camera_status": False, "camera_status_str": "Iniciada, sin tomar imagenes"}
-    mlx_state = {"mlx_status": False, "mlx_status_str": "No detectado"}
-
+    bme_state = {"status": False, "status_str": "No detectado"}
+    camera_state = {"status": False, "status_str": "Iniciada, sin tomar imagenes"}
+    mlx_state = {"status": False, "status_str": "No detectado"}
+    stuck_state = False
+    general_state = {"hour": datetime.now().strftime("%H:%M:%S"), "stuck":stuck_state, "camera":camera_state, "bme":bme_state, "mlx":mlx_state, "imu":{"status":imu_state["status"], "status_str": imu_state["status_str"]}, "vl53":{"status":vl53_state["status"], "status_str": vl53_state["status_str"]} }
+    state_developer = {"robot_id":robot_id,"campaign_id":campaign_id, "date": datetime.now().strftime("%Y-%m-%d"), "state": general_state}
+    states_list = []
+    state_setted = False
     #endregion
     #region Levanto mediciones que han quedado sin enviar antes de apagarse
+    try:
+        with open('send_queue/logs/states_to_send.json') as send_file:
+            states_list = json.load(send_file)
+        printe("Quedo {} states para enviar".format(len(day_info_list)))
+    except Exception as ex:
+        printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, bcolors.ENDC)
+        try:
+            with open('send_queue/logs/states_to_send_backup.json') as send_file:
+                states_list = json.load(send_file)
+        except Exception as ex:
+            printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, bcolors.ENDC)
     try:
         with open('send_queue/logs/logs_to_send.json') as send_file:
             day_info_list = json.load(send_file)
@@ -463,7 +484,6 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
             img_to_compress += json.load(send_file)
     except:
         try:
-
             with open('send_queue/imgs/list/img_to_compress_backup.json') as send_file:
                 img_to_compress += json.load(send_file)
         except:
@@ -515,26 +535,26 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
     #region Inicio de sensores
 
     if bme_detected:
-        bme_state["bme_status"] = False
-        bme_state["bme_status_str"] = "Detectado pero no iniciado"
+        bme_state["status"] = False
+        bme_state["status_str"] = "Detectado pero no iniciado"
         try:
             bmebus = smbus.SMBus(4)
             calibration_params = bme280.load_calibration_params(bmebus,bme_address)
             bme = bme280.sample(bmebus, bme_address, calibration_params)
             printe(bcolors.OKGREEN + "BME iniciado" + bcolors.ENDC)
             bme_connected = True
-            bme_state["bme_status"] = False
-            bme_state["bme_status_str"] = "Iniciado, sin tomar mediciones"
+            bme_state["status"] = False
+            bme_state["status_str"] = "Iniciado, sin tomar mediciones"
         except Exception as ex:
             errorwriter(ex, "Error al iniciar BME")
             printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, "Error al iniciar el BME" + bcolors.ENDC)
             bme_connected = False
-            bme_state["bme_status"] = False
-            bme_state["bme_status_str"] = "Detectado pero no se pudo iniciar"
+            bme_state["status"] = False
+            bme_state["status_str"] = "Detectado pero no se pudo iniciar"
 
     if mlx90614_detected:
-        mlx_state["mlx_status"] = False
-        mlx_state["mlx_status_str"] = "Detectado pero no iniciado"
+        mlx_state["status"] = False
+        mlx_state["status_str"] = "Detectado pero no iniciado"
         try:
             # mlxbus = smbus2.SMBus(4)
             # mlx = MLX90614(mlxbus, address=mlx90614_address)
@@ -542,14 +562,14 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
             mlx = adafruit_mlx90614.MLX90614(mlx_i2c)
             printe(bcolors.OKGREEN + "MLX90614 iniciado" + bcolors.ENDC)
             mlx90614_connected = True
-            mlx_state["mlx_status"] = False
-            mlx_state["mlx_status_str"] = "Iniciado, sin tomar mediciones"
+            mlx_state["status"] = False
+            mlx_state["status_str"] = "Iniciado, sin tomar mediciones"
         except Exception as ex:
             errorwriter(ex, "Error al iniciar MLX90614")
             printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, "Error al iniciar el MLX90614" + bcolors.ENDC)
             mlx90614_connected = False
-            mlx_state["mlx_status"] = False
-            mlx_state["mlx_status_str"] = "Detectado pero no se pudo iniciar"
+            mlx_state["status"] = False
+            mlx_state["status_str"] = "Detectado pero no se pudo iniciar"
     try:
         with open('counter.json') as json_file:
             img_index = json.load(json_file)
@@ -566,10 +586,14 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
         try:
             for frame in camera.capture_continuous(raw_capture, format="bgr", use_video_port=True):
                 #region Tomo mediciones del ambiente
-                camera_state["camera_status"] = True
-                camera_state["camera_status_str"] = "OK"
+                camera_state["status"] = True
+                camera_state["status_str"] = "OK"
                 if time.perf_counter()-last_measure > measure_rate:
                     last_measure = time.perf_counter() 
+                    if is_rest.value:
+                        buzzer("off")
+                    else:
+                        buzzer("rand")
                     if mlx90614_connected:
                         try:
                             # t_mlx_surface = round(mlx.get_obj_temp(),2)
@@ -581,8 +605,8 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
                             if t_mlx_amb < 80:
                                 t_mlx_amb_list.append(t_mlx_amb)
                         except Exception as ex:
-                            mlx_state["mlx_status"] = False
-                            mlx_state["mlx_status_str"] = "Iniciado pero no puede tomar mediciones"
+                            mlx_state["status"] = False
+                            mlx_state["status_str"] = "Iniciado pero no puede tomar mediciones"
                             errorwriter(ex, "No se pudo tomar mediciones MLX90614")
                             printe("Algo salio mal con el medidor MLX90614")
                             printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
@@ -596,8 +620,8 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
                             p_bme_list.append(p_bme)
                             h_bme_list.append(h_bme)
                         except Exception as ex:
-                            bme_state["bme_status"] = False
-                            bme_state["bme_status_str"] = "Iniciado pero no puede tomar mediciones"
+                            bme_state["status"] = False
+                            bme_state["status_str"] = "Iniciado pero no puede tomar mediciones"
                             errorwriter(ex, "No se pudo tomar mediciones bme")
                             printe("Algo salio mal con el medidor bme")
                             printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
@@ -658,7 +682,7 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
                     # Si no esta frenado vamos a comparar las imagenes para ver si esta trabado
                     #region Comparacion de imagenes
                     if not is_stopped.value:
-                        
+                        stuck_state = is_stuck_confirm.value
                         img0 = to_grayscale(image_to_compare0.astype(float))
                         img1 = to_grayscale(f.astype(float))
                         n_m = compare_images(img0, img1)
@@ -696,8 +720,8 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
                                     log_cam_stuck = True
                                 cam_stuck_flag.value = False
                         else:
-                            camera_state["camera_status"] = False
-                            camera_state["camera_status_str"] = "Imagen Negra"
+                            camera_state["status"] = False
+                            camera_state["status_str"] = "Imagen Negra"
                         image_to_compare0 = f
                         compare_timer = time.perf_counter()
                     else:
@@ -782,6 +806,122 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
                         log_cam = False
                 raw_capture.truncate(0)
                 #endregion 
+                #region Esta va a ser la rutina de envio de data cuando esta descansado
+                if not is_rest.value and send_data_was_called and not data_was_sended:
+                    printe(bcolors.WARNING + "No se pudo enviar la data al servidor en este descanso" + bcolors.ENDC)
+                    logwriter("No se pudo enviar la data al servidor en este descanso", id= 25)
+                    send_data_was_called = False
+                    state_setted = False
+                if is_rest.value and not data_was_sended:
+                    if not state_setted:
+                        state_setted = True
+                        general_state = {"hour": datetime.now().strftime("%H:%M:%S"), "stuck":stuck_state, "camera":camera_state, "bme":bme_state, "mlx":mlx_state, "imu":{"status":imu_state["status"], "status_str": imu_state["status_str"]}, "vl53":{"status":vl53_state["status"], "status_str": vl53_state["status_str"]} }
+                        state_developer = {"robot_id":robot_id,"campaign_id":campaign_id, "date": datetime.now().strftime("%Y-%m-%d"), "state": general_state}
+                        printe("Ultimo estado:", state_developer)
+                        states_list.append(state_developer)
+                        with open('send_queue/logs/states_to_send.json', 'w') as outfile:
+                            json.dump(states_list, outfile)
+                        with open('send_queue/logs/states_to_send_backup.json', 'w') as outfile:
+                            json.dump(states_list, outfile)
+                    
+                    send_data_was_called = True
+                    if len(img_to_compress) > 0:
+                        start_new_compress = True
+                        printe("Hay imagenes para comprimir")
+                        while start_new_compress:
+                            start_new_compress = False
+                            zip_name = datetime.now().strftime("%Y%m%d_%H%M%S")
+                            printe(img_to_compress)
+                            last_zip_name = img_to_compress[0].split('/')[1]
+                            with ZipFile("send_queue/imgs/zipfiles/{}_{}.zip".format(last_zip_name,zip_name),'w') as zip:
+                                while img_to_compress:
+                                    if img_to_compress[0].split('/')[1] != last_zip_name:
+                                        printe("Cambio de nombre")
+                                        start_new_compress = True
+                                        break
+                                    printe("Agregando {} al zip".format(img_to_compress[0]))
+                                    zip.write(img_to_compress[0])
+                                    img_to_compress.pop(0)
+                                    with open('send_queue/imgs/list/img_to_compress.json', 'w') as outfile:
+                                        json.dump( img_to_compress, outfile)
+                                    with open('send_queue/imgs/list/img_to_compress_backup.json', 'w') as outfile:
+                                        json.dump( img_to_compress, outfile)
+                            printe("Acabo de crear zip:", "{}_{}.zip".format(last_zip_name,zip_name))
+                        if len(img_to_compress) == 0:
+                            printe("No hay mas imagenes para comprimir")
+                    if wifi_ok or time.perf_counter()-last_wifi > 60:
+                        wifi_ok = init_wifi()
+                        last_wifi = time.perf_counter()
+                        if wifi_ok:
+                            if len(states_list) > 0:
+                                state_to_send = states_list[0]
+                                head = {u'content-type': u'application/json'}
+                                printe("Envio estado")
+                                try:
+                                    r = requests.post(url=url_states, data=json.dumps(state_to_send), headers=head, timeout=30)
+                                    if r.status_code == 200:
+                                        states_list.pop(0)
+                                        printe("Quedan para enviar:",len(states_list), "estados")
+                                        with open('send_queue/logs/states_to_send.json', 'w') as outfile:
+                                                json.dump(states_list, outfile)
+                                        with open('send_queue/logs/states_to_send_backup.json', 'w') as outfile:
+                                                json.dump(states_list, outfile)
+                                    else:
+                                        printe(bcolors.FAIL + "Fallo envio de estado, la respuesta fue:{}".format(r)+bcolors.ENDC)
+                                except Exception as ex:
+                                    printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
+                            else:
+                                printe("No hay mas estados para enviar")
+                            if len(day_info_list)>0:
+                                day_info_to_send = day_info_list[0]
+                                head = {u'content-type': u'application/json'}
+                                printe("Envio data")
+                                try:
+                                    r = requests.post(url=url, data=json.dumps(day_info_to_send), headers=head, timeout=30)
+                                    if r.status_code == 200:
+                                        day_info_list.pop(0)
+                                        printe("Quedan para enviar:",len(day_info_list), "logs")
+                                        with open('send_queue/logs/logs_to_send.json', 'w') as outfile:
+                                                json.dump(day_info_list, outfile)
+                                        with open('send_queue/logs/logs_to_send_backup.json', 'w') as outfile:
+                                                json.dump(day_info_list, outfile)
+                                except Exception as ex:
+                                    printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
+                            if len(day_info_list) == 0:
+                                printe("No hay mas logs que enviar")
+                            
+                            if os.path.exists("send_queue/imgs/zipfiles"):
+                                if len(os.listdir("send_queue/imgs/zipfiles")) > 0:
+                                    for zipfile in os.listdir("send_queue/imgs/zipfiles"):
+                                        delete_zip = False
+                                        date_zip_file = datetime.strptime(zipfile.split('_')[0], "%Y%m%d").strftime("%Y-%m-%d")
+                                        with open("send_queue/imgs/zipfiles/"+ zipfile, 'rb') as file:
+                                            fileobj = [('zip', (zipfile, file, 'zip'))]
+                                            head = {u'content-type': u'multipart/form-data'}
+                                            printe("Voy a enviar imagenes, zipfile:", zipfile)
+                                            try:
+                                                r = requests.post(url=url_img, data={"robot_identifier": robot_id, "campaign_id": campaign_id, "date":date_zip_file}, files = fileobj, timeout=30)
+                                                printe(r)
+                                                if r.status_code == 200:
+                                                    delete_zip = True
+                                            except Exception as ex:
+                                                printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
+
+                                        if delete_zip:
+                                            printe("Borre zip: ", zipfile)
+                                            os.remove("send_queue/imgs/zipfiles/"+ zipfile)
+                                else:
+                                    printe('No hay mas imagenes que mandar')
+                            if len(os.listdir("send_queue/imgs/zipfiles")) == 0 and len(img_to_compress) == 0 and len(day_info_list) == 0 and len(states_list) == 0:
+                                data_was_sended = True
+                                printe("No queda mas para hacer en reposo")
+                        else:
+                            printe(bcolors.WARNING + "No fue posible conectarse a la red, se reintentara en 1 minuto" + bcolors.ENDC)
+                elif not is_rest.value and data_was_sended:
+                    printe(bcolors.OKGREEN + "La data fue enviada correctamente en este descanso" + bcolors.ENDC)
+                    data_was_sended = False
+                    state_setted = False
+                #endregion
                 
                 if time.perf_counter() - temp_timer > timer_temp.value:
                     temp_timer = time.perf_counter()
@@ -844,17 +984,17 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
                     t_mlx_amb_mean = mean_check(t_mlx_amb_list, who_called = "MLX90614")
                     t_mlx_surface_mean = mean_check(t_mlx_surface_list, who_called = "MLX90614")
                     if t_bme_mean == 0 or h_bme_mean == 0 or p_bme_mean == 0:
-                        bme_state["bme_status"] = False
-                        bme_state["bme_status_str"] = "Medicion nula"
+                        bme_state["status"] = False
+                        bme_state["status_str"] = "Medicion nula"
                     else:
-                        bme_state["bme_status"] = True
-                        bme_state["bme_status_str"] = "OK"
+                        bme_state["status"] = True
+                        bme_state["status_str"] = "OK"
                     if t_mlx_amb_mean == 0 or t_mlx_surface_mean == 0:
-                        mlx_state["mlx_status"] = False
-                        mlx_state["mlx_status_str"] = "Medicion nula"
+                        mlx_state["status"] = False
+                        mlx_state["status_str"] = "Medicion nula"
                     else:
-                        mlx_state["mlx_status"] = True
-                        mlx_state["mlx_status_str"] = "Medicion nula"
+                        mlx_state["status"] = True
+                        mlx_state["status_str"] = "OK"
                     t_bme_list = []
                     h_bme_list = []
                     p_bme_list = []
@@ -954,20 +1094,20 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
                             json.dump(day_info_list, outfile)
                     if not is_rest.value:
                         printe("Estado: BME: T:{}/H:{}/P:{} MLX90614: T:{}".format(round(t_bme_mean,2), round(h_bme_mean,2), round(p_bme_mean,2), round(t_mlx_surface_mean,2)))
-                        logwriter("Estado", id=14, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=t_bme_mean,
-                            t_laser_surf= t_mlx_surface_mean, t_laser_amb=t_mlx_amb_mean, h_bme=h_bme_mean, p_bme=p_bme_mean, thi=thi, clearance=clearance.value, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = round(t_total,2), t_active = round(t_active,2), t_rest = round(t_rest,2), t_stuck = round(t_stuck,2))
+                        logwriter("Estado", id=14, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=round(t_bme_mean,2),
+                            t_laser_surf=round(t_mlx_surface_mean,2), t_laser_amb=round(t_mlx_amb_mean,2), h_bme=round(h_bme_mean,2), p_bme=round(p_bme_mean,2), thi=round(thi,2), clearance=clearance.value, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = round(t_total,2), t_active = round(t_active,2), t_rest = round(t_rest,2), t_stuck = round(t_stuck,2))
                     else:
                         printe("Estado descansando : BME: T:{}/H:{}/P:{} MLX90614: T:{}".format(round(t_bme_mean,2), round(h_bme_mean,2), round(p_bme_mean,2), round(t_mlx_surface_mean,2)))
-                        logwriter("Estado, descansando", id=15, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=t_bme_mean,
-                            t_laser_surf= t_mlx_surface_mean, t_laser_amb=t_mlx_amb_mean, h_bme=h_bme_mean, p_bme=p_bme_mean, thi=thi, clearance=clearance.value, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = round(t_total,2), t_active = round(t_active,2), t_rest = round(t_rest,2), t_stuck = round(t_stuck,2))
+                        logwriter("Estado, descansando", id=15, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=round(t_bme_mean,2),
+                            t_laser_surf=round(t_mlx_surface_mean,2), t_laser_amb=round(t_mlx_amb_mean,2), h_bme=round(h_bme_mean,2), p_bme=round(p_bme_mean,2), thi=round(thi,2), clearance=clearance.value, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = round(t_total,2), t_active = round(t_active,2), t_rest = round(t_rest,2), t_stuck = round(t_stuck,2))
         except Exception as ex:
             printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
-            camera_state["camera_status"] = False
-            camera_state["camera_status_str"] = "Fallo la toma de imagenes, no deberia llegar al servidor"
+            camera_state["status"] = False
+            camera_state["status_str"] = "Fallo la toma de imagenes, no deberia llegar al servidor"
             # errorwriter("Camara", "Fallo timeout")
             # printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
             
-def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stuck_flag, imu_stuck_flag, is_stuck_confirm, stuck_watchdog_time):
+def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stuck_flag, imu_stuck_flag, is_stuck_confirm, stuck_watchdog_time, vl53_state, imu_state ):
     # Vamos a obtener las mediciones de clearance y del imu
     stuck_watchdog_clearance = []
     stuck_watchdog_clearance_saved = False
@@ -982,8 +1122,8 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
     total_elapsed_imu_stuck = 0
     last_total_elapsed_imu_stuck = 0
     elapsed_imu_stuck = 0
-    imu_state = {"imu_status": False, "imu_status_str": "No detectado"}
-    vl53_state = {"vl53_status": False, "vl53_status_str": "No detectado"}
+    # imu_state = {"status": False, "status_str": "No detectado"}
+    # vl53_state = {"status": False, "status_str": "No detectado"}
     #region Constantes de address del IMU
     PWR_MGMT_1 = 0x6B
     SMPLRT_DIV = 0x19
@@ -1031,43 +1171,43 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
     #endregion
     #region Inicio IMU
     if imu_detected:
-        imu_state["imu_status"] = False
-        imu_state["imu_status_str"] = "Detecado pero no iniciado"
+        imu_state["status"] = False
+        imu_state["status_str"] = "Detecado pero no iniciado"
         try:
-            bus = smbus.SMBus(4) 	
+            bus = smbus.SMBus(4)	
             Device_Address = imu_address   
             MPU_Init()
             printe(bcolors.OKGREEN + "IMU iniciado" + bcolors.ENDC)
             imu_connected = True
             last_imu_measure = time.perf_counter()
-            imu_state["imu_status"] = False
-            imu_state["imu_status_str"] = "Iniciado, sin tomar mediciones"
+            imu_state["status"] = False
+            imu_state["status_str"] = "Iniciado, sin tomar mediciones"
 
         except Exception as ex:
             errorwriter(ex, "Error al iniciar el IMU")
             printe(bcolors.FAIL + "El IMU no pudo iniciar" + bcolors.ENDC)
             imu_connected = False
-            imu_state["imu_status"] = False
-            imu_state["imu_status_str"] = "Detectado, no se pudo iniciar"
+            imu_state["status"] = False
+            imu_state["status_str"] = "Detectado, no se pudo iniciar"
     #endregion
     #region Inicio VL53
     if vl53l0x_detected:
-        vl53_state["vl53_status"] = False
-        vl53_state["vl53_status_str"] = "Detectado pero no iniciado"
+        vl53_state["status"] = False
+        vl53_state["status_str"] = "Detectado pero no iniciado"
         try:
             tof = VL53L0X.VL53L0X(i2c_bus=4,i2c_address=0x29)
             tof.open()
             tof.start_ranging(VL53L0X.Vl53l0xAccuracyMode.BETTER)
             vl53l0x_connected = True
             printe(bcolors.OKGREEN + "VL53L0X iniciado" + bcolors.ENDC)
-            vl53_state["vl53_status"] = False
-            vl53_state["vl53_status_str"] = "Iniciado, sin tomar mediciones"
+            vl53_state["status"] = False
+            vl53_state["status_str"] = "Iniciado, sin tomar mediciones"
         except Exception as ex:
             errorwriter(ex, "Error al iniciar el VL53L0X")
             printe(bcolors.FAIL + "Error al inciar el VL53L0X" + bcolors.ENDC)
             vl53l0x_connected = False
-            vl53_state["vl53_status"] = False
-            vl53_state["vl53_status_str"] = "Detectado, no se pudo iniciar"
+            vl53_state["status"] = False
+            vl53_state["status_str"] = "Detectado, no se pudo iniciar"
     #endregion
     
     while True:
@@ -1077,16 +1217,16 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
                 clearance_measure = tof.get_distance()
                 clearance.value = clearance_measure - tof_offset
                 if clearance_measure < 2:
-                    vl53_state["vl53_status"] = False
-                    vl53_state["vl53_status_str"] = "Medicion no valida"
+                    vl53_state["status"] = False
+                    vl53_state["status_str"] = "Medicion no valida"
                 else:
-                    vl53_state["vl53_status"] = True
-                    vl53_state["vl53_status_str"] = "OK"
+                    vl53_state["status"] = True
+                    vl53_state["status_str"] = "OK"
             except Exception as ex:
                 printe(bcolors.FAIL + "No se pudo tomar medicion clearance, excepcion {}".format(ex) + bcolors.ENDC)
                 errorwriter(error=ex, comentario="No se pudo tomar medicion clearance")
-                vl53_state["vl53_status"] = False
-                vl53_state["vl53_status_str"] = "Iniciado pero no se pudo tomar medicion"
+                vl53_state["status"] = False
+                vl53_state["status_str"] = "Iniciado pero no se pudo tomar medicion"
             if clearance_debug:
                 stuck_watchdog_clearance.append((datetime.now().strftime("%H:%M:%S"),clearance.value))
                 if (datetime.strptime(stuck_watchdog_clearance[-1][0], "%H:%M:%S") - datetime.strptime(stuck_watchdog_clearance[0][0], "%H:%M:%S")).seconds > stuck_watchdog_time:
@@ -1164,8 +1304,8 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
 
                     
                 pitch = math.atan2(Ay,  Az) * 57.3
-                imu_state["imu_status"] = True
-                imu_state["imu_status_str"] = "OK"
+                imu_state["status"] = True
+                imu_state["status_str"] = "OK"
 
                 if pitch > pitch_flag.value:
                     counter += 1
@@ -1199,8 +1339,8 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
                             json.dump(json_stuck_line, outfile)
                     imu_stuck_flag.value = True
             except Exception as ex:
-                imu_state["imu_status"] = False
-                imu_state["imu_status_str"] = "No se pudo tomar medicion"
+                imu_state["status"] = False
+                imu_state["status_str"] = "No se pudo tomar medicion"
                 errorwriter(ex, "El IMU no pudo tomar lectura")
                 printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, "Ups! El IMU no pudo tomar lectura"+ bcolors.ENDC)
 def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, is_hot, rest_time, wake_time, time_backwards, crash_timeout, last_touch_window_timeout, flash_req, vel_array, time_turn, x_com, z_com, is_rest, night_mode_enable, night_mode_start, night_mode_end, night_mode_rest_time, night_mode_wake_time, night_mode_vel_array, night_mode_reversed, prints_enable ):
@@ -1687,6 +1827,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
         time.sleep(1)
     #endregion
     while True:
+        buzzer("off")
         if shutdown_button.is_pressed:
             time.sleep(3)
             if shutdown_button.is_pressed:
@@ -1956,6 +2097,15 @@ def main():
     is_rest = multiprocessing.Value('b', False)
     is_stuck_confirm = multiprocessing.Value('b', False)
     manager = multiprocessing.Manager()
+    bme_state = manager.dict()
+    camera_state = manager.dict()
+    mlx_state = manager.dict()
+    vl53_state = manager.dict()
+    imu_state = manager.dict()
+    imu_state["status"] = False 
+    imu_state["status_str"] = ""
+    vl53_state["status"] = False 
+    vl53_state["status_str"] = ""
     lst = manager.list()
     lst.append(None)
     flash_req.value = behavior["flash_enable"]
@@ -2012,9 +2162,9 @@ def main():
     command_handler = multiprocessing.Process(
         target=command, args=(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_flag, flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, rest_time, wake_time, time_backwards, timer_boring, crash_timeout, x_com, z_com,))
     # Set up our camera
-    savior_handler = multiprocessing.Process(target=savior, args=(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stuck_flag, imu_stuck_flag, is_stuck_confirm, stuck_watchdog_time))
+    savior_handler = multiprocessing.Process(target=savior, args=(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stuck_flag, imu_stuck_flag, is_stuck_confirm, stuck_watchdog_time, vl53_state, imu_state,))
     auto_handler = multiprocessing.Process(target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, is_hot, rest_time, wake_time, time_backwards, crash_timeout, last_touch_window_timeout, flash_req, vel_array, time_turn, x_com, z_com, is_rest, night_mode_enable, night_mode_start, night_mode_end, night_mode_rest_time, night_mode_wake_time, night_mode_vel_array, night_mode_reversed, prints_enable,))
-    pitch_handler = multiprocessing.Process(target=pitch, args=(lst, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, timer_temp, timer_log, pic_sensibility_in, pic_sensibility_out, stucks_to_confirm, stuck_window, stuck_watchdog_time,is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id, is_stuck_confirm,))
+    pitch_handler = multiprocessing.Process(target=pitch, args=(lst, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, timer_temp, timer_log, pic_sensibility_in, pic_sensibility_out, stucks_to_confirm, stuck_window, stuck_watchdog_time,is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id, is_stuck_confirm, camera_state, mlx_state, bme_state, vl53_state, imu_state,))
     # Add 'em to our list
     PROCESSES.append(savior_handler)
     if campaign_is_active:
@@ -2036,6 +2186,8 @@ if __name__ == '__main__':
     wait_to_run = False 
     flash_enable = DigitalOutputDevice("BOARD23", active_high=True)
     led_enable = DigitalOutputDevice("BOARD13", active_high=True)
+    buzz = DigitalOutputDevice("BOARD28", active_high=True)
+    buzzer("off")
     enable_peripheral = DigitalOutputDevice("BOARD11", active_high=True)
     enable_peripheral.on()
     #region Address de los dispositivos I2C
@@ -2299,6 +2451,7 @@ if __name__ == '__main__':
         # motor_1_pwm.off()
         # motor_2_pwm.off()
         led_enable.off()
+        buzz.off()
         for p in PROCESSES:
             p.terminate()
     # except Exception as ex:
