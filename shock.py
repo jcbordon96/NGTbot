@@ -25,9 +25,7 @@ import csv
 from scipy.linalg import norm
 from scipy import optimize
 import numpy as np
-import Adafruit_ADS1x15
 import board
-import adafruit_dht
 from mlx90614 import MLX90614
 import adafruit_mlx90614
 import psutil
@@ -74,7 +72,7 @@ def open_json(filename): #Funcion para abrir jsons y backupearlos
 def last_on(): #Funcion que es como un watchdog, va escribiendo cual es el ultimo minuto activo
     now_logdate = datetime.now()
     log_date = now_logdate.strftime("%Y-%m-%d")
-    log_hour = now_logdate.strftime("%H:%M:%S%H:%M:%S")
+    log_hour = now_logdate.strftime("%H:%M:%S")
     date_name = now_logdate.strftime("%Y%m%d")
     json_last = {"Fecha": log_date, "Hora": log_hour, "Name": date_name}
     with open('last_on.json', 'w') as outfile:
@@ -90,7 +88,7 @@ def errorwriter(error, comentario = ""): #Funcion que escribe logs de errores
     with open("log/error/{}.log".format(error_date),'a', newline='') as logerror:
         logerror.write(errlog)
 # Funcion que escribe los logs
-def logwriter(event, id,  minutos =0, t_cpu=0, t_clock=0, t_dht=0, t_bme=0, t_laser_surf = 0, t_laser_amb = 0, h_dht=0, h_bme=0, p_bme=0, thi = 0, score_temp_amb_rt = 0, score_temp_bed_rt = 0, score_hum_rt = 0, score_thi_rt = 0, score_general_rt = 0, score_temp_amb_prom = 0, score_temp_bed_prom = 0, score_hum_prom = 0, score_thi_prom = 0, score_general_prom = 0, t_total= 0, t_active = 0, t_rest = 0, t_stuck = 0, watch_dog=False, last_date=-1, last_hour=-1, last_name=-1):
+def logwriter(event, id,  minutos =0, t_cpu=0, t_clock=0, t_bme=0, t_laser_surf = 0, t_laser_amb = 0, h_bme=0, p_bme=0, thi = 0, clearance = 0, score_temp_amb_rt = 0, score_temp_bed_rt = 0, score_hum_rt = 0, score_thi_rt = 0, score_general_rt = 0, score_temp_amb_prom = 0, score_temp_bed_prom = 0, score_hum_prom = 0, score_thi_prom = 0, score_general_prom = 0, t_total= 0, t_active = 0, t_rest = 0, t_stuck = 0, watch_dog=False, last_date=-1, last_hour=-1, last_name=-1):
     nowlogdate = datetime.now()
     if watch_dog:
         logdate = last_date
@@ -107,7 +105,7 @@ def logwriter(event, id,  minutos =0, t_cpu=0, t_clock=0, t_dht=0, t_bme=0, t_la
     if not os.path.exists(stringdatelog):
         printe("No existe el logfile diario")
         header = ["#", "Fecha", "Hora", "Evento", "Minutos", "CPU", "RAM" ,"T. CPU",
-                  "T. Clock", "T. DHT", "T. BME", 'T. Ambiente Laser', "T. Laser", "H. DHT", "H. BME", "P. BME", "THI", "Score Temp. Amb. RT", "Score Temp. Cama RT", "Score Hum. RT", "Score THI RT", "Score General RT", "Score Temp. Amb. PROM", "Score Temp. Cama PROM", "Score Hum. PROM", "Score THI PROM", "Score General PROM", "Tiempo Total", "Tiempo Activo", "Tiempo Descansando", "Tiempo Trabado", "ID"]
+                  "T. Clock", "T. BME", 'T. Ambiente Laser', "T. Laser", "H. BME", "P. BME", "THI", "Clearance", "Score Temp. Amb. RT", "Score Temp. Cama RT", "Score Hum. RT", "Score THI RT", "Score General RT", "Score Temp. Amb. PROM", "Score Temp. Cama PROM", "Score Hum. PROM", "Score THI PROM", "Score General PROM", "Tiempo Total", "Tiempo Activo", "Tiempo Descansando", "Tiempo Trabado", "ID"]
         with open(stringdatelog, 'w') as logfile:
             wr = csv.writer(logfile)
             wr.writerow(header)
@@ -115,24 +113,24 @@ def logwriter(event, id,  minutos =0, t_cpu=0, t_clock=0, t_dht=0, t_bme=0, t_la
         wr = csv.writer(logfile)
         psutil.cpu_percent(percpu = True)
         wr.writerow(["", logdate, loghour, event, minutos,str(os.getloadavg()[0]), str(psutil.virtual_memory().percent), t_cpu,
-                    t_clock, t_dht, t_bme, t_laser_amb, t_laser_surf, h_dht, h_bme, p_bme, thi, score_temp_amb_rt, score_temp_bed_rt, score_hum_rt, score_thi_rt, score_general_rt, score_temp_amb_prom, score_temp_bed_prom, score_hum_prom, score_thi_prom, score_general_prom, t_total, t_active, t_rest, t_stuck, id])
+                    t_clock, t_bme, t_laser_amb, t_laser_surf, h_bme, p_bme, thi, clearance, score_temp_amb_rt, score_temp_bed_rt, score_hum_rt, score_thi_rt, score_general_rt, score_temp_amb_prom, score_temp_bed_prom, score_hum_prom, score_thi_prom, score_general_prom, t_total, t_active, t_rest, t_stuck, id])
 
     if not os.path.exists(stringdatelogbackup):
         printe("No existe el logfile diario de backup")
         header = ["#", "Fecha", "Hora", "Evento", "Minutos", "CPU", "RAM" ,"T. CPU",
-                  "T. Clock", "T. DHT", "T. BME", 'T. Ambiente Laser', "T. Laser", "H. DHT", "H. BME", "P. BME", "THI", "Score Temp. Amb. RT", "Score Temp. Cama RT", "Score Hum. RT", "Score THI RT", "Score General RT", "Score Temp. Amb. PROM", "Score Temp. Cama PROM", "Score Hum. PROM", "Score THI PROM", "Score General PROM", "Tiempo Total", "Tiempo Activo", "Tiempo Descansando", "Tiempo Trabado", "ID"]
+                  "T. Clock", "T. BME", 'T. Ambiente Laser', "T. Laser", "H. BME", "P. BME", "THI", "Clearance", "Score Temp. Amb. RT", "Score Temp. Cama RT", "Score Hum. RT", "Score THI RT", "Score General RT", "Score Temp. Amb. PROM", "Score Temp. Cama PROM", "Score Hum. PROM", "Score THI PROM", "Score General PROM", "Tiempo Total", "Tiempo Activo", "Tiempo Descansando", "Tiempo Trabado", "ID"]
         with open(stringdatelogbackup, 'w') as logfile:
             wr = csv.writer(logfile)
             wr.writerow(header)
     with open(stringdatelogbackup, 'a', newline='') as logfile:
         wr = csv.writer(logfile)
         wr.writerow(["", logdate, loghour, event, minutos,str(os.getloadavg()[0]), str(psutil.virtual_memory().percent), t_cpu,
-                    t_clock, t_dht, t_bme, t_laser_amb, t_laser_surf, h_dht, h_bme, p_bme, thi, score_temp_amb_rt, score_temp_bed_rt, score_hum_rt, score_thi_rt, score_general_rt, score_temp_amb_prom, score_temp_bed_prom, score_hum_prom, score_thi_prom, score_general_prom, t_total, t_active, t_rest, t_stuck, id])
+                    t_clock, t_bme, t_laser_amb, t_laser_surf, h_bme, p_bme, thi, clearance, score_temp_amb_rt, score_temp_bed_rt, score_hum_rt, score_thi_rt, score_general_rt, score_temp_amb_prom, score_temp_bed_prom, score_hum_prom, score_thi_prom, score_general_prom, t_total, t_active, t_rest, t_stuck, id])
 
     with open('log/log.csv', 'a', newline='') as logfile:
         wr = csv.writer(logfile)
         wr.writerow(["", logdate, loghour, event, minutos,str(os.getloadavg()[0]), str(psutil.virtual_memory().percent), t_cpu,
-                    t_clock, t_dht, t_bme, t_laser_amb, t_laser_surf, h_dht, h_bme, p_bme, thi, score_temp_amb_rt, score_temp_bed_rt, score_hum_rt, score_thi_rt, score_general_rt, score_temp_amb_prom, score_temp_bed_prom, score_hum_prom, score_thi_prom, score_general_prom, t_total, t_active, t_rest, t_stuck, id])
+                    t_clock, t_bme, t_laser_amb, t_laser_surf, h_bme, p_bme, thi, clearance, score_temp_amb_rt, score_temp_bed_rt, score_hum_rt, score_thi_rt, score_general_rt, score_temp_amb_prom, score_temp_bed_prom, score_hum_prom, score_thi_prom, score_general_prom, t_total, t_active, t_rest, t_stuck, id])
 def init_wifi():
     wifi_found = False
     try:
@@ -334,11 +332,11 @@ def command(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_f
         finally:
             await unregister(websocket)
 
-    start_server2 = websockets.serve(counter, "192.168.4.1", 9001)
+    start_server2 = websockets.serve(counter, "localhost", 9001)
     asyncio.get_event_loop().run_until_complete(start_server2)
     asyncio.get_event_loop().run_forever()
 
-def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, timer_temp, timer_log, pic_sensibility_in, pic_sensibility_out, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id, is_stuck_confirm):
+def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, timer_temp, timer_log, pic_sensibility_in, pic_sensibility_out, stucks_to_confirm, stuck_window, stuck_watchdog_time, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id, is_stuck_confirm):
     #region Iniciar Variables
     camera = PiCamera()
     camera.resolution = (640, 480)
@@ -363,7 +361,6 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
     confirm_last_total_elapsed_cam_stuck = 0
     confirm_log_cam_stuck = True
     confirm_start_cam_stuck = 0
-    is_tails = False
     reference_stuck = 0
     stuck_count = 0
     img_to_filter = []
@@ -410,9 +407,6 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
     t_stuck_sec = 0
     t_active_sec = 0
     t_rest_sec = 0
-    dht_ok = False
-    dht_connected = False
-    dht_fail_counter = 0
     moving_img = False
     t_mlx_amb = 0 
     t_mlx_surface = 0
@@ -421,15 +415,11 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
     t_bme_list = []
     h_bme_list = []
     p_bme_list = []
-    t_dht_list = []
-    h_dht_list = []
     t_mlx_amb_list = []
     t_mlx_surface_list = []
     t_bme_mean = 0
     h_bme_mean = 0
     p_bme_mean = 0
-    t_dht_mean = 0
-    h_dht_mean = 0
     t_mlx_amb_mean = 0
     t_mlx_surface_mean = 0
     measurements_list = []
@@ -438,6 +428,7 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
     day_info_list = []
     url = "http://192.168.150.102:4000/loadMeasurements"
     url_img = "http://192.168.150.102:4000/loadImages"
+    url_states = "http://192.168.150.102:4000/loadStates"
     data_was_sended = False
     img_to_compress = []
     mlx90614_connected = False
@@ -446,8 +437,10 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
     last_wifi = time.perf_counter()
     send_data_was_called = False
     stuck_watchdog_cam = []
-    stuck_watchdog_time = 5*60
     cam_debug = True
+    bme_state = {"bme_status": False, "bme_status_str": "No detectado"}
+    camera_state = {"camera_status": False, "camera_status_str": "Iniciada, sin tomar imagenes"}
+    mlx_state = {"mlx_status": False, "mlx_status_str": "No detectado"}
 
     #endregion
     #region Levanto mediciones que han quedado sin enviar antes de apagarse
@@ -478,17 +471,17 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
 
     #endregion
     #region Funciones
-    def mean_check(value_list, who_called =''): #Funcion que 
+    def mean_check(value_list = [], who_called =''): #Funcion que 
         try:
             if len(value_list) > 0:
                 return np.mean(value_list)
             else:
                 return 0
-        except:
-            printe("Error mean check, quien llamo fue" , who_called)
+        except Exception as ex:
+            printe(bcolors.FAIL + "Error mean check, quien llamo fue {}, la excepcion: {}".format(who_called, ex) + bcolors.ENDC)
             return 0
 
-    def thi_calc(temperatura, humedad):
+    def thi_calc(temperatura = 0, humedad = 0):
         thi = temperatura+0.348*((humedad/100)*6.105*math.exp((17.27*temperatura)/(237.7+temperatura)))
         return thi
 
@@ -522,17 +515,26 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
     #region Inicio de sensores
 
     if bme_detected:
+        bme_state["bme_status"] = False
+        bme_state["bme_status_str"] = "Detectado pero no iniciado"
         try:
             bmebus = smbus.SMBus(4)
             calibration_params = bme280.load_calibration_params(bmebus,bme_address)
             bme = bme280.sample(bmebus, bme_address, calibration_params)
             printe(bcolors.OKGREEN + "BME iniciado" + bcolors.ENDC)
             bme_connected = True
+            bme_state["bme_status"] = False
+            bme_state["bme_status_str"] = "Iniciado, sin tomar mediciones"
         except Exception as ex:
             errorwriter(ex, "Error al iniciar BME")
             printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, "Error al iniciar el BME" + bcolors.ENDC)
             bme_connected = False
+            bme_state["bme_status"] = False
+            bme_state["bme_status_str"] = "Detectado pero no se pudo iniciar"
+
     if mlx90614_detected:
+        mlx_state["mlx_status"] = False
+        mlx_state["mlx_status_str"] = "Detectado pero no iniciado"
         try:
             # mlxbus = smbus2.SMBus(4)
             # mlx = MLX90614(mlxbus, address=mlx90614_address)
@@ -540,25 +542,14 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
             mlx = adafruit_mlx90614.MLX90614(mlx_i2c)
             printe(bcolors.OKGREEN + "MLX90614 iniciado" + bcolors.ENDC)
             mlx90614_connected = True
+            mlx_state["mlx_status"] = False
+            mlx_state["mlx_status_str"] = "Iniciado, sin tomar mediciones"
         except Exception as ex:
             errorwriter(ex, "Error al iniciar MLX90614")
             printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, "Error al iniciar el MLX90614" + bcolors.ENDC)
             mlx90614_connected = False
-    for i in range(10):
-        try:
-            dhtDevice = adafruit_dht.DHT22(board.D4, use_pulseio=False)
-            dhtDevice.temperature
-            dht_connected = True
-            printe("Inicio DHT en el intento: ", i+1)
-            break
-        except Exception as ex:
-            printe(bcolors.WARNING + "Fallo inicio DHT, intento {} de 10".format(i+1) + bcolors.ENDC)
-            time.sleep(1)
-            if i == 9:
-                errorwriter(ex, "Error al iniciar el DHT")
-                printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, "Error al iniciar el DHT" + bcolors.ENDC)
-    #endregion
-
+            mlx_state["mlx_status"] = False
+            mlx_state["mlx_status_str"] = "Detectado pero no se pudo iniciar"
     try:
         with open('counter.json') as json_file:
             img_index = json.load(json_file)
@@ -575,6 +566,8 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
         try:
             for frame in camera.capture_continuous(raw_capture, format="bgr", use_video_port=True):
                 #region Tomo mediciones del ambiente
+                camera_state["camera_status"] = True
+                camera_state["camera_status_str"] = "OK"
                 if time.perf_counter()-last_measure > measure_rate:
                     last_measure = time.perf_counter() 
                     if mlx90614_connected:
@@ -588,36 +581,26 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
                             if t_mlx_amb < 80:
                                 t_mlx_amb_list.append(t_mlx_amb)
                         except Exception as ex:
+                            mlx_state["mlx_status"] = False
+                            mlx_state["mlx_status_str"] = "Iniciado pero no puede tomar mediciones"
                             errorwriter(ex, "No se pudo tomar mediciones MLX90614")
                             printe("Algo salio mal con el medidor MLX90614")
                             printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
                     if bme_connected:
-                        bme = bme280.sample(bmebus, bme_address, calibration_params)
-                        t_bme = round(bme.temperature,2)
-                        p_bme = round(bme.pressure,2)
-                        h_bme = round(bme.humidity,2)
-                        t_bme_list.append(t_bme)
-                        p_bme_list.append(p_bme)
-                        h_bme_list.append(h_bme)
-                    if dht_connected:
-                        dht_fail_counter = 0
-                        dht_ok = False
-                        while not dht_ok:
-                            dht_ok = True
-                            try:
-                                t_dht = dhtDevice.temperature
-                                h_dht = dhtDevice.humidity
-                            except:
-                                dht_ok = False
-                                dht_fail_counter += 1
-                            if dht_fail_counter > 10:
-                                printe("No pude sacar medicion del DHT")
-                                errorwriter("DHT", "No se pudo tomar medicion de Humedad y Temperatura")
-                                break
-                        if dht_ok:
-                            t_dht_list.append(t_dht)
-                            h_dht_list.append(h_dht)
-                #endregion
+                        try:
+                            bme = bme280.sample(bmebus, bme_address, calibration_params)
+                            t_bme = round(bme.temperature,2)
+                            p_bme = round(bme.pressure,2)
+                            h_bme = round(bme.humidity,2)
+                            t_bme_list.append(t_bme)
+                            p_bme_list.append(p_bme)
+                            h_bme_list.append(h_bme)
+                        except Exception as ex:
+                            bme_state["bme_status"] = False
+                            bme_state["bme_status_str"] = "Iniciado pero no puede tomar mediciones"
+                            errorwriter(ex, "No se pudo tomar mediciones bme")
+                            printe("Algo salio mal con el medidor bme")
+                            printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
                 f = frame.array
                 cv2.waitKey(1)
                 f = cv2.resize(f, (640, 480))
@@ -680,7 +663,6 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
                         img1 = to_grayscale(f.astype(float))
                         n_m = compare_images(img0, img1)
                         if not math.isnan(n_m):
-                        
                             if ((n_m/img0.size) < pic_sensibility):
                             # if False:
                                 stuck_count += 1
@@ -713,6 +695,9 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
                                     logwriter("Me destrabe, camara, minutos:", minutos=round(elapsed_cam_stuck,2), id=17)
                                     log_cam_stuck = True
                                 cam_stuck_flag.value = False
+                        else:
+                            camera_state["camera_status"] = False
+                            camera_state["camera_status_str"] = "Imagen Negra"
                         image_to_compare0 = f
                         compare_timer = time.perf_counter()
                     else:
@@ -798,114 +783,6 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
                 raw_capture.truncate(0)
                 #endregion 
                 
-                #region Esta va a ser la rutina de envio de data cuando esta descansado
-                if not is_rest.value and send_data_was_called and not data_was_sended:
-                    printe(bcolors.WARNING + "No se pudo enviar la data al servidor en este descanso" + bcolors.ENDC)
-                    logwriter("No se pudo enviar la data al servidor en este descanso", id= 25)
-                    send_data_was_called = False
-                if is_rest.value and not data_was_sended:
-                    send_data_was_called = True
-                    if len(img_to_compress) > 0:
-                        start_new_compress = True
-                        printe("Hay imagenes para comprimir")
-                        while start_new_compress:
-                            start_new_compress = False
-                            zip_name = datetime.now().strftime("%Y%m%d_%H%M%S")
-                            printe(img_to_compress)
-                            last_zip_name = img_to_compress[0].split('/')[1]
-                            with ZipFile("send_queue/imgs/zipfiles/{}_{}.zip".format(last_zip_name,zip_name),'w') as zip:
-                                while img_to_compress:
-                                    if img_to_compress[0].split('/')[1] != last_zip_name:
-                                        printe("Cambio de nombre")
-                                        start_new_compress = True
-                                        break
-                                    printe("Agregando {} al zip".format(img_to_compress[0]))
-                                    zip.write(img_to_compress[0])
-                                    img_to_compress.pop(0)
-                                    with open('send_queue/imgs/list/img_to_compress.json', 'w') as outfile:
-                                        json.dump( img_to_compress, outfile)
-                                    with open('send_queue/imgs/list/img_to_compress_backup.json', 'w') as outfile:
-                                        json.dump( img_to_compress, outfile)
-                            printe("Acabo de crear zip:", "{}_{}.zip".format(last_zip_name,zip_name))
-                        if len(img_to_compress) == 0:
-                            printe("No hay mas imagenes para comprimir")
-                    if wifi_ok or time.perf_counter()-last_wifi > 60:
-                        wifi_ok = init_wifi()
-                        last_wifi = time.perf_counter()
-                        if wifi_ok:
-                            if len(day_info_list)>0:
-                                day_info_to_send = day_info_list[0]
-                                head = {u'content-type': u'application/json'}
-                                printe("Envio data")
-                                try:
-                                    r = requests.post(url=url, data=json.dumps(day_info_to_send), headers=head, timeout=30)
-                                    if r.status_code == 200:
-                                        day_info_list.pop(0)
-                                        printe("Quedan para enviar:",len(day_info_list), "logs")
-                                        with open('send_queue/logs/logs_to_send.json', 'w') as outfile:
-                                                json.dump(day_info_list, outfile)
-                                        with open('send_queue/logs/logs_to_send_backup.json', 'w') as outfile:
-                                                json.dump(day_info_list, outfile)
-                                except Exception as ex:
-                                    printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
-                            if len(day_info_list) == 0:
-                                printe("No hay mas logs que enviar")
-                            
-                            if os.path.exists("send_queue/imgs/zipfiles"):
-                                if len(os.listdir("send_queue/imgs/zipfiles")) > 0:
-                                    for zipfile in os.listdir("send_queue/imgs/zipfiles"):
-                                        delete_zip = False
-                                        date_zip_file = datetime.strptime(zipfile.split('_')[0], "%Y%m%d").strftime("%Y-%m-%d")
-                                        with open("send_queue/imgs/zipfiles/"+ zipfile, 'rb') as file:
-                                            fileobj = [('zip', (zipfile, file, 'zip'))]
-                                            head = {u'content-type': u'multipart/form-data'}
-                                            printe("Voy a enviar imagenes, zipfile:", zipfile)
-                                            try:
-                                                r = requests.post(url=url_img, data={"robot_identifier": robot_id, "campaign_id": campaign_id, "date":date_zip_file}, files = fileobj, timeout=30)
-                                                printe(r)
-                                                if r.status_code == 200:
-                                                    delete_zip = True
-                                            except Exception as ex:
-                                                printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
-
-                                        if delete_zip:
-                                            printe("Borre zip: ", zipfile)
-                                            os.remove("send_queue/imgs/zipfiles/"+ zipfile)
-                                else:
-                                    printe('No hay mas imagenes que mandar')
-                            if len(os.listdir("send_queue/imgs/zipfiles")) == 0 and len(img_to_compress) == 0 and len(day_info_list) == 0:
-                                data_was_sended = True
-                                printe("No queda mas para hacer en reposo")
-                        else:
-                            printe(bcolors.WARNING + "No fue posible conectarse a la red, se reintentara en 1 minuto" + bcolors.ENDC)
-                elif not is_rest.value and data_was_sended:
-                    printe(bcolors.OKGREEN + "La data fue enviada correctamente en este descanso" + bcolors.ENDC)
-                    data_was_sended = False
-                #endregion
-                #region Rutina de filtrado de imagenes
-                if is_rest.value and len(img_to_filter) > 0:
-                    try:
-                        string_array = img_to_filter[0].split("/")
-                        img = cv2.imread(img_to_filter[0])
-                        gris = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                        reduccion = cv2.resize(gris, (300, 300), interpolation = cv2.INTER_CUBIC)
-                        filtrado = cv2.medianBlur(reduccion, 3)
-                        umbral = cv2.Laplacian(filtrado, ddepth = cv2.CV_16S).var()
-                        if not os.path.exists("resources/{}/ok".format(string_array[1])):
-                            os.mkdir("resources/{}/ok".format(string_array[1]))
-                        if not os.path.exists("resources/{}/not_ok".format(string_array[1])):
-                            os.mkdir("resources/{}/not_ok".format(string_array[1]))
-                        if umbral >= 90:
-                            save_dir = string_array[0]+ "/" + string_array[1] + "/ok/" + string_array[2] 
-                        else:
-                            save_dir = string_array[0] + "/" + string_array[1] + "/not_ok/" + string_array[2] 
-                        
-                        cv2.imwrite(save_dir, img)
-                        img_to_filter.pop(0)
-
-                    except:
-                        img_to_filter.pop(0)
-                #endregion
                 if time.perf_counter() - temp_timer > timer_temp.value:
                     temp_timer = time.perf_counter()
                     last_on()
@@ -916,8 +793,6 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
                                 if feature.label == "temp1":
                                     if chip.adapter_name == "bcm2835 (i2c@7e804000)" or chip.adapter_name == "i2c-gpio-rtc@0":
                                         temp_clock.value = round(feature.get_value(), 1)
-                                        if chip.adapter_name == "i2c-gpio-rtc@0":
-                                            is_tails = True
                                     if chip.adapter_name == "Virtual device":
                                         temp_cpu.value = round(feature.get_value(), 1)
                     except:
@@ -932,7 +807,7 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
 
                     if current_date != datetime.now().strftime("%Y%m%d"):
                         printe("Cambio de dia, voy a reiniciar")
-                        os.system("sudo pm2 restart shock_server -- -snw")
+                        os.system("sudo pm2 restart shock -- -snw")
                         day_info_list.append("")
                         try:
                             measurements_list = []
@@ -966,15 +841,23 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
                     t_bme_mean = mean_check(t_bme_list, who_called = "BME")
                     h_bme_mean = mean_check(h_bme_list, who_called = "BME")
                     p_bme_mean = mean_check(p_bme_list, who_called = "BME")
-                    t_dht_mean = mean_check(t_dht_list, who_called = "DHT")
-                    h_dht_mean = mean_check(h_dht_list, who_called = "DHT")
                     t_mlx_amb_mean = mean_check(t_mlx_amb_list, who_called = "MLX90614")
                     t_mlx_surface_mean = mean_check(t_mlx_surface_list, who_called = "MLX90614")
+                    if t_bme_mean == 0 or h_bme_mean == 0 or p_bme_mean == 0:
+                        bme_state["bme_status"] = False
+                        bme_state["bme_status_str"] = "Medicion nula"
+                    else:
+                        bme_state["bme_status"] = True
+                        bme_state["bme_status_str"] = "OK"
+                    if t_mlx_amb_mean == 0 or t_mlx_surface_mean == 0:
+                        mlx_state["mlx_status"] = False
+                        mlx_state["mlx_status_str"] = "Medicion nula"
+                    else:
+                        mlx_state["mlx_status"] = True
+                        mlx_state["mlx_status_str"] = "Medicion nula"
                     t_bme_list = []
                     h_bme_list = []
                     p_bme_list = []
-                    t_dht_list = []
-                    h_dht_list = []
                     t_mlx_amb_list = []
                     t_mlx_surface_list = []
 
@@ -1070,21 +953,22 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
                     with open('send_queue/logs/logs_to_send_backup.json', 'w') as outfile:
                             json.dump(day_info_list, outfile)
                     if not is_rest.value:
-                        printe("Estado: BME: T:{}/H:{}/P:{}  DHT: T:{}/H:{}  MLX90614: T:{}".format(round(t_bme_mean,2), round(h_bme_mean,2), round(p_bme_mean,2), round(t_dht_mean,2), round(h_dht_mean,2), round(t_mlx_surface_mean,2)))
+                        printe("Estado: BME: T:{}/H:{}/P:{} MLX90614: T:{}".format(round(t_bme_mean,2), round(h_bme_mean,2), round(p_bme_mean,2), round(t_mlx_surface_mean,2)))
                         logwriter("Estado", id=14, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=t_bme_mean,
-                            t_dht=t_dht_mean, t_laser_surf= t_mlx_surface_mean, t_laser_amb=t_mlx_amb_mean, h_dht=h_dht_mean, h_bme=h_bme_mean, p_bme=p_bme_mean, thi=thi, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = round(t_total,2), t_active = round(t_active,2), t_rest = round(t_rest,2), t_stuck = round(t_stuck,2))
+                            t_laser_surf= t_mlx_surface_mean, t_laser_amb=t_mlx_amb_mean, h_bme=h_bme_mean, p_bme=p_bme_mean, thi=thi, clearance=clearance.value, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = round(t_total,2), t_active = round(t_active,2), t_rest = round(t_rest,2), t_stuck = round(t_stuck,2))
                     else:
-                        printe("Estado descansando : BME: T:{}/H:{}/P:{}  DHT: T:{}/H:{}  MLX90614: T:{}".format(round(t_bme_mean,2), round(h_bme_mean,2), round(p_bme_mean,2), round(t_dht_mean,2), round(h_dht_mean,2), round(t_mlx_surface_mean,2)))
+                        printe("Estado descansando : BME: T:{}/H:{}/P:{} MLX90614: T:{}".format(round(t_bme_mean,2), round(h_bme_mean,2), round(p_bme_mean,2), round(t_mlx_surface_mean,2)))
                         logwriter("Estado, descansando", id=15, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=t_bme_mean,
-                            t_dht=t_dht_mean, t_laser_surf= t_mlx_surface_mean, t_laser_amb=t_mlx_amb_mean, h_dht=h_dht_mean, h_bme=h_bme_mean, p_bme=p_bme_mean, thi=thi, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = round(t_total,2), t_active = round(t_active,2), t_rest = round(t_rest,2), t_stuck = round(t_stuck,2))
+                            t_laser_surf= t_mlx_surface_mean, t_laser_amb=t_mlx_amb_mean, h_bme=h_bme_mean, p_bme=p_bme_mean, thi=thi, clearance=clearance.value, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = round(t_total,2), t_active = round(t_active,2), t_rest = round(t_rest,2), t_stuck = round(t_stuck,2))
         except Exception as ex:
             printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
+            camera_state["camera_status"] = False
+            camera_state["camera_status_str"] = "Fallo la toma de imagenes, no deberia llegar al servidor"
             # errorwriter("Camara", "Fallo timeout")
             # printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
             
-def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stuck_flag, imu_stuck_flag, is_stuck_confirm):
+def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stuck_flag, imu_stuck_flag, is_stuck_confirm, stuck_watchdog_time):
     # Vamos a obtener las mediciones de clearance y del imu
-    stuck_watchdog_time = 5*60
     stuck_watchdog_clearance = []
     stuck_watchdog_clearance_saved = False
     imu_debug = True
@@ -1098,6 +982,8 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
     total_elapsed_imu_stuck = 0
     last_total_elapsed_imu_stuck = 0
     elapsed_imu_stuck = 0
+    imu_state = {"imu_status": False, "imu_status_str": "No detectado"}
+    vl53_state = {"vl53_status": False, "vl53_status_str": "No detectado"}
     #region Constantes de address del IMU
     PWR_MGMT_1 = 0x6B
     SMPLRT_DIV = 0x19
@@ -1145,6 +1031,8 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
     #endregion
     #region Inicio IMU
     if imu_detected:
+        imu_state["imu_status"] = False
+        imu_state["imu_status_str"] = "Detecado pero no iniciado"
         try:
             bus = smbus.SMBus(4) 	
             Device_Address = imu_address   
@@ -1152,29 +1040,53 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
             printe(bcolors.OKGREEN + "IMU iniciado" + bcolors.ENDC)
             imu_connected = True
             last_imu_measure = time.perf_counter()
+            imu_state["imu_status"] = False
+            imu_state["imu_status_str"] = "Iniciado, sin tomar mediciones"
+
         except Exception as ex:
             errorwriter(ex, "Error al iniciar el IMU")
             printe(bcolors.FAIL + "El IMU no pudo iniciar" + bcolors.ENDC)
             imu_connected = False
+            imu_state["imu_status"] = False
+            imu_state["imu_status_str"] = "Detectado, no se pudo iniciar"
     #endregion
     #region Inicio VL53
     if vl53l0x_detected:
+        vl53_state["vl53_status"] = False
+        vl53_state["vl53_status_str"] = "Detectado pero no iniciado"
         try:
             tof = VL53L0X.VL53L0X(i2c_bus=4,i2c_address=0x29)
             tof.open()
             tof.start_ranging(VL53L0X.Vl53l0xAccuracyMode.BETTER)
             vl53l0x_connected = True
             printe(bcolors.OKGREEN + "VL53L0X iniciado" + bcolors.ENDC)
+            vl53_state["vl53_status"] = False
+            vl53_state["vl53_status_str"] = "Iniciado, sin tomar mediciones"
         except Exception as ex:
             errorwriter(ex, "Error al iniciar el VL53L0X")
             printe(bcolors.FAIL + "Error al inciar el VL53L0X" + bcolors.ENDC)
             vl53l0x_connected = False
+            vl53_state["vl53_status"] = False
+            vl53_state["vl53_status_str"] = "Detectado, no se pudo iniciar"
     #endregion
     
     while True:
         time.sleep(0.05)
         if vl53l0x_connected:
-            clearance.value = tof.get_distance() - tof_offset
+            try:
+                clearance_measure = tof.get_distance()
+                clearance.value = clearance_measure - tof_offset
+                if clearance_measure < 2:
+                    vl53_state["vl53_status"] = False
+                    vl53_state["vl53_status_str"] = "Medicion no valida"
+                else:
+                    vl53_state["vl53_status"] = True
+                    vl53_state["vl53_status_str"] = "OK"
+            except Exception as ex:
+                printe(bcolors.FAIL + "No se pudo tomar medicion clearance, excepcion {}".format(ex) + bcolors.ENDC)
+                errorwriter(error=ex, comentario="No se pudo tomar medicion clearance")
+                vl53_state["vl53_status"] = False
+                vl53_state["vl53_status_str"] = "Iniciado pero no se pudo tomar medicion"
             if clearance_debug:
                 stuck_watchdog_clearance.append((datetime.now().strftime("%H:%M:%S"),clearance.value))
                 if (datetime.strptime(stuck_watchdog_clearance[-1][0], "%H:%M:%S") - datetime.strptime(stuck_watchdog_clearance[0][0], "%H:%M:%S")).seconds > stuck_watchdog_time:
@@ -1241,7 +1153,7 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
                     stuck_watchdog_imu_saved = False
             except:
                 pass
-        elif not imu_debug and imu_req.value and time.perf_counter() - last_imu_measure > 1:
+        if imu_connected and imu_req.value and time.perf_counter() - last_imu_measure > 1:
             last_imu_measure = time.perf_counter()
             try:
                 acc_y = read_raw_data(ACCEL_YOUT_H)
@@ -1252,6 +1164,8 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
 
                     
                 pitch = math.atan2(Ay,  Az) * 57.3
+                imu_state["imu_status"] = True
+                imu_state["imu_status_str"] = "OK"
 
                 if pitch > pitch_flag.value:
                     counter += 1
@@ -1285,6 +1199,8 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
                             json.dump(json_stuck_line, outfile)
                     imu_stuck_flag.value = True
             except Exception as ex:
+                imu_state["imu_status"] = False
+                imu_state["imu_status_str"] = "No se pudo tomar medicion"
                 errorwriter(ex, "El IMU no pudo tomar lectura")
                 printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno, "Ups! El IMU no pudo tomar lectura"+ bcolors.ENDC)
 def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, is_hot, rest_time, wake_time, time_backwards, crash_timeout, last_touch_window_timeout, flash_req, vel_array, time_turn, x_com, z_com, is_rest, night_mode_enable, night_mode_start, night_mode_end, night_mode_rest_time, night_mode_wake_time, night_mode_vel_array, night_mode_reversed, prints_enable ):
@@ -1430,7 +1346,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                     
                                 printe("Termino seteo de behavior")
                                 client_sock.send(str({"request": "SET_BEHAVIOR_CONFIG_STATUS", "data": 1}))
-                                os.system("sudo pm2 restart shock_server -- -snw")
+                                os.system("sudo pm2 restart shock -- -snw")
                             except Exception as ex:
                                 printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
                                 client_sock.send(str({"request": "SET_BEHAVIOR_CONFIG_STATUS", "data": 0}))
@@ -1471,7 +1387,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                         with open ('/var/www/html/actual_config_scoring_backup.csv', 'w') as file:
                                             file.write(copy)
                                 client_sock.send(str({"request": "SET_NEW_CAMPAIGN_STATUS", "data": 1}))
-                                os.system("sudo pm2 restart shock_server -- -snw")
+                                os.system("sudo pm2 restart shock -- -snw")
                             except Exception as ex:
                                 printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
                                 client_sock.send(str({"request": "SET_NEW_CAMPAIGN_STATUS", "data": 0}))
@@ -1484,7 +1400,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                 with open('/var/www/html/campaign_status_backup.json', 'w') as outfile:
                                     json.dump(campaign, outfile)
                                 client_sock.send(str({"request": "SET_END_CAMPAIGN_STATUS", "data": 1}))
-                                os.system("sudo pm2 restart shock_server -- -snw")
+                                os.system("sudo pm2 restart shock -- -snw")
                             except Exception as ex:
                                 printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
                                 client_sock.send(str({"request": "SET_END_CAMPAIGN_STATUS", "data": 0}))
@@ -1519,7 +1435,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                                         with open ('/var/www/html/actual_config_scoring_backup.csv', 'w') as file:
                                             file.write(copy)
                                 client_sock.send(str({"request": "SET_BREEDING_CONFIG_STATUS", "data": 1}))
-                                os.system("sudo pm2 restart shock_server -- -snw")
+                                os.system("sudo pm2 restart shock -- -snw")
                             except Exception as ex:
                                 printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
                                 client_sock.send(str({"request": "SET_BREEDING_CONFIG_STATUS", "data": 0}))
@@ -1602,15 +1518,15 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
         else:
             if (x > 0):
                 if (z > 0):
-                    pwm1 = vel_array[3] 
-                    pwm2 = vel_array[2]
-                else:
+                    pwm1 = vel_array[2] 
                     pwm2 = vel_array[3]
-                    pwm1 = vel_array[2]
+                else:
+                    pwm2 = vel_array[2]
+                    pwm1 = vel_array[3]
             else:
                 if (z > 0):
-                    pwm1 = vel_array[2]
-                    pwm2 = vel_array[3]
+                    pwm1 = vel_array[3]
+                    pwm2 = vel_array[2]
                 else:
                     pwm2 = vel_array[3]
                     pwm1 = vel_array[2]
@@ -1666,7 +1582,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             motor_lb_pwm.value = abs(pwm2)
         if pwm1 != 0 and pwm2 != 0:
             if motor_rf_cw_dir.is_active != motor_rf_ccw_dir.is_active and motor_rb_cw_dir.is_active != motor_rb_ccw_dir.is_active and motor_lf_cw_dir.is_active != motor_lf_ccw_dir.is_active and motor_lb_cw_dir.is_active != motor_lb_ccw_dir.is_active:
-                # motor_stby.on()
+                motor_stby.on()
                 pass
             else:
                 printe(bcolors.FAIL + "ERROR, va a quemarse el driver porque hay dos pines de direccion HIGH" + bcolors.ENDC)
@@ -1675,11 +1591,11 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             rest = t - number_check_rate * check_rate
             counter_check_rate = 0
             if x > 0:
-                while (counter_check_rate <= number_check_rate and auto_req.value == True and not taking_pics.value and not (bumper_l.is_pressed or bumper_r.is_pressed)):
+                while (counter_check_rate <= number_check_rate and auto_req.value == True and not taking_pics.value and not (bumper_l.is_pressed or bumper_r.is_pressed) and not shutdown_button.is_pressed):
                     time.sleep(check_rate)
                     counter_check_rate += 1
             else:
-                while (counter_check_rate <= number_check_rate and auto_req.value == True and not taking_pics.value):
+                while (counter_check_rate <= number_check_rate and auto_req.value == True and not taking_pics.value and not shutdown_button.is_pressed):
                     time.sleep(check_rate)
                     counter_check_rate += 1
             if counter_check_rate == number_check_rate and auto_req.value == True:
@@ -2064,6 +1980,7 @@ def main():
     pic_sensibility_out.value = behavior["pic_sensibility_out"]
     stucks_to_confirm.value = behavior['stucks_to_confirm']
     stuck_window.value = behavior['stuck_window']
+    stuck_watchdog_time = behavior['stuck_watchdog_time']
     vel_array = [[behavior["vel_forward_stuck"], behavior["vel_forward_normal"]], [-behavior["vel_backward_stuck"], -behavior["vel_backward_normal"]], behavior["vel_turn_inner"], behavior["vel_turn_outter"]]
     time_turn.value = behavior["time_turn"]
     teen_day = behavior["teen_day"]
@@ -2095,9 +2012,9 @@ def main():
     command_handler = multiprocessing.Process(
         target=command, args=(cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_flag, flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, rest_time, wake_time, time_backwards, timer_boring, crash_timeout, x_com, z_com,))
     # Set up our camera
-    savior_handler = multiprocessing.Process(target=savior, args=(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stuck_flag, imu_stuck_flag, is_stuck_confirm,))
+    savior_handler = multiprocessing.Process(target=savior, args=(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stuck_flag, imu_stuck_flag, is_stuck_confirm, stuck_watchdog_time))
     auto_handler = multiprocessing.Process(target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, is_hot, rest_time, wake_time, time_backwards, crash_timeout, last_touch_window_timeout, flash_req, vel_array, time_turn, x_com, z_com, is_rest, night_mode_enable, night_mode_start, night_mode_end, night_mode_rest_time, night_mode_wake_time, night_mode_vel_array, night_mode_reversed, prints_enable,))
-    pitch_handler = multiprocessing.Process(target=pitch, args=(lst, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, timer_temp, timer_log, pic_sensibility_in, pic_sensibility_out, stucks_to_confirm, stuck_window, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id, is_stuck_confirm,))
+    pitch_handler = multiprocessing.Process(target=pitch, args=(lst, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, timer_temp, timer_log, pic_sensibility_in, pic_sensibility_out, stucks_to_confirm, stuck_window, stuck_watchdog_time,is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id, is_stuck_confirm,))
     # Add 'em to our list
     PROCESSES.append(savior_handler)
     if campaign_is_active:
