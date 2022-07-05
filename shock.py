@@ -145,24 +145,30 @@ def init_wifi():
         try:
             subprocess.check_output('sudo iw dev "wlan0" scan | grep associated', shell=True)
             printe(bcolors.OKGREEN + "Ya conectado a la red {}".format(ssid) + bcolors.ENDC)
+            errorwriter(error= "Ya estaba conectado a wifi")
             return True
         except subprocess.CalledProcessError:
+            errorwriter(error="No estaba conectado a wifi")
             pass
         try:
             ssid_grep = "'SSID: " + ssid + "'"
             subprocess.check_output('sudo iw dev "wlan0" scan | grep {}'.format(ssid_grep), shell=True)
             wifi_found = True
+            errorwriter(error="Se encontro la red wifi")
         except subprocess.CalledProcessError:
             printe(bcolors.FAIL + "No se encontro la red {}".format(ssid) + bcolors.ENDC)
+            errorwriter(error="No se encontro la red wifi")
         if wifi_found:
             printe("Se encontro la red", ssid)  
         subprocess.call("./enablewifi_silent", timeout=40)
         try:
             subprocess.check_output('sudo iw dev "wlan0" scan | grep associated', shell=True)
             printe(bcolors.OKGREEN + "Conectado a la red {}".format(ssid) + bcolors.ENDC)
+            errorwriter(error="Se conecto a la red")
             return True
         except subprocess.CalledProcessError:
             printe(bcolors.FAIL + "No se pudo conectar a la red {}".format(ssid) + bcolors.ENDC)
+            errorwriter("No se pudo conectar a la red")
             return False
 
     except Exception as e:
@@ -215,21 +221,21 @@ def bt_connection(prints_enable):
                     if (data_input["request"] == "GET_ROBOT_CONFIG"):
                         try:
                             
-                            with open('/var/www/html/default_behavior.json') as default_behavior_file:
+                            with open('config/default/default/default_behavior.json') as default_behavior_file:
                                 default_behavior = json.load(default_behavior_file)
-                            if os.path.exists('/var/www/html/actual_behavior.json'):
-                                with open('/var/www/html/actual_behavior.json') as actual_behavior_file:
+                            if os.path.exists('config/actual/actual_behavior.json'):
+                                with open('config/actual/actual_behavior.json') as actual_behavior_file:
                                     actual_behavior = json.load(actual_behavior_file)
                             else:
                                 actual_behavior = None
-                            with open ('/var/www/html/default_config_scoring.csv') as default_breeding_config_file:
+                            with open ('config/default/default/default_config_scoring.csv') as default_breeding_config_file:
                                 default_breeding_config = default_breeding_config_file.readlines()
-                            if os.path.exists('/var/www/html/actual_config_scoring.csv'):
-                                with open ('/var/www/html/actual_config_scoring.csv') as actual_breeding_config_file:
+                            if os.path.exists('config/actual/actual_config_scoring.csv'):
+                                with open ('config/actual/actual_config_scoring.csv') as actual_breeding_config_file:
                                     actual_breeding_config = actual_breeding_config_file.readlines()
                             else:
                                 actual_breeding_config = None
-                            with open ('/var/www/html/campaign_status.json') as campaign_status_file:
+                            with open ('config/campaign_status.json') as campaign_status_file:
                                 campaign_status = json.load(campaign_status_file)
                             campaign_status['zero_date'] = datetime.strptime(campaign_status['zero_date'], "%Y%m%d").strftime("%Y-%m-%d")
                         
@@ -242,15 +248,15 @@ def bt_connection(prints_enable):
                             printe(data_input["data"])
                             if data_input["data"]["default"] == True:
                                 printe("Seteando behavior default")
-                                if os.path.exists("/var/www/html/actual_behavior.json"):
-                                    os.remove("/var/www/html/actual_behavior.json")
-                                behavior = open_json('/var/www/html/default_behavior.json')
+                                if os.path.exists("config/actual/actual_behavior.json"):
+                                    os.remove("config/actual/actual_behavior.json")
+                                behavior = open_json('config/default/default_behavior.json')
                             else:
                                 printe("Seteando behavior personalizada")
                                 behavior = data_input["data"]['behavior_config']
-                                with open('/var/www/html/actual_behavior.json',  'w') as json_file:
+                                with open('config/actual/actual_behavior.json',  'w') as json_file:
                                     json.dump(behavior,json_file)
-                                with open('/var/www/html/actual_behavior_backup.json',  'w') as json_file:
+                                with open('config/actual/actual_behavior_backup.json',  'w') as json_file:
                                     json.dump(behavior,json_file)
                                 
                             printe("Termino seteo de behavior")
@@ -263,14 +269,14 @@ def bt_connection(prints_enable):
                         try:
                             printe(data_input["data"])
                             campaign= {"is_active": data_input["data"]["is_active"], "zero_date": data_input["data"]["zero_date"], "end_date": data_input["data"]["end_date"], "campaign_id": data_input["data"]["campaign_id"], "baby_origin": data_input["data"]["baby_origin"], "batch": data_input["data"]["batch"], "shed_number": data_input["data"]["shed_number"]}
-                            with open('/var/www/html/campaign_status.json', 'w') as outfile:
+                            with open('config/campaign_status.json', 'w') as outfile:
                                 json.dump(campaign, outfile)
-                            with open('/var/www/html/campaign_status_backup.json', 'w') as outfile:
+                            with open('config/campaign_status_backup.json', 'w') as outfile:
                                 json.dump(campaign, outfile)
                             if data_input["data"]["breeding_config"] == "default":
                                 printe("Seteando breeding default")
-                                if os.path.exists("/var/www/html/actual_config_scoring.csv"):
-                                    os.remove("/var/www/html/actual_config_scoring.csv")
+                                if os.path.exists("config/actual/actual_config_scoring.csv"):
+                                    os.remove("config/actual/actual_config_scoring.csv")
                             elif data_input["data"]["breeding_config"] == "actual":
                                 pass
                             else:
@@ -282,18 +288,18 @@ def bt_connection(prints_enable):
                                 record = dict(zip())
                                 score_config = []
                                 day_list=[]
-                                with open("/var/www/html/actual_config_scoring.csv", 'w') as scoringfile:
+                                with open("config/actual/actual_config_scoring.csv", 'w') as scoringfile:
                                     wr = csv.writer(scoringfile)
                                     wr.writerow(headers)
         
                                 for i,row in enumerate(rows):
                                     printe(i,row)
-                                    with open("/var/www/html/actual_config_scoring.csv", 'a', newline='') as scoringfile:
+                                    with open("config/actual/actual_config_scoring.csv", 'a', newline='') as scoringfile:
                                         wr = csv.writer(scoringfile)
                                         wr.writerow(row)
-                                with open ('/var/www/html/actual_config_scoring.csv') as f:
+                                with open ('config/actual/actual_config_scoring.csv') as f:
                                     copy = f.read()
-                                    with open ('/var/www/html/actual_config_scoring_backup.csv', 'w') as file:
+                                    with open ('config/actual/actual_config_scoring_backup.csv', 'w') as file:
                                         file.write(copy)
                             client_sock.send(str({"request": "SET_NEW_CAMPAIGN_STATUS", "data": 1}))
                             os.system("sudo pm2 restart shock -- -snw")
@@ -304,9 +310,9 @@ def bt_connection(prints_enable):
                         try:
                             printe(data_input["data"])
                             campaign= {"is_active": data_input["data"]["is_active"], "zero_date": data_input["data"]["zero_date"], "end_date": data_input["data"]["end_date"], "campaign_id": data_input["data"]["campaign_id"], "baby_origin": data_input["data"]["baby_origin"], "batch": data_input["data"]["batch"], "shed_number": data_input["data"]["shed_number"]}
-                            with open('/var/www/html/campaign_status.json', 'w') as outfile:
+                            with open('config/campaign_status.json', 'w') as outfile:
                                 json.dump(campaign, outfile)
-                            with open('/var/www/html/campaign_status_backup.json', 'w') as outfile:
+                            with open('config/campaign_status_backup.json', 'w') as outfile:
                                 json.dump(campaign, outfile)
                             client_sock.send(str({"request": "SET_END_CAMPAIGN_STATUS", "data": 1}))
                             os.system("sudo pm2 restart shock -- -snw")
@@ -318,8 +324,8 @@ def bt_connection(prints_enable):
                             printe(data_input)
                             if data_input["data"]["default"] == True:
                                 printe("Seteando breeding default")
-                                if os.path.exists("/var/www/html/actual_config_scoring.csv"):
-                                    os.remove("/var/www/html/actual_config_scoring.csv")
+                                if os.path.exists("config/actual/actual_config_scoring.csv"):
+                                    os.remove("config/actual/actual_config_scoring.csv")
                             else:
 
                                 lines = data_input["data"]["breeding_config"].splitlines()
@@ -330,18 +336,18 @@ def bt_connection(prints_enable):
                                 record = dict(zip())
                                 score_config = []
                                 day_list=[]
-                                with open("/var/www/html/actual_config_scoring.csv", 'w') as scoringfile:
+                                with open("config/actual/actual_config_scoring.csv", 'w') as scoringfile:
                                     wr = csv.writer(scoringfile)
                                     wr.writerow(headers)
         
                                 for i,row in enumerate(rows):
                                     printe(i,row)
-                                    with open("/var/www/html/actual_config_scoring.csv", 'a', newline='') as scoringfile:
+                                    with open("config/actual/actual_config_scoring.csv", 'a', newline='') as scoringfile:
                                         wr = csv.writer(scoringfile)
                                         wr.writerow(row)
-                                with open ('/var/www/html/actual_config_scoring.csv') as f:
+                                with open ('config/actual/actual_config_scoring.csv') as f:
                                     copy = f.read()
-                                    with open ('/var/www/html/actual_config_scoring_backup.csv', 'w') as file:
+                                    with open ('config/actual/actual_config_scoring_backup.csv', 'w') as file:
                                         file.write(copy)
                             client_sock.send(str({"request": "SET_BREEDING_CONFIG_STATUS", "data": 1}))
                             os.system("sudo pm2 restart shock -- -snw")
@@ -469,11 +475,11 @@ def command(man, cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_st
                 elif data["action"] == "config":
                     config = data["req"]
                     # if config == True:
-                    #     with open('/var/www/html/state.json') as json_file:
+                    #     with open('config/state.json') as json_file:
                     #         state = json.load(json_file)
-                    #     with open('/var/www/html/config.json', 'w') as outfile:
+                    #     with open('config/config.json', 'w') as outfile:
                     #         json.dump(state, outfile)
-                    #     with open('/var/www/html/backup_config.json', 'w') as outfile:
+                    #     with open('config/backup_config.json', 'w') as outfile:
                     #         json.dump(state, outfile)
                     # auto(auto_req)
                     pass
@@ -560,7 +566,7 @@ def command(man, cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_st
                     logging.error("unsupported event: %s", data)
                 json_state = {"flash": flash_req.value, "auto": auto_req.value, "auto_rate": timer_boring.value,
                               "camera": cam_req.value, "camera_rate": camera_rate.value, "imu_req": imu_req.value, "imu_flag": pitch_flag.value}
-                with open('/var/www/html/state.json', 'w') as outfile:
+                with open('config/state.json', 'w') as outfile:
                     json.dump(json_state, outfile)
         finally:
             await unregister(websocket)
@@ -568,7 +574,7 @@ def command(man, cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_st
     start_server2 = websockets.serve(counter, "localhost", 9001)
     asyncio.get_event_loop().run_until_complete(start_server2)
     asyncio.get_event_loop().run_forever()
-def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, timer_temp, timer_log, pic_sensibility_in, pic_sensibility_out, stucks_to_confirm, stuck_window, stuck_watchdog_time, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id, is_stuck_confirm, camera_state, mlx_state, bme_state, vl53_state, imu_state):
+def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, timer_temp, timer_log, pic_sensibility_in, pic_sensibility_out, stucks_to_confirm, stuck_window, stuck_watchdog_time, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id, is_stuck_confirm, camera_state, mlx_state, bme_state, vl53_state, imu_state):
     #region Iniciar Variables
     camera = PiCamera()
     camera.resolution = (640, 480)
@@ -801,17 +807,6 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
             mlx_state["status"] = False
             mlx_state["status_str"] = "Detectado pero no se pudo iniciar"
     #endregion
-    try:
-        with open('counter.json') as json_file:
-            img_index = json.load(json_file)
-        img_index_num.value = img_index["num"]
-    except:
-        json_string = {"num": 0}
-        with open('counter.json', 'w') as outfile:
-            json.dump(json_string, outfile)
-        with open('counter.json') as json_file:
-            img_index = json.load(json_file)
-        img_index_num.value = img_index["num"]
 
     while True:
         try:
@@ -894,17 +889,17 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
                         confirm_elapsed_cam_stuck = (time.perf_counter() - confirm_start_cam_stuck)/60.0
                         confirm_total_elapsed_cam_stuck = confirm_last_total_elapsed_cam_stuck + confirm_elapsed_cam_stuck
                         json_stuck_line_camconf = {"CamConf": confirm_total_elapsed_cam_stuck}
-                        with open('stuck_count_camconf.json', 'w') as outfile:
+                        with open('config/actual/stuck_count_camconf.json', 'w') as outfile:
                             json.dump(json_stuck_line_camconf, outfile)
-                        with open('stuck_count_camconf_backup.json', 'w') as outfile:
+                        with open('config/actual/stuck_count_camconf_backup.json', 'w') as outfile:
                             json.dump(json_stuck_line_camconf, outfile)
                     elif not confirm_log_cam_stuck and stuck_count < stucks_to_confirm.value:
                         confirm_elapsed_cam_stuck = (time.perf_counter() - confirm_start_cam_stuck)/60.0
                         confirm_total_elapsed_cam_stuck = confirm_last_total_elapsed_cam_stuck + confirm_elapsed_cam_stuck
                         json_stuck_line_camconf = {"CamConf": confirm_total_elapsed_cam_stuck}
-                        with open('stuck_count_camconf.json', 'w') as outfile:
+                        with open('config/actual/stuck_count_camconf.json', 'w') as outfile:
                             json.dump(json_stuck_line_camconf, outfile)
-                        with open('stuck_count_backup_camconf.json', 'w') as outfile:
+                        with open('config/actual/stuck_count_backup_camconf.json', 'w') as outfile:
                             json.dump(json_stuck_line_camconf, outfile)
                         confirm_log_cam_stuck = True
                         is_stuck_confirm.value = False
@@ -936,9 +931,9 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
                                 elapsed_cam_stuck = (time.perf_counter() - start_cam_stuck)/60.0
                                 total_elapsed_cam_stuck = last_total_elapsed_cam_stuck + elapsed_cam_stuck
                                 json_stuck_line_cam = {"Cam": total_elapsed_cam_stuck,}
-                                with open('stuck_count_cam.json', 'w') as outfile:
+                                with open('config/actual/stuck_count_cam.json', 'w') as outfile:
                                     json.dump(json_stuck_line_cam, outfile)
-                                with open('stuck_count_cam_backup.json', 'w') as outfile:
+                                with open('config/actual/stuck_count_cam_backup.json', 'w') as outfile:
                                     json.dump(json_stuck_line_cam, outfile)
                             else:
                                 if not log_cam_stuck:
@@ -946,9 +941,9 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
                                     elapsed_cam_stuck = (time.perf_counter() - start_cam_stuck)/60.0
                                     total_elapsed_cam_stuck = last_total_elapsed_cam_stuck + elapsed_cam_stuck
                                     json_stuck_line_cam = {"Cam": total_elapsed_cam_stuck}
-                                    with open('stuck_count_cam.json', 'w') as outfile:
+                                    with open('config/actual/stuck_count_cam.json', 'w') as outfile:
                                         json.dump(json_stuck_line_cam, outfile)
-                                    with open('stuck_count_backup_cam.json', 'w') as outfile:
+                                    with open('config/actual/stuck_count_backup_cam.json', 'w') as outfile:
                                         json.dump(json_stuck_line_cam, outfile)
                                     printe("Me destrabe, camara. Valor:", n_m/img0.size)
                                     logwriter("Me destrabe, camara, minutos:", minutos=round(elapsed_cam_stuck,2), id=17)
@@ -964,9 +959,9 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
                             elapsed_cam_stuck = (time.perf_counter() - start_cam_stuck)/60.0
                             total_elapsed_cam_stuck = last_total_elapsed_cam_stuck + elapsed_cam_stuck
                             json_stuck_line_cam = {"Cam": total_elapsed_cam_stuck}
-                            with open('stuck_count_cam.json', 'w') as outfile:
+                            with open('config/actual/stuck_count_cam.json', 'w') as outfile:
                                 json.dump(json_stuck_line_cam, outfile)
-                            with open('stuck_count_cam_backup.json', 'w') as outfile:
+                            with open('config/actual/stuck_count_cam_backup.json', 'w') as outfile:
                                 json.dump(json_stuck_line_cam, outfile)
                             printe("Me destrabe, camara. Valor:",n_m/img0.size)
                             logwriter("Me destrabe, camara, minutos:", minutos=round(elapsed_cam_stuck,2), id=17)
@@ -975,11 +970,6 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
                     #endregion
                 #region Guardar fotos
                 if (cam_req.value == True and was_taking == False):
-                    img_index_num.value = img_index_num.value + 1
-                    json_string = {"num": int(img_index_num.value)}
-                    with open('counter.json', 'w') as outfile:
-                        json.dump(json_string, outfile)
-                    img_counter = 0
                     logwriter("Empece a sacar fotos", id=3)
                     log_cam = True
                 if cam_req.value == True:
@@ -1004,8 +994,7 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
                                 img_type = "S"
                             else:
                                 img_type = "P"
-                            img_name = "resources/{}/{}_{}_{}_{}.png".format(img_folder,d1,img_type,
-                                                                    img_index_num.value, img_counter)
+                            img_name = "resources/{}/{}_{}.png".format(img_folder,d1,img_type)
                             img_to_filter.append(img_name)
                             img_to_compress.append(img_name)
                             camera.capture(img_name)
@@ -1015,7 +1004,6 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
                                 json.dump( img_to_compress, outfile)
                             if is_rest.value or not flash_req.value:
                                 flash_enable.off()
-                            img_counter += 1
                             taking_pics.value = False
                             printe("Just take a pic")
                 else:
@@ -1567,9 +1555,9 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
                         elapsed_imu_stuck = round((time.perf_counter() - start_imu_stuck)/60.0, 2)
                         total_elapsed_imu_stuck = last_total_elapsed_imu_stuck + elapsed_imu_stuck
                         json_stuck_line_imu = {"IMU": total_elapsed_imu_stuck}
-                        with open('stuck_count_imu.json', 'w') as outfile:
+                        with open('config/actual/stuck_count_imu.json', 'w') as outfile:
                             json.dump(json_stuck_line_imu, outfile)
-                        with open('stuck_count_backup.json', 'w') as outfile:
+                        with open('config/actual/stuck_count_imu_backup.json', 'w') as outfile:
                             json.dump(json_stuck_line_imu, outfile)
                         printe("Me destrabe IMU, inclinacion {}°".format(pitch))
                         logwriter("Me destrabe, IMU, minutos", minutos=elapsed_imu_stuck, id=19)
@@ -1584,9 +1572,9 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
                     elapsed_imu_stuck =  round((time.perf_counter() - start_imu_stuck)/60.0, 2)
                     total_elapsed_imu_stuck = last_total_elapsed_imu_stuck + elapsed_imu_stuck
                     json_stuck_line = {"IMU": total_elapsed_imu_stuck}
-                    with open('stuck_count_imu.json', 'w') as outfile:
+                    with open('config/actual/stuck_count_imu.json', 'w') as outfile:
                         json.dump(json_stuck_line, outfile)
-                    with open('stuck_count_imu_backup.json', 'w') as outfile:
+                    with open('config/actual/stuck_count_imu_backup.json', 'w') as outfile:
                             json.dump(json_stuck_line, outfile)
                     imu_stuck_flag.value = True
             except Exception as ex:
@@ -1863,8 +1851,6 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
     if bumper_r.is_pressed:
         printe(bcolors.FAIL + "Error, bumper derecho trabado al inciar" + bcolors.ENDC)
         errorwriter(error= "Error, bumper derecho trabado al inciar")
-    while bumper_r.is_pressed or bumper_l.is_pressed:
-        time.sleep(1)
     #endregion
     while True:
         buzzer("off")
@@ -2111,7 +2097,6 @@ def main():
 
     vel_array = multiprocessing.Array('d', [])
     time_turn = multiprocessing.Value('d', 0)
-    img_index_num = multiprocessing.Value('i', 0)
     cam_req = multiprocessing.Value('b', False)
     camera_rate = multiprocessing.Value('i', 0)
     auto_req = multiprocessing.Value('b', False)
@@ -2209,12 +2194,12 @@ def main():
 
     json_state = {"flash": flash_req.value, "auto": auto_req.value,
                   "camera": cam_req.value, "imu_req": imu_req.value}
-    with open('/var/www/html/state.json', 'w') as outfile:
+    with open('config/state.json', 'w') as outfile:
         json.dump(json_state, outfile)
     command_handler = multiprocessing.Process(target=command, args=(lst, cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_flag, flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, rest_time, wake_time, time_backwards, timer_boring, crash_timeout, x_com, z_com,))
     savior_handler = multiprocessing.Process(target=savior, args=(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stuck_flag, imu_stuck_flag, is_stuck_confirm, stuck_watchdog_time, vl53_state, imu_state,))
     auto_handler = multiprocessing.Process(target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, is_hot, rest_time, wake_time, time_backwards, crash_timeout, last_touch_window_timeout, flash_req, vel_array, time_turn, x_com, z_com, is_rest, night_mode_enable, night_mode_start, night_mode_end, night_mode_rest_time, night_mode_wake_time, night_mode_vel_array, night_mode_reversed, prints_enable,))
-    pitch_handler = multiprocessing.Process(target=pitch, args=(lst, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, timer_temp, timer_log, pic_sensibility_in, pic_sensibility_out, stucks_to_confirm, stuck_window, stuck_watchdog_time,is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id, is_stuck_confirm, camera_state, mlx_state, bme_state, vl53_state, imu_state,))
+    pitch_handler = multiprocessing.Process(target=pitch, args=(lst, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, timer_temp, timer_log, pic_sensibility_in, pic_sensibility_out, stucks_to_confirm, stuck_window, stuck_watchdog_time,is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id, is_stuck_confirm, camera_state, mlx_state, bme_state, vl53_state, imu_state,))
     # Add 'em to our list
     if not campaign_is_active:
         while True:
@@ -2350,30 +2335,32 @@ if __name__ == '__main__':
     #endregion
     flash_enable.off()
 
-    if os.path.exists("/var/www/html/actual_behavior.json"):
-        behavior = open_json('/var/www/html/actual_behavior.json')
+    if os.path.exists("config/actual/actual_behavior.json"):
+        behavior = open_json('config/actual/actual_behavior.json')
     else:
-        behavior = open_json('/var/www/html/default_behavior.json')
+        behavior = open_json('config/default/default_behavior.json')
 
 
     init_wifi()
     
-    if not os.path.exists("stuck_count_imu.json"):
+    if not os.path.exists("config/actual/stuck_count_imu.json"):
         json_stuck_line_imu = {"IMU": 0}
-        with open('stuck_count_imu.json', 'w') as outfile:
+        with open('config/actual/stuck_count_imu.json', 'w') as outfile:
             json.dump(json_stuck_line_imu, outfile)
-    if not os.path.exists("stuck_count_cam.json"):
+    if not os.path.exists("config/actual/stuck_count_cam.json"):
         json_stuck_line_cam = {"Cam": 0}
-        with open('stuck_count_cam.json', 'w') as outfile:
+        with open('config/actual/stuck_count_cam.json', 'w') as outfile:
             json.dump(json_stuck_line_cam, outfile)
-    if not os.path.exists("stuck_count_camconf.json"):
+    if not os.path.exists("config/actual/stuck_count_camconf.json"):
         json_stuck_line_camconf = {"CamConf": 0}
-        with open('stuck_count_camconf.json', 'w') as outfile:
+        with open('config/actual/stuck_count_camconf.json', 'w') as outfile:
             json.dump(json_stuck_line_camconf, outfile)
-    last_stuck_imu = open_json('stuck_count_imu.json')
-    last_stuck_cam = open_json('stuck_count_cam.json')
-    last_stuck_camconf = open_json('stuck_count_camconf.json')
-    last_watch = open_json('last_on.json')
+    last_stuck_imu = open_json('config/actual/stuck_count_imu.json')
+    last_stuck_cam = open_json('config/actual/stuck_count_cam.json')
+    last_stuck_camconf = open_json('config/actual/stuck_count_camconf.json')
+    if not os.path.exists("config/actual/last_on.json"):
+        last_on()
+    last_watch = open_json('config/actual/last_on.json')
 
     start_log = "Me apague, minutos trabado camara / IMU " 
     minutos_start = str(last_stuck_cam["Cam"]) + "/" + str(last_stuck_imu["IMU"])
@@ -2382,8 +2369,11 @@ if __name__ == '__main__':
     logwriter("Me apague, minutos trabado camara confirmados", id=22, watch_dog=True, minutos= str(last_stuck_camconf["CamConf"]), 
                 last_date=last_watch["Fecha"], last_hour=last_watch["Hora"], last_name=last_watch["Name"])
     # Vamos a tomar la configuracion de camapaña
-    campaign_status = open_json('/var/www/html/campaign_status.json')
-
+    if not os.path.exists('config/actual/campaign_status.json'):
+        campaing_status_line = {"is_active": 0, "zero_date": "", "end_date": "", "campaign_id": 0, "baby_origin": "", "batch": 0, "shed_number": 0}
+        with open('config/actual/campaign_status.json', 'w') as outfile:
+            json.dump(campaing_status_line, outfile)
+    campaign_status = open_json('config/actual/campaign_status.json')
     campaign_is_active = campaign_status["is_active"]
     zero_date = campaign_status["zero_date"]
     end_date = campaign_status["end_date"]
@@ -2395,9 +2385,9 @@ if __name__ == '__main__':
     #region Cargo breeding config
     try:
         day_list=[]
-        if os.path.exists("/var/www/html/actual_config_scoring.csv"):
+        if os.path.exists("config/actual/actual_config_scoring.csv"):
             try:
-                with open ('/var/www/html/actual_config_scoring.csv') as f:
+                with open ('config/actual/actual_config_scoring.csv') as f:
                     rows = csv.reader(f)
                 
                     headers = next(rows)
@@ -2407,13 +2397,13 @@ if __name__ == '__main__':
                         record = dict(zip(headers,row))
                         score_config.append(record)
                         day_list.append(int(record['Dia']))
-                with open ('/var/www/html/actual_config_scoring.csv') as f:
+                with open ('config/actual/actual_config_scoring.csv') as f:
                     copy = f.read()
-                    with open ('/var/www/html/actual_config_scoring_backup.csv', 'w') as file:
+                    with open ('config/actual/actual_config_scoring_backup.csv', 'w') as file:
                         file.write(copy)
                 
             except:
-                with open ('/var/www/html/actual_config_scoring_backup.csv') as f:
+                with open ('config/actual/actual_config_scoring_backup.csv') as f:
                     rows = csv.reader(f)
                 
                     headers = next(rows)
@@ -2423,13 +2413,13 @@ if __name__ == '__main__':
                         record = dict(zip(headers,row))
                         score_config.append(record)
                         day_list.append(int(record['Dia']))
-                with open ('/var/www/html/actual_config_scoring_backup.csv') as f:
+                with open ('config/actual/actual_config_scoring_backup.csv') as f:
                     copy = f.read()
-                    with open ('/var/www/html/actual_config_scoring.csv', 'w') as file:
+                    with open ('config/actual/actual_config_scoring.csv', 'w') as file:
                         file.write(copy)
         else:  
             try:                         
-                with open ('/var/www/html/default_config_scoring.csv') as f:
+                with open ('config/default/default_config_scoring.csv') as f:
                     rows = csv.reader(f)
                 
                     headers = next(rows)
@@ -2439,12 +2429,12 @@ if __name__ == '__main__':
                         record = dict(zip(headers,row))
                         score_config.append(record)
                         day_list.append(int(record['Dia']))
-                with open ('/var/www/html/default_config_scoring.csv') as f:
+                with open ('config/default/default_config_scoring.csv') as f:
                     copy = f.read()
-                    with open ('/var/www/html/default_config_scoring_backup.csv', 'w') as file:
+                    with open ('config/default/default_config_scoring_backup.csv', 'w') as file:
                         file.write(copy)
             except:
-                with open ('/var/www/html/default_config_scoring_backup.csv') as f:
+                with open ('config/default/default/default_config_scoring_backup.csv') as f:
                     rows = csv.reader(f)
                 
                     headers = next(rows)
@@ -2454,9 +2444,9 @@ if __name__ == '__main__':
                         record = dict(zip(headers,row))
                         score_config.append(record)
                         day_list.append(int(record['Dia']))  
-                with open ('/var/www/html/default_config_scoring_backup.csv') as f:
+                with open ('config/default/default/default_config_scoring_backup.csv') as f:
                     copy = f.read()
-                    with open ('/var/www/html/default_config_scoring.csv', 'w') as file:
+                    with open ('config/default/default/default_config_scoring.csv', 'w') as file:
                         file.write(copy)   
         breeding_day = (datetime.now() - datetime.strptime(zero_date, "%Y%m%d")).days
         printe("Breeding day:", breeding_day)
