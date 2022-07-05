@@ -1,6 +1,6 @@
-cam_debug/
+cam_debug/.
 clearance_debug/
-imu_debug/
+imu_debug/.
 log/backup/.
 log/diario/.
 log/error/.
@@ -9,4 +9,4 @@ send_queue/imgs/list/.
 send_queue/imgs/zipfiles/.
 send_queue/logs/.
 __pycache__/
-config/actual/
+config/actual/.
