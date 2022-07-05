@@ -58,7 +58,7 @@ def printe(*what_to_print, no_repeat = False): #Funcion auxiliar de printeo
             last_string = string  
             print(datetime.now().strftime("%H:%M:%S "), string)
 def open_json(filename): #Funcion para abrir jsons y backupearlos
-    place = filename.strip(filename.split('/')[-1])
+    place = filename.replace(filename.split('/')[-1],"")
     stripped_name = filename.split('/')[-1].split('.')[0]
     stripped_extension = '.' + filename.split('/')[-1].split('.')[-1]
     stripped_name_backup = stripped_name +'_backup'
@@ -235,7 +235,7 @@ def bt_connection(prints_enable):
                                     actual_breeding_config = actual_breeding_config_file.readlines()
                             else:
                                 actual_breeding_config = None
-                            with open ('config/campaign_status.json') as campaign_status_file:
+                            with open ('config/actual/campaign_status.json') as campaign_status_file:
                                 campaign_status = json.load(campaign_status_file)
                             campaign_status['zero_date'] = datetime.strptime(campaign_status['zero_date'], "%Y%m%d").strftime("%Y-%m-%d")
                         
@@ -269,9 +269,9 @@ def bt_connection(prints_enable):
                         try:
                             printe(data_input["data"])
                             campaign= {"is_active": data_input["data"]["is_active"], "zero_date": data_input["data"]["zero_date"], "end_date": data_input["data"]["end_date"], "campaign_id": data_input["data"]["campaign_id"], "baby_origin": data_input["data"]["baby_origin"], "batch": data_input["data"]["batch"], "shed_number": data_input["data"]["shed_number"]}
-                            with open('config/campaign_status.json', 'w') as outfile:
+                            with open('config/actual/campaign_status.json', 'w') as outfile:
                                 json.dump(campaign, outfile)
-                            with open('config/campaign_status_backup.json', 'w') as outfile:
+                            with open('config/actual/campaign_status_backup.json', 'w') as outfile:
                                 json.dump(campaign, outfile)
                             if data_input["data"]["breeding_config"] == "default":
                                 printe("Seteando breeding default")
@@ -310,9 +310,9 @@ def bt_connection(prints_enable):
                         try:
                             printe(data_input["data"])
                             campaign= {"is_active": data_input["data"]["is_active"], "zero_date": data_input["data"]["zero_date"], "end_date": data_input["data"]["end_date"], "campaign_id": data_input["data"]["campaign_id"], "baby_origin": data_input["data"]["baby_origin"], "batch": data_input["data"]["batch"], "shed_number": data_input["data"]["shed_number"]}
-                            with open('config/campaign_status.json', 'w') as outfile:
+                            with open('config/actual/campaign_status.json', 'w') as outfile:
                                 json.dump(campaign, outfile)
-                            with open('config/campaign_status_backup.json', 'w') as outfile:
+                            with open('config/actual/campaign_status_backup.json', 'w') as outfile:
                                 json.dump(campaign, outfile)
                             client_sock.send(str({"request": "SET_END_CAMPAIGN_STATUS", "data": 1}))
                             os.system("sudo pm2 restart shock -- -snw")
