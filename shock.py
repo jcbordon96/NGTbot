@@ -143,17 +143,17 @@ def init_wifi():
     try:
         printe("Iniciando wifi")
         try:
-            ssid_grep = "'SSID: " + ssid + "'"
-            subprocess.check_output('sudo iw dev "wlan0" scan | grep {}'.format(ssid_grep), shell=True)
-            wifi_found = True
-        except subprocess.CalledProcessError:
-            printe(bcolors.FAIL + "No se encontro la red {}".format(ssid) + bcolors.ENDC)
-        try:
             subprocess.check_output('sudo iw dev "wlan0" scan | grep associated', shell=True)
             printe(bcolors.OKGREEN + "Ya conectado a la red {}".format(ssid) + bcolors.ENDC)
             return True
         except subprocess.CalledProcessError:
             pass
+        try:
+            ssid_grep = "'SSID: " + ssid + "'"
+            subprocess.check_output('sudo iw dev "wlan0" scan | grep {}'.format(ssid_grep), shell=True)
+            wifi_found = True
+        except subprocess.CalledProcessError:
+            printe(bcolors.FAIL + "No se encontro la red {}".format(ssid) + bcolors.ENDC)
         if wifi_found:
             printe("Se encontro la red", ssid)  
         subprocess.call("./enablewifi_silent", timeout=40)
@@ -639,7 +639,6 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
     t_stuck_sec = 0
     t_active_sec = 0
     t_rest_sec = 0
-    moving_img = False
     t_mlx_amb = 0 
     t_mlx_surface = 0
     last_measure = 0
@@ -654,6 +653,8 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
     p_bme_mean = 0
     t_mlx_amb_mean = 0
     t_mlx_surface_mean = 0
+    last_t_mlx_surface_mean = 0
+    bad_t_mlx_surface_mean_counter = 0
     measurements_list = []
     robot_id = 0
     day_info = {"day": {"breeding_day": breeding_day, "config": day_score_config, "total_time": 0, "active_time": 0, "rest_time": 0, "stuck_time": 0, "date": current_date, "campaign_id": campaign_id}}
@@ -991,26 +992,10 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
                         # printe(img_folder)
                         if not os.path.exists("resources/{}".format(img_folder)):
                             os.mkdir("resources/{}".format(img_folder))
-                        if not is_stopped.value and not is_rest.value and not moving_img:
-                            now = datetime.now()
-                            d1 = now.strftime("%Y%m%d_%H%M%S")
-                            img_type = "M"
-                            img_name = "resources/{}/{}_{}_{}_{}.png".format(img_folder,d1,img_type,
-                                                                        img_index_num.value, img_counter)
-                            # printe(img_name)
-                            img_to_filter.append(img_name)
-                            moving_img = True
-                            camera.capture(img_name)
-                            img_to_compress.append(img_name)
-                            with open('send_queue/imgs/list/img_to_compress.json', 'w') as outfile:
-                                json.dump( img_to_compress, outfile)
-                            with open('send_queue/imgs/list/img_to_compress_backup.json', 'w') as outfile:
-                                json.dump( img_to_compress, outfile)
                         taking_pics.value = True      
                         if is_stopped.value:
                             last_pic = time.perf_counter()
                             printe("Voy a sacar foto detenida")
-                            moving_img = False
                             now = datetime.now()
                             d1 = now.strftime("%Y%m%d_%H%M%S")
                             if is_rest.value:
@@ -1342,7 +1327,14 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, img_index_num, t
                         day_info_list.append("")
                         measurements_list = []
                     current_date_server = datetime.strptime(current_date, "%Y%m%d").strftime("%Y-%m-%d")
-                    measurement = {"temp_environment": t_bme_mean, "temp_surface": t_mlx_surface_mean, "humidity": h_bme_mean, "comfort": thi, "score_temp_environment": round(score_temp_amb_rt,2), "score_temp_surface": round(score_temp_bed_rt,2), "score_humidity": round(score_hum_rt,2), "score_comfort": round(score_thi_rt,2), "time":datetime.now().strftime("%H:%M:%S"), "robot_id": robot_id, "score_overall": round(score_general_rt,2)}
+                    if abs(t_mlx_surface_mean - last_t_mlx_surface_mean) > 5 and bad_t_mlx_surface_mean_counter == 0:
+                        t_mlx_surface_mean_measure = last_t_mlx_surface_mean
+                        bad_t_mlx_surface_mean_counter += 1
+                    else:
+                        bad_t_mlx_surface_mean_counter = 0
+                        t_mlx_surface_mean_measure = t_mlx_surface_mean
+                        last_t_mlx_surface_mean = t_mlx_surface_mean
+                    measurement = {"temp_environment": t_bme_mean, "temp_surface": t_mlx_surface_mean_measure, "humidity": h_bme_mean, "comfort": thi, "score_temp_environment": round(score_temp_amb_rt,2), "score_temp_surface": round(score_temp_bed_rt,2), "score_humidity": round(score_hum_rt,2), "score_comfort": round(score_thi_rt,2), "time":datetime.now().strftime("%H:%M:%S"), "robot_id": robot_id, "score_overall": round(score_general_rt,2)}
                     if is_tempered:
                         measurements_list.append(measurement)
                     day_info ={"day": {"breeding_day": breeding_day, "config": day_score_config, "total_time": t_total, "active_time": t_active, "rest_time": t_rest, "stuck_time": t_stuck, "date":current_date_server, "campaign_id": campaign_id, "measurements": measurements_list}}
