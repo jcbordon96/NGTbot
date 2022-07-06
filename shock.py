@@ -80,9 +80,9 @@ def last_on(): #Funcion que es como un watchdog, va escribiendo cual es el ultim
     log_hour = now_logdate.strftime("%H:%M:%S")
     date_name = now_logdate.strftime("%Y%m%d")
     json_last = {"Fecha": log_date, "Hora": log_hour, "Name": date_name}
-    with open('last_on.json', 'w') as outfile:
+    with open('config/actual/last_on.json', 'w') as outfile:
         json.dump(json_last, outfile)
-    with open('last_on_backup.json', 'w') as outfile:
+    with open('config/actual/last_on_backup.json', 'w') as outfile:
         json.dump(json_last, outfile)
 
 def errorwriter(error, comentario = "", no_repeat = False): #Funcion que escribe logs de errores
