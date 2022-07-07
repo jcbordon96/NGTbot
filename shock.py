@@ -36,6 +36,8 @@ import VL53L0X
 import sys
 from bluetooth import *
 import adafruit_extended_bus
+from socket import gethostname
+import serial
 #endregion
 
 def buzzer(state = "off"):
@@ -95,7 +97,7 @@ def errorwriter(error, comentario = "", no_repeat = False): #Funcion que escribe
         with open("log/error/{}.log".format(error_date),'a', newline='') as logerror:
             logerror.write(errlog)
 # Funcion que escribe los logs
-def logwriter(event, id,  minutos =0, t_cpu=0, t_clock=0, t_bme=0, t_laser_surf = 0, t_laser_amb = 0, h_bme=0, p_bme=0, thi = 0, clearance = 0, score_temp_amb_rt = 0, score_temp_bed_rt = 0, score_hum_rt = 0, score_thi_rt = 0, score_general_rt = 0, score_temp_amb_prom = 0, score_temp_bed_prom = 0, score_hum_prom = 0, score_thi_prom = 0, score_general_prom = 0, t_total= 0, t_active = 0, t_rest = 0, t_stuck = 0, watch_dog=False, last_date=-1, last_hour=-1, last_name=-1):
+def logwriter(event, id,  minutos =0, t_cpu=0, t_clock=0, t_bme=0, t_laser_surf = 0, t_laser_amb = 0, h_bme=0, p_bme=0, thi = 0, clearance = 0, score_temp_amb_rt = 0, score_temp_bed_rt = 0, score_hum_rt = 0, score_thi_rt = 0, score_general_rt = 0, score_temp_amb_prom = 0, score_temp_bed_prom = 0, score_hum_prom = 0, score_thi_prom = 0, score_general_prom = 0, t_total= 0, t_active = 0, t_rest = 0, t_stuck = 0, watch_dog=False, last_date=-1, last_hour=-1, last_name=-1, battery_percent = 0, battery_voltage = 0):
     nowlogdate = datetime.now()
     if watch_dog:
         logdate = last_date
@@ -112,7 +114,7 @@ def logwriter(event, id,  minutos =0, t_cpu=0, t_clock=0, t_bme=0, t_laser_surf 
     if not os.path.exists(stringdatelog):
         printe("No existe el logfile diario")
         header = ["#", "Fecha", "Hora", "Evento", "Minutos", "CPU", "RAM" ,"T. CPU",
-                  "T. Clock", "T. BME", 'T. Ambiente Laser', "T. Laser", "H. BME", "P. BME", "THI", "Clearance", "Score Temp. Amb. RT", "Score Temp. Cama RT", "Score Hum. RT", "Score THI RT", "Score General RT", "Score Temp. Amb. PROM", "Score Temp. Cama PROM", "Score Hum. PROM", "Score THI PROM", "Score General PROM", "Tiempo Total", "Tiempo Activo", "Tiempo Descansando", "Tiempo Trabado", "ID"]
+                  "T. Clock", "T. BME", 'T. Ambiente Laser', "T. Laser", "H. BME", "P. BME", "THI", "Clearance", "Score Temp. Amb. RT", "Score Temp. Cama RT", "Score Hum. RT", "Score THI RT", "Score General RT", "Score Temp. Amb. PROM", "Score Temp. Cama PROM", "Score Hum. PROM", "Score THI PROM", "Score General PROM", "Tiempo Total", "Tiempo Activo", "Tiempo Descansando", "Tiempo Trabado", "Bateria", "Voltaje", "ID"]
         with open(stringdatelog, 'w') as logfile:
             wr = csv.writer(logfile)
             wr.writerow(header)
@@ -120,24 +122,24 @@ def logwriter(event, id,  minutos =0, t_cpu=0, t_clock=0, t_bme=0, t_laser_surf 
         wr = csv.writer(logfile)
         psutil.cpu_percent(percpu = True)
         wr.writerow(["", logdate, loghour, event, minutos,str(os.getloadavg()[0]), str(psutil.virtual_memory().percent), t_cpu,
-                    t_clock, t_bme, t_laser_amb, t_laser_surf, h_bme, p_bme, thi, clearance, score_temp_amb_rt, score_temp_bed_rt, score_hum_rt, score_thi_rt, score_general_rt, score_temp_amb_prom, score_temp_bed_prom, score_hum_prom, score_thi_prom, score_general_prom, t_total, t_active, t_rest, t_stuck, id])
+                    t_clock, t_bme, t_laser_amb, t_laser_surf, h_bme, p_bme, thi, clearance, score_temp_amb_rt, score_temp_bed_rt, score_hum_rt, score_thi_rt, score_general_rt, score_temp_amb_prom, score_temp_bed_prom, score_hum_prom, score_thi_prom, score_general_prom, t_total, t_active, t_rest, t_stuck,battery_percent, battery_voltage, id])
 
     if not os.path.exists(stringdatelogbackup):
         printe("No existe el logfile diario de backup")
         header = ["#", "Fecha", "Hora", "Evento", "Minutos", "CPU", "RAM" ,"T. CPU",
-                  "T. Clock", "T. BME", 'T. Ambiente Laser', "T. Laser", "H. BME", "P. BME", "THI", "Clearance", "Score Temp. Amb. RT", "Score Temp. Cama RT", "Score Hum. RT", "Score THI RT", "Score General RT", "Score Temp. Amb. PROM", "Score Temp. Cama PROM", "Score Hum. PROM", "Score THI PROM", "Score General PROM", "Tiempo Total", "Tiempo Activo", "Tiempo Descansando", "Tiempo Trabado", "ID"]
+                  "T. Clock", "T. BME", 'T. Ambiente Laser', "T. Laser", "H. BME", "P. BME", "THI", "Clearance", "Score Temp. Amb. RT", "Score Temp. Cama RT", "Score Hum. RT", "Score THI RT", "Score General RT", "Score Temp. Amb. PROM", "Score Temp. Cama PROM", "Score Hum. PROM", "Score THI PROM", "Score General PROM", "Tiempo Total", "Tiempo Activo", "Tiempo Descansando", "Tiempo Trabado", "Bateria", "Voltaje", "ID"]
         with open(stringdatelogbackup, 'w') as logfile:
             wr = csv.writer(logfile)
             wr.writerow(header)
     with open(stringdatelogbackup, 'a', newline='') as logfile:
         wr = csv.writer(logfile)
         wr.writerow(["", logdate, loghour, event, minutos,str(os.getloadavg()[0]), str(psutil.virtual_memory().percent), t_cpu,
-                    t_clock, t_bme, t_laser_amb, t_laser_surf, h_bme, p_bme, thi, clearance, score_temp_amb_rt, score_temp_bed_rt, score_hum_rt, score_thi_rt, score_general_rt, score_temp_amb_prom, score_temp_bed_prom, score_hum_prom, score_thi_prom, score_general_prom, t_total, t_active, t_rest, t_stuck, id])
+                    t_clock, t_bme, t_laser_amb, t_laser_surf, h_bme, p_bme, thi, clearance, score_temp_amb_rt, score_temp_bed_rt, score_hum_rt, score_thi_rt, score_general_rt, score_temp_amb_prom, score_temp_bed_prom, score_hum_prom, score_thi_prom, score_general_prom, t_total, t_active, t_rest, t_stuck,battery_percent, battery_voltage, id])
 
     with open('log/log.csv', 'a', newline='') as logfile:
         wr = csv.writer(logfile)
         wr.writerow(["", logdate, loghour, event, minutos,str(os.getloadavg()[0]), str(psutil.virtual_memory().percent), t_cpu,
-                    t_clock, t_bme, t_laser_amb, t_laser_surf, h_bme, p_bme, thi, clearance, score_temp_amb_rt, score_temp_bed_rt, score_hum_rt, score_thi_rt, score_general_rt, score_temp_amb_prom, score_temp_bed_prom, score_hum_prom, score_thi_prom, score_general_prom, t_total, t_active, t_rest, t_stuck, id])
+                    t_clock, t_bme, t_laser_amb, t_laser_surf, h_bme, p_bme, thi, clearance, score_temp_amb_rt, score_temp_bed_rt, score_hum_rt, score_thi_rt, score_general_rt, score_temp_amb_prom, score_temp_bed_prom, score_hum_prom, score_thi_prom, score_general_prom, t_total, t_active, t_rest, t_stuck,battery_percent, battery_voltage, id])
 def init_wifi():
     wifi_found = False
     try:
@@ -688,6 +690,8 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_
     first_measurements_counter = 0
     is_tempered = 0
     delta_tmlx_tbme_list = []
+    battery_voltage = 0
+    battery_percent = 0
     #endregion
     #region Levanto mediciones que han quedado sin enviar antes de apagarse
     try:
@@ -807,7 +811,8 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_
             mlx_state["status"] = False
             mlx_state["status_str"] = "Detectado pero no se pudo iniciar"
     #endregion
-
+    if not is_milka:
+        battery_serial = serial.Serial('/dev/ttyS0', 9600, timeout= 5)
     while True:
         try:
             for frame in camera.capture_continuous(raw_capture, format="bgr", use_video_port=True):
@@ -1159,8 +1164,29 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_
                             logwriter("Alta temperatura", id=9, t_cpu=temp_cpu.value, t_clock=temp_clock.value)
                         sensors.cleanup()
                 if time.perf_counter() - state_timer > timer_log.value:
+                    #region Bateria
+                    if not is_milka:
+                        try:
+                            battery_serial.flushInput()
+                            serial_string = battery_serial.readline().decode("utf-8")
+                            if "ERROR" in serial_string:
+                                printe(bcolors.FAIL + serial_string + bcolors.ENDC)
+                                errorwriter(error="Error detectado en el ESP32", comentario=serial_string)
+                            elif serial_string == '':
+                                printe(bcolors.FAIL + "Timeout bateria" + bcolors.ENDC)
+                                errorwriter(error="Timeout bateria")
+                            else:
+                                serial_string = serial_string.replace("'", '"')
+                                serial_json = json.loads(serial_string)["STATE"]
+                                battery_percent = round((float(serial_json["cur_cap"])/float(serial_json["max_cap"]))*100,2)
+                                battery_voltage = serial_json['load_vol']
+                                printe("Estado de bateria {}%, voltaje {} V".format(battery_percent, battery_voltage))
+                        except Exception as ex:
+                            printe(bcolors.FAIL + "Fallo la obtencion de estado de bateria" + bcolors.ENDC)
+                            printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
+                            errorwriter(error= ex, comentario = "Fallo la obtencion de estado de bateria")
+                    #endregion
                     state_timer = time.perf_counter()
-
                     if current_date != datetime.now().strftime("%Y%m%d"):
                         printe("Cambio de dia, voy a reiniciar")
                         os.system("sudo pm2 restart shock -- -snw")
@@ -1335,11 +1361,11 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_
                     if not is_rest.value:
                         printe("Estado: BME: T:{}/H:{}/P:{} MLX90614: T:{}".format(round(t_bme_mean,2), round(h_bme_mean,2), round(p_bme_mean,2), round(t_mlx_surface_mean,2)))
                         logwriter("Estado", id=14, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=round(t_bme_mean,2),
-                            t_laser_surf=round(t_mlx_surface_mean,2), t_laser_amb=round(t_mlx_amb_mean,2), h_bme=round(h_bme_mean,2), p_bme=round(p_bme_mean,2), thi=round(thi,2), clearance=clearance.value, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = round(t_total,2), t_active = round(t_active,2), t_rest = round(t_rest,2), t_stuck = round(t_stuck,2))
+                            t_laser_surf=round(t_mlx_surface_mean,2), t_laser_amb=round(t_mlx_amb_mean,2), h_bme=round(h_bme_mean,2), p_bme=round(p_bme_mean,2), thi=round(thi,2), clearance=clearance.value, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = round(t_total,2), t_active = round(t_active,2), t_rest = round(t_rest,2), t_stuck = round(t_stuck,2), battery_percent = battery_percent, battery_voltage = battery_voltage)
                     else:
                         printe("Estado descansando : BME: T:{}/H:{}/P:{} MLX90614: T:{}".format(round(t_bme_mean,2), round(h_bme_mean,2), round(p_bme_mean,2), round(t_mlx_surface_mean,2)))
                         logwriter("Estado, descansando", id=15, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=round(t_bme_mean,2),
-                            t_laser_surf=round(t_mlx_surface_mean,2), t_laser_amb=round(t_mlx_amb_mean,2), h_bme=round(h_bme_mean,2), p_bme=round(p_bme_mean,2), thi=round(thi,2), clearance=clearance.value, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = round(t_total,2), t_active = round(t_active,2), t_rest = round(t_rest,2), t_stuck = round(t_stuck,2))
+                            t_laser_surf=round(t_mlx_surface_mean,2), t_laser_amb=round(t_mlx_amb_mean,2), h_bme=round(h_bme_mean,2), p_bme=round(p_bme_mean,2), thi=round(thi,2), clearance=clearance.value, score_temp_amb_rt=round(score_temp_amb_rt,2), score_temp_bed_rt = round(score_temp_bed_rt,2), score_hum_rt = round(score_hum_rt,2), score_thi_rt = round(score_thi_rt,2), score_general_rt = round(score_general_rt,2), score_temp_amb_prom=round(score_temp_amb_prom,2), score_temp_bed_prom = round(score_temp_bed_prom,2), score_hum_prom = round(score_hum_prom,2), score_thi_prom = round(score_thi_prom,2), score_general_prom = round(score_general_prom,2), t_total = round(t_total,2), t_active = round(t_active,2), t_rest = round(t_rest,2), t_stuck = round(t_stuck,2), battery_percent = battery_percent, battery_voltage = battery_voltage)
         except Exception as ex:
             printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
             camera_state["status"] = False
@@ -1592,23 +1618,42 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
                         errorwriter(ex, "El IMU no se pudo reiniciar")
 def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, is_hot, rest_time, wake_time, time_backwards, crash_timeout, last_touch_window_timeout, flash_req, vel_array, time_turn, x_com, z_com, is_rest, night_mode_enable, night_mode_start, night_mode_end, night_mode_rest_time, night_mode_wake_time, night_mode_vel_array, night_mode_reversed, prints_enable ):
     
-    
-    motor_stby = DigitalOutputDevice("BOARD40")
-    motor_rf_pwm = PWMOutputDevice("BOARD35")  #1 ES EL MOTOR DERECHO
-    motor_rb_pwm = PWMOutputDevice("BOARD33")  #1 ES EL MOTOR DERECHO
-    motor_lf_pwm = PWMOutputDevice("BOARD32")  #1 ES EL MOTOR DERECHO
-    motor_lb_pwm = PWMOutputDevice("BOARD12")
-    motor_rf_cw_dir = DigitalOutputDevice("BOARD37")   #AIN1
-    motor_rf_ccw_dir = DigitalOutputDevice("BOARD31")  #AIN2
-    motor_rb_cw_dir = DigitalOutputDevice("BOARD38")   #BIN1
-    motor_rb_ccw_dir = DigitalOutputDevice("BOARD36")  #BIN2
-    motor_lf_cw_dir = DigitalOutputDevice("BOARD29")
-    motor_lf_ccw_dir = DigitalOutputDevice("BOARD22")
-    motor_lb_cw_dir = DigitalOutputDevice("BOARD18")
-    motor_lb_ccw_dir = DigitalOutputDevice("BOARD16")
-    bumper_l = Button("BOARD19", pull_up= False)
-    bumper_r = Button("BOARD21", pull_up= False)
-    shutdown_button = Button("BOARD15")
+    if is_milka:
+        printe("Es MILKA")
+        motor_stby = DigitalOutputDevice("BOARD40")
+        motor_rf_pwm = PWMOutputDevice("BOARD35")  #1 ES EL MOTOR DERECHO
+        motor_rb_pwm = PWMOutputDevice("BOARD33")  #1 ES EL MOTOR DERECHO
+        motor_lf_pwm = PWMOutputDevice("BOARD32")  #1 ES EL MOTOR DERECHO
+        motor_lb_pwm = PWMOutputDevice("BOARD12")
+        motor_rf_cw_dir = DigitalOutputDevice("BOARD37")   #AIN1
+        motor_rf_ccw_dir = DigitalOutputDevice("BOARD31")  #AIN2
+        motor_rb_cw_dir = DigitalOutputDevice("BOARD38")   #BIN1
+        motor_rb_ccw_dir = DigitalOutputDevice("BOARD36")  #BIN2
+        motor_lf_cw_dir = DigitalOutputDevice("BOARD29")
+        motor_lf_ccw_dir = DigitalOutputDevice("BOARD22")
+        motor_lb_cw_dir = DigitalOutputDevice("BOARD18")
+        motor_lb_ccw_dir = DigitalOutputDevice("BOARD16")
+        bumper_l = Button("BOARD19", pull_up= False)
+        bumper_r = Button("BOARD21", pull_up= False)
+        shutdown_button = Button("BOARD15")
+    else:
+        printe("Es SIXPACK")
+        motor_stby = DigitalOutputDevice("BOARD40")
+        motor_lf_pwm = PWMOutputDevice("BOARD35")  #1 ES EL MOTOR DERECHO
+        motor_lb_pwm = PWMOutputDevice("BOARD33")  #1 ES EL MOTOR DERECHO
+        motor_rf_pwm = PWMOutputDevice("BOARD32")  #1 ES EL MOTOR DERECHO
+        motor_rb_pwm = PWMOutputDevice("BOARD12")
+        motor_lf_ccw_dir = DigitalOutputDevice("BOARD37")   #AIN1
+        motor_lf_cw_dir = DigitalOutputDevice("BOARD31")  #AIN2
+        motor_lb_ccw_dir = DigitalOutputDevice("BOARD38")   #BIN1
+        motor_lb_cw_dir = DigitalOutputDevice("BOARD36")  #BIN2
+        motor_rf_ccw_dir = DigitalOutputDevice("BOARD29")
+        motor_rf_cw_dir = DigitalOutputDevice("BOARD22")
+        motor_rb_ccw_dir = DigitalOutputDevice("BOARD18")
+        motor_rb_cw_dir = DigitalOutputDevice("BOARD16")
+        bumper_l = Button("BOARD27", pull_up= True)
+        bumper_r = Button("BOARD28", pull_up= True)
+        shutdown_button = Button("BOARD19")
     motor_rf_pwm.frequency = 1000
     motor_rb_pwm.frequency = 1000
     motor_lf_pwm.frequency = 1000
@@ -2219,13 +2264,20 @@ def main():
 
 
 if __name__ == '__main__':
+    if gethostname == 'AVISense':
+        is_milka = True
+    else:
+        is_milka = False
     ssid= "AVISenseNetwork"
     prints_enable = multiprocessing.Value('b', False)
     prints_enable.value = True
     wait_to_run = False 
     flash_enable = DigitalOutputDevice("BOARD23", active_high=True)
     led_enable = DigitalOutputDevice("BOARD13", active_high=True)
-    buzz = DigitalOutputDevice("BOARD28", active_high=True)
+    if is_milka:
+        buzz = DigitalOutputDevice("BOARD28", active_high=True)
+    else:
+        buzz = DigitalOutputDevice("BOARD15", active_high=True)
     buzzer("off")
     enable_peripheral = DigitalOutputDevice("BOARD11", active_high=True)
     enable_peripheral.on()
