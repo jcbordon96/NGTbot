@@ -135,11 +135,6 @@ def logwriter(event, id,  minutos =0, t_cpu=0, t_clock=0, t_bme=0, t_laser_surf 
         wr = csv.writer(logfile)
         wr.writerow(["", logdate, loghour, event, minutos,str(os.getloadavg()[0]), str(psutil.virtual_memory().percent), t_cpu,
                     t_clock, t_bme, t_laser_amb, t_laser_surf, h_bme, p_bme, thi, clearance, score_temp_amb_rt, score_temp_bed_rt, score_hum_rt, score_thi_rt, score_general_rt, score_temp_amb_prom, score_temp_bed_prom, score_hum_prom, score_thi_prom, score_general_prom, t_total, t_active, t_rest, t_stuck,battery_percent, battery_voltage, id])
-
-    with open('log/log.csv', 'a', newline='') as logfile:
-        wr = csv.writer(logfile)
-        wr.writerow(["", logdate, loghour, event, minutos,str(os.getloadavg()[0]), str(psutil.virtual_memory().percent), t_cpu,
-                    t_clock, t_bme, t_laser_amb, t_laser_surf, h_bme, p_bme, thi, clearance, score_temp_amb_rt, score_temp_bed_rt, score_hum_rt, score_thi_rt, score_general_rt, score_temp_amb_prom, score_temp_bed_prom, score_hum_prom, score_thi_prom, score_general_prom, t_total, t_active, t_rest, t_stuck,battery_percent, battery_voltage, id])
 def init_wifi():
     wifi_found = False
     try:
@@ -568,7 +563,7 @@ def command(man, cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_st
                     logging.error("unsupported event: %s", data)
                 json_state = {"flash": flash_req.value, "auto": auto_req.value, "auto_rate": timer_boring.value,
                               "camera": cam_req.value, "camera_rate": camera_rate.value, "imu_req": imu_req.value, "imu_flag": pitch_flag.value}
-                with open('config/state.json', 'w') as outfile:
+                with open('config/actual/state.json', 'w') as outfile:
                     json.dump(json_state, outfile)
         finally:
             await unregister(websocket)
@@ -2239,7 +2234,7 @@ def main():
 
     json_state = {"flash": flash_req.value, "auto": auto_req.value,
                   "camera": cam_req.value, "imu_req": imu_req.value}
-    with open('config/state.json', 'w') as outfile:
+    with open('config/actual/state.json', 'w') as outfile:
         json.dump(json_state, outfile)
     command_handler = multiprocessing.Process(target=command, args=(lst, cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_flag, flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, rest_time, wake_time, time_backwards, timer_boring, crash_timeout, x_com, z_com,))
     savior_handler = multiprocessing.Process(target=savior, args=(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stuck_flag, imu_stuck_flag, is_stuck_confirm, stuck_watchdog_time, vl53_state, imu_state,))
@@ -2264,6 +2259,7 @@ def main():
 
 
 if __name__ == '__main__':
+    printe(gethostname)
     if gethostname == 'AVISense':
         is_milka = True
     else:
