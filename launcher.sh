@@ -4,5 +4,5 @@
 
 cd /
 cd /home/pi/workspace/NGTbot
-python3 shock.py
+sudo pm2 start shock.py --interpreter python3 -- -dw
 
