@@ -9,6 +9,7 @@ send_queue/imgs/list/*
 send_queue/imgs/zipfiles/*
 send_queue/logs/*
 __pycache__/
+config/actual/*
 !config/actual/.gitkeep
 !cam_debug/.gitkeep
 !clearance_debug/.gitkeep
