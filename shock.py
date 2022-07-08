@@ -2259,6 +2259,9 @@ def main():
 
 
 if __name__ == '__main__':
+    prints_enable = multiprocessing.Value('b', False)
+    prints_enable.value = True
+    wait_to_run = False 
     if len(sys.argv) > 1:
         if sys.argv[1] == "-s":
             # silent mode, no hay prints, es el modo que se pone en produccion
@@ -2284,13 +2287,11 @@ if __name__ == '__main__':
         elif sys.argv[1] == "-dw":
             prints_enable.value = True
             wait_to_run = True    
-    prints_enable = multiprocessing.Value('b', False)
-    prints_enable.value = True
-    wait_to_run = False 
+    
     flash_enable = DigitalOutputDevice("BOARD23", active_high=True)
     led_enable = DigitalOutputDevice("BOARD13", active_high=True)
-    printe(gethostname)
-    if gethostname == 'AVISense':
+    printe(gethostname())
+    if gethostname() == 'AVISense':
         is_milka = True
     else:
         is_milka = False
