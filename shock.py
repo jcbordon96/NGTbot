@@ -2259,37 +2259,6 @@ def main():
 
 
 if __name__ == '__main__':
-    printe(gethostname)
-    if gethostname == 'AVISense':
-        is_milka = True
-    else:
-        is_milka = False
-    ssid= "AVISenseNetwork"
-    prints_enable = multiprocessing.Value('b', False)
-    prints_enable.value = True
-    wait_to_run = False 
-    flash_enable = DigitalOutputDevice("BOARD23", active_high=True)
-    led_enable = DigitalOutputDevice("BOARD13", active_high=True)
-    if is_milka:
-        buzz = DigitalOutputDevice("BOARD28", active_high=True)
-    else:
-        buzz = DigitalOutputDevice("BOARD15", active_high=True)
-    buzzer("off")
-    enable_peripheral = DigitalOutputDevice("BOARD11", active_high=True)
-    enable_peripheral.on()
-    #region Address de los dispositivos I2C
-    imu_address = 0x68
-    bme_address = 0x76
-    mlx90614_address = 0x5A
-    vl53l0x_address = 0x29
-    time.sleep(1)
-    #endregion
-
-    global last_string
-    last_string = ''
-    global last_error
-    last_error = ''
-    #region Compruebo los modos en los cuales inicia el programa
     if len(sys.argv) > 1:
         if sys.argv[1] == "-s":
             # silent mode, no hay prints, es el modo que se pone en produccion
@@ -2314,7 +2283,39 @@ if __name__ == '__main__':
             wait_to_run = True
         elif sys.argv[1] == "-dw":
             prints_enable.value = True
-            wait_to_run = True        
+            wait_to_run = True    
+    prints_enable = multiprocessing.Value('b', False)
+    prints_enable.value = True
+    wait_to_run = False 
+    flash_enable = DigitalOutputDevice("BOARD23", active_high=True)
+    led_enable = DigitalOutputDevice("BOARD13", active_high=True)
+    printe(gethostname)
+    if gethostname == 'AVISense':
+        is_milka = True
+    else:
+        is_milka = False
+    ssid= "AVISenseNetwork"
+    if is_milka:
+        buzz = DigitalOutputDevice("BOARD28", active_high=True)
+    else:
+        buzz = DigitalOutputDevice("BOARD15", active_high=True)
+    buzzer("off")
+    enable_peripheral = DigitalOutputDevice("BOARD11", active_high=True)
+    enable_peripheral.on()
+    #region Address de los dispositivos I2C
+    imu_address = 0x68
+    bme_address = 0x76
+    mlx90614_address = 0x5A
+    vl53l0x_address = 0x29
+    time.sleep(1)
+    #endregion
+
+    global last_string
+    last_string = ''
+    global last_error
+    last_error = ''
+    #region Compruebo los modos en los cuales inicia el programa
+        
     start_time = time.perf_counter()
     #endregion
     #region Detecto si hay pendrive conectado y si es asi le copio la data
