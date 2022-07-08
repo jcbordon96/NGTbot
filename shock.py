@@ -223,14 +223,14 @@ def bt_connection(prints_enable):
                     if (data_input["request"] == "GET_ROBOT_CONFIG"):
                         try:
                             
-                            with open('config/default/default/default_behavior.json') as default_behavior_file:
+                            with open('config/default/default_behavior.json') as default_behavior_file:
                                 default_behavior = json.load(default_behavior_file)
                             if os.path.exists('config/actual/actual_behavior.json'):
                                 with open('config/actual/actual_behavior.json') as actual_behavior_file:
                                     actual_behavior = json.load(actual_behavior_file)
                             else:
                                 actual_behavior = None
-                            with open ('config/default/default/default_config_scoring.csv') as default_breeding_config_file:
+                            with open ('config/default/default_config_scoring.csv') as default_breeding_config_file:
                                 default_breeding_config = default_breeding_config_file.readlines()
                             if os.path.exists('config/actual/actual_config_scoring.csv'):
                                 with open ('config/actual/actual_config_scoring.csv') as actual_breeding_config_file:
@@ -2486,7 +2486,7 @@ if __name__ == '__main__':
                     with open ('config/default/default_config_scoring_backup.csv', 'w') as file:
                         file.write(copy)
             except:
-                with open ('config/default/default/default_config_scoring_backup.csv') as f:
+                with open ('config/default/default_config_scoring_backup.csv') as f:
                     rows = csv.reader(f)
                 
                     headers = next(rows)
@@ -2496,9 +2496,9 @@ if __name__ == '__main__':
                         record = dict(zip(headers,row))
                         score_config.append(record)
                         day_list.append(int(record['Dia']))  
-                with open ('config/default/default/default_config_scoring_backup.csv') as f:
+                with open ('config/default/default_config_scoring_backup.csv') as f:
                     copy = f.read()
-                    with open ('config/default/default/default_config_scoring.csv', 'w') as file:
+                    with open ('config/default/default_config_scoring.csv', 'w') as file:
                         file.write(copy)   
         breeding_day = (datetime.now() - datetime.strptime(zero_date, "%Y%m%d")).days
         printe("Breeding day:", breeding_day)
