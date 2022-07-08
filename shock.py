@@ -2290,8 +2290,9 @@ if __name__ == '__main__':
     
     flash_enable = DigitalOutputDevice("BOARD23", active_high=True)
     led_enable = DigitalOutputDevice("BOARD13", active_high=True)
-    printe(gethostname())
-    if gethostname() == 'AVISense':
+    robot_name = gethostname()
+    printe(robot_name)
+    if robot_name == 'AVISense':
         is_milka = True
     else:
         is_milka = False
