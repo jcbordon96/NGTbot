@@ -1100,6 +1100,8 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_
                             if os.path.exists("send_queue/imgs/zipfiles"):
                                 if len(os.listdir("send_queue/imgs/zipfiles")) > 0:
                                     for zipfile in os.listdir("send_queue/imgs/zipfiles"):
+                                        if zipfile == '.gitkeep':
+                                            continue
                                         delete_zip = False
                                         date_zip_file = datetime.strptime(zipfile.split('_')[0], "%Y%m%d").strftime("%Y-%m-%d")
                                         with open("send_queue/imgs/zipfiles/"+ zipfile, 'rb') as file:
