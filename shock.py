@@ -1786,6 +1786,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                 # pass
             else:
                 printe(bcolors.FAIL + "ERROR, va a quemarse el driver porque hay dos pines de direccion HIGH, PWM1= {}, PWM2={}".format(pwm1,pwm2) + bcolors.ENDC)
+                printe("rf= cw: {} ccw: {}/rb= cw: {} ccw: {}/lf= cw: {} ccw: {}/lb= cw: {} ccw: {}".format(motor_rf_cw_dir.is_active,motor_rf_ccw_dir.is_active,motor_rb_cw_dir.is_active,motor_rb_ccw_dir.is_active,motor_lf_cw_dir.is_active,motor_lf_ccw_dir.is_active,motor_lb_cw_dir.is_active,motor_lb_ccw_dir.is_active))
                 motor_rf_pwm.off()
                 motor_rb_pwm.off()
                 motor_lf_pwm.off()
