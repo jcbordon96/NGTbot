@@ -1735,7 +1735,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             if not motor_rb_cw_dir.is_active:
                 motor_rb_ccw_dir.on()
         elif(pwm1 < 0):
-            while (motor_rf_ccw_dir.is_active or motor_rb_ccw_dir.is_active)
+            while (motor_rf_ccw_dir.is_active or motor_rb_ccw_dir.is_active):
                 motor_rf_ccw_dir.off()
                 motor_rb_ccw_dir.off()
             if not motor_rf_ccw_dir.is_active:
