@@ -1727,15 +1727,17 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                     pwm2 = vel_array[3]
                     pwm1 = vel_array[2]
         if (pwm1 > 0):
-            motor_rf_cw_dir.off()
-            motor_rb_cw_dir.off()
+            while (motor_rf_cw_dir.is_active or motor_rb_cw_dir.is_active):
+                motor_rf_cw_dir.off()   
+                motor_rb_cw_dir.off()   
             if not motor_rf_cw_dir.is_active:
                 motor_rf_ccw_dir.on()
             if not motor_rb_cw_dir.is_active:
                 motor_rb_ccw_dir.on()
         elif(pwm1 < 0):
-            motor_rf_ccw_dir.off()
-            motor_rb_ccw_dir.off()
+            while (motor_rf_ccw_dir.is_active or motor_rb_ccw_dir.is_active)
+                motor_rf_ccw_dir.off()
+                motor_rb_ccw_dir.off()
             if not motor_rf_ccw_dir.is_active:
                 motor_rf_cw_dir.on()
             if not motor_rb_ccw_dir.is_active:
@@ -1748,15 +1750,17 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             motor_rb_ccw_dir.off()
             motor_rb_pwm.off()
         if (pwm2 > 0):
-            motor_lf_ccw_dir.off()
-            motor_lb_ccw_dir.off()
+            while (motor_lf_ccw_dir.is_active or motor_lb_ccw_dir.is_active):
+                motor_lf_ccw_dir.off()
+                motor_lb_ccw_dir.off()
             if not motor_lf_ccw_dir.is_active:
                 motor_lf_cw_dir.on()
             if not motor_lb_ccw_dir.is_active:
                 motor_lb_cw_dir.on()
         elif(pwm2 < 0):
-            motor_lf_cw_dir.off()
-            motor_lb_cw_dir.off()
+            while (motor_lf_cw_dir.is_active or motor_lb_cw_dir.is_active):
+                motor_lf_cw_dir.off()
+                motor_lb_cw_dir.off()
             if not motor_lf_cw_dir.is_active:
                 motor_lf_ccw_dir.on()
             if not motor_lb_cw_dir.is_active:
