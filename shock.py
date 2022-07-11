@@ -1617,7 +1617,6 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
     
     if is_milka:
         printe("Es MILKA")
-        motor_stby = DigitalOutputDevice("BOARD40")
         motor_rf_pwm = PWMOutputDevice("BOARD35")  #1 ES EL MOTOR DERECHO
         motor_rb_pwm = PWMOutputDevice("BOARD33")  #1 ES EL MOTOR DERECHO
         motor_lf_pwm = PWMOutputDevice("BOARD32")  #1 ES EL MOTOR DERECHO
@@ -1635,7 +1634,6 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
         shutdown_button = Button("BOARD15")
     else:
         printe("Es SIXPACK")
-        motor_stby = DigitalOutputDevice("BOARD40")
         motor_lf_pwm = PWMOutputDevice("BOARD35")  #1 ES EL MOTOR DERECHO
         motor_lb_pwm = PWMOutputDevice("BOARD33")  #1 ES EL MOTOR DERECHO
         motor_rf_pwm = PWMOutputDevice("BOARD32")  #1 ES EL MOTOR DERECHO
@@ -2292,6 +2290,8 @@ if __name__ == '__main__':
     
     flash_enable = DigitalOutputDevice("BOARD23", active_high=True)
     led_enable = DigitalOutputDevice("BOARD13", active_high=True)
+    motor_stby = DigitalOutputDevice("BOARD40")
+    motor_stby.off()
     robot_name = gethostname()
     printe(robot_name)
     if robot_name == 'AVISense':
@@ -2542,6 +2542,7 @@ if __name__ == '__main__':
         # motor_2_pwm.off()
         led_enable.off()
         buzz.off()
+        motor_stby.off()
         for p in PROCESSES:
             p.terminate()
     # except Exception as ex:
