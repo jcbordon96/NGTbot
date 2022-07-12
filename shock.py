@@ -631,6 +631,7 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_
     t_bed_list = []
     h_list = []
     thi_list = []
+    thi = 0
     t_init = time.perf_counter()
     t_total = 0
     t_active = 0
