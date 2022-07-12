@@ -1632,6 +1632,23 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
         bumper_l = Button("BOARD19", pull_up= False)
         bumper_r = Button("BOARD21", pull_up= False)
         shutdown_button = Button("BOARD15")
+    if is_bart:
+        printe("Es BART")
+        motor_lf_pwm = PWMOutputDevice("BOARD35")  #1 ES EL MOTOR DERECHO
+        motor_lb_pwm = PWMOutputDevice("BOARD33")  #1 ES EL MOTOR DERECHO
+        motor_rf_pwm = PWMOutputDevice("BOARD32")  #1 ES EL MOTOR DERECHO
+        motor_rb_pwm = PWMOutputDevice("BOARD12")
+        motor_lf_ccw_dir = DigitalOutputDevice("BOARD37")   #AIN1
+        motor_lf_cw_dir = DigitalOutputDevice("BOARD31")  #AIN2
+        motor_lb_ccw_dir = DigitalOutputDevice("BOARD38")   #BIN1
+        motor_lb_cw_dir = DigitalOutputDevice("BOARD36")  #BIN2
+        motor_rf_ccw_dir = DigitalOutputDevice("BOARD29")
+        motor_rf_cw_dir = DigitalOutputDevice("BOARD21")
+        motor_rb_ccw_dir = DigitalOutputDevice("BOARD18")
+        motor_rb_cw_dir = DigitalOutputDevice("BOARD16")
+        bumper_l = Button("BOARD27", pull_up= True)
+        bumper_r = Button("BOARD28", pull_up= True)
+        shutdown_button = Button("BOARD19")
     else:
         printe("Es SIXPACK")
         motor_lf_pwm = PWMOutputDevice("BOARD35")  #1 ES EL MOTOR DERECHO
@@ -2301,7 +2318,10 @@ if __name__ == '__main__':
     printe(robot_name)
     if robot_name == 'AVISense':
         is_milka = True
+    elif robot_name == 'AVISense 002':
+        is_bart = True
     else:
+        is_bart = False
         is_milka = False
     ssid= "AVISenseNetwork"
     if is_milka:
