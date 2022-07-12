@@ -2318,7 +2318,7 @@ if __name__ == '__main__':
     printe(robot_name)
     if robot_name == 'AVISense':
         is_milka = True
-    elif robot_name == 'AVISense 002':
+    elif robot_name == 'AVISense002':
         is_bart = True
     else:
         is_bart = False
