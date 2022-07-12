@@ -2320,6 +2320,7 @@ if __name__ == '__main__':
         is_milka = True
     elif robot_name == 'AVISense002':
         is_bart = True
+        is_milka = False
     else:
         is_bart = False
         is_milka = False
