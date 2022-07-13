@@ -258,7 +258,7 @@ def bt_connection(prints_enable):
                                 
                             printe("Termino seteo de behavior")
                             client_sock.send(str({"request": "SET_BEHAVIOR_CONFIG_STATUS", "data": 1}))
-                            os.system("sudo pm2 restart shock -- -snw")
+                            os.system("sudo pm2 restart shock -- -dnw")
                         except Exception as ex:
                             printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
                             client_sock.send(str({"request": "SET_BEHAVIOR_CONFIG_STATUS", "data": 0}))
@@ -299,7 +299,7 @@ def bt_connection(prints_enable):
                                     with open ('config/actual/actual_config_scoring_backup.csv', 'w') as file:
                                         file.write(copy)
                             client_sock.send(str({"request": "SET_NEW_CAMPAIGN_STATUS", "data": 1}))
-                            os.system("sudo pm2 restart shock -- -snw")
+                            os.system("sudo pm2 restart shock -- -dnw")
                         except Exception as ex:
                             printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
                             client_sock.send(str({"request": "SET_NEW_CAMPAIGN_STATUS", "data": 0}))
@@ -312,7 +312,7 @@ def bt_connection(prints_enable):
                             with open('config/actual/campaign_status_backup.json', 'w') as outfile:
                                 json.dump(campaign, outfile)
                             client_sock.send(str({"request": "SET_END_CAMPAIGN_STATUS", "data": 1}))
-                            os.system("sudo pm2 restart shock -- -snw")
+                            os.system("sudo pm2 restart shock -- -dnw")
                         except Exception as ex:
                             printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
                             client_sock.send(str({"request": "SET_END_CAMPAIGN_STATUS", "data": 0}))
@@ -347,7 +347,7 @@ def bt_connection(prints_enable):
                                     with open ('config/actual/actual_config_scoring_backup.csv', 'w') as file:
                                         file.write(copy)
                             client_sock.send(str({"request": "SET_BREEDING_CONFIG_STATUS", "data": 1}))
-                            os.system("sudo pm2 restart shock -- -snw")
+                            os.system("sudo pm2 restart shock -- -dnw")
                         except Exception as ex:
                             printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
                             client_sock.send(str({"request": "SET_BREEDING_CONFIG_STATUS", "data": 0}))
@@ -1187,7 +1187,7 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_
                     state_timer = time.perf_counter()
                     if current_date != datetime.now().strftime("%Y%m%d"):
                         printe("Cambio de dia, voy a reiniciar")
-                        os.system("sudo pm2 restart shock -- -snw")
+                        os.system("sudo pm2 restart shock -- -dnw")
                         day_info_list.append("")
                         try:
                             measurements_list = []
