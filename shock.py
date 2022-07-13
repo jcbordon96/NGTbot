@@ -950,6 +950,7 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_
                                     log_cam_stuck = True
                                 cam_stuck_flag.value = False
                         else:
+                            printe(bcolors.FAIL + "Imagen Negra" + bcolors.ENDC)
                             camera_state["status"] = False
                             camera_state["status_str"] = "Imagen Negra"
                         image_to_compare0 = f
@@ -1451,6 +1452,8 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
             imu_connected = False
             imu_state["status"] = False
             imu_state["status_str"] = "Detectado, no se pudo iniciar"
+    else:
+        imu_connected = False
     #endregion
     #region Inicio VL53
     if vl53l0x_detected:
