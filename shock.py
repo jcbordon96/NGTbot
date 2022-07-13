@@ -879,7 +879,7 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_
                                 if cam_debug:
                                     if not os.path.exists("cam_debug/{}".format(datetime.now().strftime("%Y%m%d"))):
                                         os.mkdir("cam_debug/{}".format(datetime.now().strftime("%Y%m%d")))
-                                    out = cv2.VideoWriter('cam_debug/{}/{}.avi'.format(datetime.now().strftime("%Y%m%d"),datetime.now().strftime("%H:%M:%S")),fourcc,4.0, (640,480))
+                                    out = cv2.VideoWriter('cam_debug/{}/{}.avi'.format(datetime.now().strftime("%Y%m%d"),datetime.now().strftime("%Y%m%d_%H%M%S")),fourcc,4.0, (640,480))
                                     for fr in stuck_watchdog_cam:
                                         out.write(fr[1])
                                     out.release()
