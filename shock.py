@@ -1805,6 +1805,7 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
             else:
                 printe(bcolors.FAIL + "ERROR, va a quemarse el driver porque hay dos pines de direccion HIGH, PWM1= {}, PWM2={}".format(pwm1,pwm2) + bcolors.ENDC)
                 printe("rf= cw: {} ccw: {}/rb= cw: {} ccw: {}/lf= cw: {} ccw: {}/lb= cw: {} ccw: {}".format(motor_rf_cw_dir.is_active,motor_rf_ccw_dir.is_active,motor_rb_cw_dir.is_active,motor_rb_ccw_dir.is_active,motor_lf_cw_dir.is_active,motor_lf_ccw_dir.is_active,motor_lb_cw_dir.is_active,motor_lb_ccw_dir.is_active))
+                errorwriter(error= "DRIVERS", comentario="rf= cw: {} ccw: {}/rb= cw: {} ccw: {}/lf= cw: {} ccw: {}/lb= cw: {} ccw: {}".format(motor_rf_cw_dir.is_active,motor_rf_ccw_dir.is_active,motor_rb_cw_dir.is_active,motor_rb_ccw_dir.is_active,motor_lf_cw_dir.is_active,motor_lf_ccw_dir.is_active,motor_lb_cw_dir.is_active,motor_lb_ccw_dir.is_active))
                 motor_rf_pwm.off()
                 motor_rb_pwm.off()
                 motor_lf_pwm.off()
@@ -1817,6 +1818,8 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
                 motor_lf_ccw_dir.off()
                 motor_lb_cw_dir.off()
                 motor_lb_ccw_dir.off()
+                printe("Vamos a reiniciar")
+                os.system("sudo pm2 restart shock -- -dnw")
         if t > 0:
             number_check_rate = int(t / check_rate)
             rest = t - number_check_rate * check_rate
