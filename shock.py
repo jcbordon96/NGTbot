@@ -1647,8 +1647,8 @@ def auto(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_st
         motor_rf_cw_dir = DigitalOutputDevice("BOARD21")
         motor_rb_ccw_dir = DigitalOutputDevice("BOARD18")
         motor_rb_cw_dir = DigitalOutputDevice("BOARD16")
-        bumper_l = Button("BOARD27", pull_up= True)
-        bumper_r = Button("BOARD28", pull_up= True)
+        bumper_l = Button("BOARD28", pull_up= True)
+        bumper_r = Button("BOARD27", pull_up= True)
         shutdown_button = Button("BOARD19")
     else:
         printe("Es SIXPACK")
