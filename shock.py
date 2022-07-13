@@ -660,7 +660,6 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_
     last_t_mlx_surface_mean = 0
     bad_t_mlx_surface_mean_counter = 0
     measurements_list = []
-    robot_id = 0
     day_info = {"day": {"breeding_day": breeding_day, "config": day_score_config, "total_time": 0, "active_time": 0, "rest_time": 0, "stuck_time": 0, "date": current_date, "campaign_id": campaign_id}}
     day_info_list = []
     url = "http://192.168.150.102:4000/loadMeasurements"
@@ -2320,6 +2319,8 @@ if __name__ == '__main__':
     motor_stby.off()
     robot_name = gethostname()
     printe(robot_name)
+    robot_id = int(robot_name[-3]+robot_name[-2]+robot_name[-1])
+    printe("Robot id:",robot_id)
     if robot_name == 'AVISense':
         is_milka = True
     elif robot_name == 'AVISense002':
