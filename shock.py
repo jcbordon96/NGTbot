@@ -175,7 +175,7 @@ def init_wifi():
 def bt_connection(prints_enable):
     printe("Inicio BT Server")
     subprocess.Popen(['hciconfig', 'hci0', 'piscan'], stdout=subprocess.PIPE)
-
+    time.sleep(1)
     server_sock = BluetoothSocket( RFCOMM )
     server_sock.bind(("",1))
     server_sock.listen(1)
