@@ -2259,7 +2259,10 @@ def main():
         vel_array = [[behavior["baby_vel_forward_stuck"], behavior["baby_vel_forward_normal"]], [-behavior["baby_vel_backward_stuck"], -behavior["baby_vel_backward_normal"]], behavior["vel_turn_inner"], behavior["vel_turn_outter"], ]
         time_turn.value = behavior["baby_time_turn"]
         time_backwards.value = behavior["baby_time_backwards"]
-
+        #Control que la velocidad de night mode no sea mayor a la velocidad baby
+        if behavior["night_mode_vel_forward_normal"] > behavior["baby_vel_forward_normal"]:
+            printe(bcolors.WARNING + "La velocidad de nightmode es mayor a la da babymode, se escoge la de babymode" + bcolors.ENDC)
+            night_mode_vel_array = vel_array
     json_state = {"flash": flash_req.value, "auto": auto_req.value,
                   "camera": cam_req.value, "imu_req": imu_req.value}
     with open('config/actual/state.json', 'w') as outfile:
