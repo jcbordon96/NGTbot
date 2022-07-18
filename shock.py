@@ -1023,18 +1023,18 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_
                             camera.capture(img_name)
                             img_compress_0 = to_grayscale(image_to_compare_compress_0.astype(float))
                             img_compress_1 = to_grayscale(f.astype(float))
-                            n_m = compare_images(img_compress_0, img_compress_1)
+                            n_m_compress = compare_images(img_compress_0, img_compress_1)
                             image_to_compare_compress_0 = f
                             if not math.isnan(n_m):
-                                if ((n_m/img_compress_0.size) > pic_sensibility_to_compress.value):
-                                    printe(bcolors.OKGREEN + "La foto es diferente a la anterior, se va comprimir para mandar despues. Valor {}".format((n_m/img_compress_0.size)) + bcolors.ENDC)
+                                if ((n_m_compress/img_compress_0.size) > pic_sensibility_to_compress.value):
+                                    printe(bcolors.OKGREEN + "La foto es diferente a la anterior, se va comprimir para mandar despues. Valor {}".format((n_m_compress/img_compress_0.size)) + bcolors.ENDC)
                                     img_to_compress.append(img_name)
                                     with open('send_queue/imgs/list/img_to_compress.json', 'w') as outfile:
                                         json.dump( img_to_compress, outfile)
                                     with open('send_queue/imgs/list/img_to_compress_backup.json', 'w') as outfile:
                                         json.dump( img_to_compress, outfile)
                                 else:
-                                    printe(bcolors.WARNING + "La foto es igual a la anterior, no se va comprimir para mandar despues. Valor {}".format((n_m/img_compress_0.size)) + bcolors.ENDC)
+                                    printe(bcolors.WARNING + "La foto es igual a la anterior, no se va comprimir para mandar despues. Valor {}".format((n_m_compress/img_compress_0.size)) + bcolors.ENDC)
                             if is_rest.value or not flash_req.value:
                                 flash_enable.off()
                             taking_pics.value = False
@@ -1289,6 +1289,8 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_
                         first_measurements_counter += 1
                         delta_tmlx_tbme = t_mlx_surface - t_bme_mean
                         delta_tmlx_tbme_list.append(delta_tmlx_tbme)
+                        if first_measurements_counter < 5:
+                            printe(bcolors.WARNING + "Esperando que el robot se temple, faltan {} minutos para comprobar".format(5-first_measurements_counter) + bcolors.ENDC)
                         if first_measurements_counter == 5:
                             first_meausure_prom = sum(delta_tmlx_tbme_list)/len(delta_tmlx_tbme_list)
                             if first_meausure_prom < 0:
@@ -1399,6 +1401,7 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_
 
                     
                     if time.perf_counter() - send_timer > timer_send.value:
+                        printe("Se va a guardar la info para mandar al servidor")
                         send_timer = time.perf_counter()
                         t_bme_mean_send = mean_check(t_bme_mean_send_list)
                         t_mlx_surface_mean_measure_send = mean_check(t_mlx_surface_mean_measure_send_list)
