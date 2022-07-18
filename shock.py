@@ -571,7 +571,7 @@ def command(man, cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_st
     start_server2 = websockets.serve(counter, "localhost", 9001)
     asyncio.get_event_loop().run_until_complete(start_server2)
     asyncio.get_event_loop().run_forever()
-def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, timer_temp, timer_log, pic_sensibility_in, pic_sensibility_out, stucks_to_confirm, stuck_window, stuck_watchdog_time, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id, is_stuck_confirm, camera_state, mlx_state, bme_state, vl53_state, imu_state):
+def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, timer_temp, timer_log, timer_send, pic_sensibility_in, pic_sensibility_out, pic_sensibility_to_compress,stucks_to_confirm, stuck_window, stuck_watchdog_time, is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id, is_stuck_confirm, camera_state, mlx_state, bme_state, vl53_state, imu_state):
     #region Iniciar Variables
     camera = PiCamera()
     camera.resolution = (640, 480)
@@ -586,6 +586,7 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_
     log_cam = False
     temp_timer = 0
     state_timer = time.perf_counter()
+    send_timer = time.perf_counter()
     is_hot.value = False
     start_cam_stuck = 0
     elapsed_cam_stuck = 0
@@ -687,6 +688,26 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_
     delta_tmlx_tbme_list = []
     battery_voltage = 0
     battery_percent = 0
+    stop_send_state = False
+    stop_send_log = False
+    stop_send_img = False
+    t_bme_mean_send_list = []
+    t_mlx_surface_mean_measure_send_list = []
+    h_bme_mean_send_list = []
+    score_temp_amb_rt_send_list = []
+    score_temp_bed_rt_send_list = []
+    score_hum_rt_send_list = []
+    score_thi_rt_send_list = []
+    score_general_rt_send_list = []
+    t_bme_mean_send = 0
+    t_mlx_surface_mean_measure_send = 0
+    h_bme_mean_send = 0
+    thi_send = 0
+    score_temp_amb_rt_send = 0
+    score_temp_bed_rt_send = 0
+    score_hum_rt_send = 0
+    score_thi_rt_send = 0
+    score_general_rt_send = 0
     #endregion
     #region Levanto mediciones que han quedado sin enviar antes de apagarse
     try:
@@ -973,7 +994,8 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_
                 if (cam_req.value == True and was_taking == False):
                     logwriter("Empece a sacar fotos", id=3)
                     log_cam = True
-                if cam_req.value == True:
+                    image_to_compare_compress_0 = f
+                if cam_req.value == True and camera_state["status"]:
                     was_taking = True
                     if time.perf_counter() - last_pic > (camera_rate.value - 1):
                         flash_enable.on()
@@ -997,12 +1019,22 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_
                                 img_type = "P"
                             img_name = "resources/{}/{}_{}.png".format(img_folder,d1,img_type)
                             img_to_filter.append(img_name)
-                            img_to_compress.append(img_name)
+                            
                             camera.capture(img_name)
-                            with open('send_queue/imgs/list/img_to_compress.json', 'w') as outfile:
-                                json.dump( img_to_compress, outfile)
-                            with open('send_queue/imgs/list/img_to_compress_backup.json', 'w') as outfile:
-                                json.dump( img_to_compress, outfile)
+                            img_compress_0 = to_grayscale(image_to_compare_compress_0.astype(float))
+                            img_compress_1 = to_grayscale(f.astype(float))
+                            n_m = compare_images(img_compress_0, img_compress_1)
+                            image_to_compare_compress_0 = f
+                            if not math.isnan(n_m):
+                                if ((n_m/img0.size) < pic_sensibility_to_compress.value):
+                                    printe(bcolors.OKGREEN + "La foto es diferente a la anterior, se va comprimir para mandar despues" + bcolors.ENDC)
+                                    img_to_compress.append(img_name)
+                                    with open('send_queue/imgs/list/img_to_compress.json', 'w') as outfile:
+                                        json.dump( img_to_compress, outfile)
+                                    with open('send_queue/imgs/list/img_to_compress_backup.json', 'w') as outfile:
+                                        json.dump( img_to_compress, outfile)
+                                else:
+                                    printe(bcolors.WARNING + "La foto es igual a la anterior, no se va comprimir para mandar despues" + bcolors.ENDC)
                             if is_rest.value or not flash_req.value:
                                 flash_enable.off()
                             taking_pics.value = False
@@ -1017,6 +1049,7 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_
                 #region Esta va a ser la rutina de envio de data cuando esta descansado
                 
                 if is_rest.value and not data_was_sended:
+                    send_data_was_called = True
                     if not state_setted:
                         state_setted = True
                         general_state = {"hour": datetime.now().strftime("%H:%M:%S"), "stuck":bool(stuck_state), "camera":camera_state, "bme":bme_state, "mlx":mlx_state, "imu":{"status":imu_state["status"], "status_str": imu_state["status_str"]}, "vl53":{"status":vl53_state["status"], "status_str": vl53_state["status_str"]} }
@@ -1027,8 +1060,6 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_
                             json.dump(states_list, outfile)
                         with open('send_queue/logs/states_to_send_backup.json', 'w') as outfile:
                             json.dump(states_list, outfile)
-                    
-                    send_data_was_called = True
                     if len(img_to_compress) > 0:
                         start_new_compress = True
                         printe("Hay imagenes para comprimir")
@@ -1057,7 +1088,7 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_
                         wifi_ok = init_wifi()
                         last_wifi = time.perf_counter()
                         if wifi_ok:
-                            if len(states_list) > 0:
+                            if len(states_list) > 0 and not stop_send_state:
                                 state_to_send = states_list[0]
                                 head = {u'content-type': u'application/json'}
                                 printe("Envio estado", state_to_send)
@@ -1077,7 +1108,8 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_
                                     printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
                             else:
                                 printe("No hay mas estados para enviar")
-                            if len(day_info_list)>0:
+                                stop_send_state = True
+                            if len(day_info_list)>0 and not stop_send_log:
                                 day_info_to_send = day_info_list[0]
                                 head = {u'content-type': u'application/json'}
                                 printe("Envio log")
@@ -1095,11 +1127,12 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_
                                         printe(bcolors.FAIL + "Fallo envio de log, la respuesta fue:{}".format(r)+bcolors.ENDC)
                                 except Exception as ex:
                                     printe(bcolors.FAIL + "Exception:", ex," in line:", sys.exc_info()[-1].tb_lineno , bcolors.ENDC)
-                            if len(day_info_list) == 0:
+                            else:
+                                stop_send_log = True
                                 printe("No hay mas logs que enviar")
                             
                             if os.path.exists("send_queue/imgs/zipfiles"):
-                                if len(os.listdir("send_queue/imgs/zipfiles")) > 0:
+                                if len(os.listdir("send_queue/imgs/zipfiles")) > 0 and not stop_send_img:
                                     for zipfile in os.listdir("send_queue/imgs/zipfiles"):
                                         if zipfile == '.gitkeep':
                                             continue
@@ -1124,7 +1157,8 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_
                                             os.remove("send_queue/imgs/zipfiles/"+ zipfile)
                                 else:
                                     printe('No hay mas imagenes que mandar')
-                            if len(os.listdir("send_queue/imgs/zipfiles")) == 0 and len(img_to_compress) == 0 and len(day_info_list) == 0 and len(states_list) == 0:
+                                    stop_send_img == True
+                            if stop_send_img and stop_send_log and stop_send_state:
                                 data_was_sended = True
                                 printe("No queda mas para hacer en reposo")
                         else:
@@ -1134,11 +1168,18 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_
                     logwriter("No se pudo enviar la data al servidor en este descanso", id= 25)
                     send_data_was_called = False
                     state_setted = False
+                    stop_send_state = False
+                    stop_send_img = False
+                    stop_send_log = False
                 elif not is_rest.value and data_was_sended:
                     printe(bcolors.OKGREEN + "La data fue enviada correctamente en este descanso" + bcolors.ENDC)
+                    logwriter("La data fue enviada correctamente en este descanso", id= 26)
                     data_was_sended = False
                     send_data_was_called = False
                     state_setted = False
+                    stop_send_state = False
+                    stop_send_img = False
+                    stop_send_log = False
                 
                 #endregion
                 
@@ -1346,16 +1387,51 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_
                         bad_t_mlx_surface_mean_counter = 0
                         t_mlx_surface_mean_measure = t_mlx_surface_mean
                         last_t_mlx_surface_mean = t_mlx_surface_mean
-                    measurement = {"temp_environment": t_bme_mean, "temp_surface": t_mlx_surface_mean_measure, "humidity": h_bme_mean, "comfort": thi, "score_temp_environment": round(score_temp_amb_rt,2), "score_temp_surface": round(score_temp_bed_rt,2), "score_humidity": round(score_hum_rt,2), "score_comfort": round(score_thi_rt,2), "time":datetime.now().strftime("%H:%M:%S"), "robot_id": robot_id, "score_overall": round(score_general_rt,2)}
-                    if is_tempered:
-                        measurements_list.append(measurement)
-                    day_info ={"day": {"breeding_day": breeding_day, "config": day_score_config, "total_time": t_total, "active_time": t_active, "rest_time": t_rest, "stuck_time": t_stuck, "date":current_date_server, "campaign_id": campaign_id, "measurements": measurements_list}}
+                    t_bme_mean_send_list.append(t_bme_mean)
+                    if is_rest.value:
+                        t_mlx_surface_mean_measure_send_list.append(t_mlx_surface_mean_measure)
+                    h_bme_mean_send_list.append(h_bme_mean)
+                    score_temp_amb_rt_send_list.append(score_temp_amb_rt)
+                    score_temp_bed_rt_send_list.append(score_temp_bed_rt)
+                    score_hum_rt_send_list.append(score_hum_rt)
+                    score_thi_rt_send_list.append(score_thi_rt)
+                    score_general_rt_send_list.append(score_general_rt)
+
                     
-                    day_info_list[-1] = day_info
-                    with open('send_queue/logs/logs_to_send.json', 'w') as outfile:
-                            json.dump(day_info_list, outfile)
-                    with open('send_queue/logs/logs_to_send_backup.json', 'w') as outfile:
-                            json.dump(day_info_list, outfile)
+                    if time.perf_counter() - send_timer > timer_send.value:
+                        send_timer = time.perf_counter()
+                        t_bme_mean_send = mean_check(t_bme_mean_send_list)
+                        t_mlx_surface_mean_measure_send = mean_check(t_mlx_surface_mean_measure_send_list)
+                        h_bme_mean_send = mean_check(h_bme_mean_send_list)
+                        score_temp_amb_rt_send = mean_check(score_temp_amb_rt_send_list)
+                        score_temp_bed_rt_send = mean_check(score_temp_bed_rt_send_list)
+                        score_hum_rt_send = mean_check(score_hum_rt_send_list)
+                        score_thi_rt_send = mean_check(score_thi_rt_send_list)
+                        score_general_rt_send = mean_check(score_general_rt_send_list)
+                        thi_send = thi_calc(temperatura = t_bme_mean_send,humedad = h_bme_mean_send )
+                        t_bme_mean_send_list = []
+                        t_mlx_surface_mean_measure_send_list = []
+                        h_bme_mean_send_list = []
+                        score_temp_amb_rt_send_list = []
+                        score_temp_bed_rt_send_list = []
+                        score_hum_rt_send_list = []
+                        score_thi_rt_send_list = []
+                        score_general_rt_send_list = []
+                        measurement = {"temp_environment": t_bme_mean_send, "temp_surface": t_mlx_surface_mean_measure_send, "humidity": h_bme_mean_send, "comfort": thi_send, "score_temp_environment": round(score_temp_amb_rt_send,2), "score_temp_surface": round(score_temp_bed_rt_send,2), "score_humidity": round(score_hum_rt_send,2), "score_comfort": round(score_thi_rt_send,2), "time":datetime.now().strftime("%H:%M:%S"), "robot_id": robot_id, "score_overall": round(score_general_rt_send,2)}
+
+                        if is_tempered:
+                            measurements_list.append(measurement)
+                        day_info ={"day": {"breeding_day": breeding_day, "config": day_score_config, "total_time": t_total, "active_time": t_active, "rest_time": t_rest, "stuck_time": t_stuck, "date":current_date_server, "campaign_id": campaign_id, "measurements": measurements_list}}
+                        day_info_list[-1] = day_info
+                        
+                        with open('send_queue/logs/logs_to_send.json', 'w') as outfile:
+                                json.dump(day_info_list, outfile)
+                        with open('send_queue/logs/logs_to_send_backup.json', 'w') as outfile:
+                                json.dump(day_info_list, outfile)
+                        if len(measurements_list) > 45:
+                            printe(bcolors.WARNING + "Superado el numero maximo de mediciones por envio, se crea una nueva instancia" + bcolors.ENDC)
+                            day_info_list.append("")
+                            measurements_list = []
                     if not is_rest.value:
                         printe("Estado: BME: T:{}/H:{}/P:{} MLX90614: T:{}".format(round(t_bme_mean,2), round(h_bme_mean,2), round(p_bme_mean,2), round(t_mlx_surface_mean,2)))
                         logwriter("Estado", id=14, t_cpu=temp_cpu.value, t_clock=temp_clock.value, t_bme=round(t_bme_mean,2),
@@ -2188,6 +2264,7 @@ def main():
     window_stuck_pic = multiprocessing.Value('d', 0)
     timer_temp = multiprocessing.Value('i', 0)
     timer_log = multiprocessing.Value('i', 0)
+    timer_send = multiprocessing.Value('i', 0)
     rest_time = multiprocessing.Value('i', 0)
     wake_time = multiprocessing.Value('i', 0)
     time_backwards = multiprocessing.Value('d', 0)
@@ -2195,6 +2272,7 @@ def main():
     last_touch_window_timeout = multiprocessing.Value('i', 0)
     pic_sensibility_in = multiprocessing.Value('d', 0)
     pic_sensibility_out = multiprocessing.Value('d', 0)
+    pic_sensibility_to_compress  = multiprocessing.Value('d', 0)
     stucks_to_confirm = multiprocessing.Value('i', 0)
     stuck_window = multiprocessing.Value('d', 0)
     x_com = multiprocessing.Value('d', 0)
@@ -2224,6 +2302,7 @@ def main():
     window_stuck_pic.value = behavior["window_stuck_pic"]
     timer_temp.value = behavior["timer_temp"]
     timer_log.value = behavior["timer_log"]
+    timer_send.value = behavior["timer_send"]
     rest_time.value = behavior["rest_time"]
     wake_time.value = behavior["wake_time"]
     time_backwards.value = behavior["time_backwards"]
@@ -2233,6 +2312,7 @@ def main():
     last_touch_window_timeout.value = behavior["last_touch_window_timeout"]
     pic_sensibility_in.value = behavior["pic_sensibility_in"]
     pic_sensibility_out.value = behavior["pic_sensibility_out"]
+    pic_sensibility_to_compress.value = behavior["pic_sensibility_to_compress"]
     stucks_to_confirm.value = behavior['stucks_to_confirm']
     stuck_window.value = behavior['stuck_window']
     stuck_watchdog_time = behavior['stuck_watchdog_time']
@@ -2270,7 +2350,7 @@ def main():
     command_handler = multiprocessing.Process(target=command, args=(lst, cam_req, camera_rate, auto_req, imu_req, cam_stuck_flag, imu_stuck_flag, flash_req, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, pitch_flag, pitch_counter, timer_temp, timer_log, rest_time, wake_time, time_backwards, timer_boring, crash_timeout, x_com, z_com,))
     savior_handler = multiprocessing.Process(target=savior, args=(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stuck_flag, imu_stuck_flag, is_stuck_confirm, stuck_watchdog_time, vl53_state, imu_state,))
     auto_handler = multiprocessing.Process(target=auto, args=(auto_req, timer_boring, taking_pics, is_stopped, cam_stuck_flag, imu_stuck_flag, clearance_stuck_flag, is_hot, rest_time, wake_time, time_backwards, crash_timeout, last_touch_window_timeout, flash_req, vel_array, time_turn, x_com, z_com, is_rest, night_mode_enable, night_mode_start, night_mode_end, night_mode_rest_time, night_mode_wake_time, night_mode_vel_array, night_mode_reversed, prints_enable,))
-    pitch_handler = multiprocessing.Process(target=pitch, args=(lst, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, timer_temp, timer_log, pic_sensibility_in, pic_sensibility_out, stucks_to_confirm, stuck_window, stuck_watchdog_time,is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id, is_stuck_confirm, camera_state, mlx_state, bme_state, vl53_state, imu_state,))
+    pitch_handler = multiprocessing.Process(target=pitch, args=(lst, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_stopped, is_hot, temp_cpu, temp_clock, temp_out, humedad, amoniaco, window_stuck_pic, timer_temp, timer_log, timer_send, pic_sensibility_in, pic_sensibility_out, pic_sensibility_to_compress, stucks_to_confirm, stuck_window, stuck_watchdog_time,is_rest, flash_req, current_date, score_config, zero_date, day_score_config, breeding_day, campaign_id, is_stuck_confirm, camera_state, mlx_state, bme_state, vl53_state, imu_state,))
     # Add 'em to our list
     if not campaign_is_active:
         while True:
