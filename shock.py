@@ -678,11 +678,13 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_
     bme_state = {"status": False, "status_str": "No detectado"}
     camera_state = {"status": False, "status_str": "Iniciada, sin tomar imagenes"}
     mlx_state = {"status": False, "status_str": "No detectado"}
+    battery_state = {"percentage": 0, "voltage": 0}
     stuck_state = False
-    general_state = {"hour": datetime.now().strftime("%H:%M:%S"), "stuck":bool(stuck_state), "camera":camera_state, "bme":bme_state, "mlx":mlx_state, "imu":{"status":imu_state["status"], "status_str": imu_state["status_str"]}, "vl53":{"status":vl53_state["status"], "status_str": vl53_state["status_str"]} }
+    general_state = {"hour": datetime.now().strftime("%H:%M:%S"), "stuck":bool(stuck_state), "rest": bool(is_rest.value), "camera":camera_state, "bme":bme_state, "mlx":mlx_state, "battery":battery_state, "imu":{"status":imu_state["status"], "status_str": imu_state["status_str"]}, "vl53":{"status":vl53_state["status"], "status_str": vl53_state["status_str"]} }
     state_developer = {"robot_id":robot_id,"campaign_id":campaign_id, "date": datetime.now().strftime("%Y-%m-%d"), "state": general_state}
     states_list = []
     state_setted = False
+    runnig_state_setted = False
     first_measurements_counter = 0
     is_tempered = 0
     delta_tmlx_tbme_list = []
@@ -1047,12 +1049,24 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_
                 raw_capture.truncate(0)
                 #endregion 
                 #region Esta va a ser la rutina de envio de data cuando esta descansado
+                if not running_state_setted and not is_rest.value:
+                    general_state = {"hour": datetime.now().strftime("%H:%M:%S"), "stuck":bool(stuck_state), "rest": bool(is_rest.value), "camera":camera_state, "bme":bme_state, "mlx":mlx_state, "battery":battery_state, "imu":{"status":imu_state["status"], "status_str": imu_state["status_str"]}, "vl53":{"status":vl53_state["status"], "status_str": vl53_state["status_str"]} }
+                    state_developer = {"robot_id":robot_id,"campaign_id":campaign_id, "date": datetime.now().strftime("%Y-%m-%d"), "state": general_state}
+                    printe("Ultimo estado:", state_developer)
+                    states_list.append(state_developer)
+                    with open('send_queue/logs/states_to_send.json', 'w') as outfile:
+                        json.dump(states_list, outfile)
+                    with open('send_queue/logs/states_to_send_backup.json', 'w') as outfile:
+                        json.dump(states_list, outfile)
+                    runnig_state_setted = True
+
                 
                 if is_rest.value and not data_was_sended:
+                    runnig_state_setted = False
                     send_data_was_called = True
                     if not state_setted:
                         state_setted = True
-                        general_state = {"hour": datetime.now().strftime("%H:%M:%S"), "stuck":bool(stuck_state), "camera":camera_state, "bme":bme_state, "mlx":mlx_state, "imu":{"status":imu_state["status"], "status_str": imu_state["status_str"]}, "vl53":{"status":vl53_state["status"], "status_str": vl53_state["status_str"]} }
+                        general_state = {"hour": datetime.now().strftime("%H:%M:%S"), "stuck":bool(stuck_state), "rest": bool(is_rest.value), "camera":camera_state, "bme":bme_state, "mlx":mlx_state, "battery":battery_state, "imu":{"status":imu_state["status"], "status_str": imu_state["status_str"]}, "vl53":{"status":vl53_state["status"], "status_str": vl53_state["status_str"]} }
                         state_developer = {"robot_id":robot_id,"campaign_id":campaign_id, "date": datetime.now().strftime("%Y-%m-%d"), "state": general_state}
                         printe("Ultimo estado:", state_developer)
                         states_list.append(state_developer)
@@ -1219,6 +1233,8 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_
                                 serial_json = json.loads(serial_string)["STATE"]
                                 battery_percent = round((float(serial_json["cur_cap"])/float(serial_json["max_cap"]))*100,2)
                                 battery_voltage = serial_json['load_vol']
+                                battery_state["percentage"] = battery_percent
+                                battery_state["voltage"] = battery_voltage
                                 printe("Estado de bateria {}%, voltaje {} V".format(battery_percent, battery_voltage))
                         except Exception as ex:
                             printe(bcolors.FAIL + "Fallo la obtencion de estado de bateria" + bcolors.ENDC)
