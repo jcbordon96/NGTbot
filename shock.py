@@ -684,7 +684,7 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_
     state_developer = {"robot_id":robot_id,"campaign_id":campaign_id, "date": datetime.now().strftime("%Y-%m-%d"), "state": general_state}
     states_list = []
     state_setted = False
-    runnig_state_setted = False
+    running_state_setted = False
     first_measurements_counter = 0
     is_tempered = 0
     delta_tmlx_tbme_list = []
@@ -1058,11 +1058,11 @@ def pitch(man, cam_stuck_flag, clearance, cam_req, camera_rate, taking_pics, is_
                         json.dump(states_list, outfile)
                     with open('send_queue/logs/states_to_send_backup.json', 'w') as outfile:
                         json.dump(states_list, outfile)
-                    runnig_state_setted = True
+                    running_state_setted = True
 
                 
                 if is_rest.value and not data_was_sended:
-                    runnig_state_setted = False
+                    running_state_setted = False
                     send_data_was_called = True
                     if not state_setted:
                         state_setted = True
