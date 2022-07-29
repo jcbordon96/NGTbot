@@ -1510,6 +1510,7 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
     clearance_timer = time.perf_counter()
     time_to_sink = 3
     sink_slope = (sink_tof_clearance-max_tof_clearance)/time_to_sink
+    counter = 0
     #endregion
     #region Funciones relacionadas con el IMU
     def MPU_Init():
@@ -1574,6 +1575,8 @@ def savior(imu_req, is_rest, pitch_flag, pitch_counter, clearance, clearance_stu
     
     while True:
         time.sleep(0.05)
+        if not vl53l0x_connected and not imu_connected:
+            time.sleep(10)
         if vl53l0x_connected:
             try:
                 clearance_measure = tof.get_distance()
@@ -2436,6 +2439,9 @@ if __name__ == '__main__':
     else:
         is_bart = False
         is_milka = False
+        is_shrek = False
+    if robot_name == 'AVISense003':
+        is_shrek = True
     ssid= "AVISenseNetwork"
     if is_milka:
         buzz = DigitalOutputDevice("BOARD28", active_high=True)
@@ -2522,6 +2528,12 @@ if __name__ == '__main__':
     else:
         printe(bcolors.FAIL + "El VL53L0X no fue detectado" + bcolors.ENDC)
         errorwriter(error="VL53L0X no detectado", comentario="El VL53L0X no fue detectado en el arranque")
+        vl53l0x_detected = False
+    if is_shrek:
+        printe(bcolors.FAIL + 'Es shrek, no va a funcionar ningun sensor' + bcolors.ENDC)
+        imu_detected = False
+        bme_detected = False
+        mlx90614_detected = False
         vl53l0x_detected = False
     #endregion
     flash_enable.off()
